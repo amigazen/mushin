@@ -236,7 +236,10 @@ APTR zune_bubble_create(Object *obj, LONG x, LONG y, char *text,
         WA_Activate, FALSE,
         WA_Borderless, TRUE,
         WA_BackFill, (IPTR) LAYERS_NOBACKFILL,
-        WA_ShapeRegion, (IPTR) bubble->shape, TAG_DONE);
+        #ifdef __AROS__
+        WA_ShapeRegion, (IPTR) bubble->shape,
+        #endif
+        TAG_DONE);
 
     if (!bubble->win)
     {

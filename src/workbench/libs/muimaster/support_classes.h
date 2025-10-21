@@ -293,6 +293,75 @@ struct MUI_CustomClass *MCC_Query(ULONG d0);
 
 #endif
 
+/* Class descriptor declarations */
+extern const struct __MUIBuiltinClass _MUI_Notify_desc;
+extern const struct __MUIBuiltinClass _MUI_Family_desc;
+extern const struct __MUIBuiltinClass _MUI_Application_desc;
+extern const struct __MUIBuiltinClass _MUI_Window_desc;
+extern const struct __MUIBuiltinClass _MUI_Area_desc;
+extern const struct __MUIBuiltinClass _MUI_Rectangle_desc;
+extern const struct __MUIBuiltinClass _MUI_Group_desc;
+extern const struct __MUIBuiltinClass _MUI_Image_desc;
+extern const struct __MUIBuiltinClass _MUI_Configdata_desc;
+extern const struct __MUIBuiltinClass _MUI_Text_desc;
+extern const struct __MUIBuiltinClass _MUI_Numeric_desc;
+extern const struct __MUIBuiltinClass _MUI_Slider_desc;
+extern const struct __MUIBuiltinClass _MUI_String_desc;
+extern const struct __MUIBuiltinClass _MUI_Prop_desc;
+extern const struct __MUIBuiltinClass _MUI_Scrollbar_desc;
+extern const struct __MUIBuiltinClass _MUI_Register_desc;
+extern const struct __MUIBuiltinClass _MUI_Menuitem_desc;
+extern const struct __MUIBuiltinClass _MUI_Scrollbutton_desc;
+extern const struct __MUIBuiltinClass _MUI_Semaphore_desc;
+extern const struct __MUIBuiltinClass _MUI_Dataspace_desc;
+extern const struct __MUIBuiltinClass _MUI_Bitmap_desc;
+extern const struct __MUIBuiltinClass _MUI_Bodychunk_desc;
+extern const struct __MUIBuiltinClass _MUI_ChunkyImage_desc;
+extern const struct __MUIBuiltinClass _MUI_Cycle_desc;
+extern const struct __MUIBuiltinClass _MUI_Popstring_desc;
+extern const struct __MUIBuiltinClass _MUI_Boopsi_desc;
+extern const struct __MUIBuiltinClass _MUI_Menu_desc;
+extern const struct __MUIBuiltinClass _MUI_Menustrip_desc;
+extern const struct __MUIBuiltinClass _MUI_Listview_desc;
+extern const struct __MUIBuiltinClass _MUI_List_desc;
+extern const struct __MUIBuiltinClass _MUI_Popobject_desc;
+extern const struct __MUIBuiltinClass _MUI_Gauge_desc;
+extern const struct __MUIBuiltinClass _MUI_Aboutmui_desc;
+extern const struct __MUIBuiltinClass _MUI_Settingsgroup_desc;
+extern const struct __MUIBuiltinClass _MUI_Imageadjust_desc;
+extern const struct __MUIBuiltinClass _MUI_Popimage_desc;
+extern const struct __MUIBuiltinClass _MUI_Scale_desc;
+extern const struct __MUIBuiltinClass _MUI_Radio_desc;
+extern const struct __MUIBuiltinClass _MUI_Iconlistview_desc;
+extern const struct __MUIBuiltinClass _MUI_Balance_desc;
+extern const struct __MUIBuiltinClass _MUI_Colorfield_desc;
+extern const struct __MUIBuiltinClass _MUI_Coloradjust_desc;
+extern const struct __MUIBuiltinClass _MUI_Imagedisplay_desc;
+extern const struct __MUIBuiltinClass _MUI_Pendisplay_desc;
+extern const struct __MUIBuiltinClass _MUI_Penadjust_desc;
+extern const struct __MUIBuiltinClass _MUI_Poppen_desc;
+extern const struct __MUIBuiltinClass _MUI_Mccprefs_desc;
+extern const struct __MUIBuiltinClass _MUI_Framedisplay_desc;
+extern const struct __MUIBuiltinClass _MUI_Popframe_desc;
+extern const struct __MUIBuiltinClass _MUI_Frameadjust_desc;
+extern const struct __MUIBuiltinClass _MUI_Volumelist_desc;
+extern const struct __MUIBuiltinClass _MUI_Dirlist_desc;
+extern const struct __MUIBuiltinClass _MUI_Numericbutton_desc;
+extern const struct __MUIBuiltinClass _MUI_Poplist_desc;
+extern const struct __MUIBuiltinClass _MUI_Crawling_desc;
+extern const struct __MUIBuiltinClass _MUI_Popscreen_desc;
+extern const struct __MUIBuiltinClass _MUI_Levelmeter_desc;
+extern const struct __MUIBuiltinClass _MUI_Knob_desc;
+extern const struct __MUIBuiltinClass _MUI_Dtpic_desc;
+extern const struct __MUIBuiltinClass _MUI_Palette_desc;
+extern const struct __MUIBuiltinClass _MUI_Panel_desc;
+extern const struct __MUIBuiltinClass _MUI_Panelgroup_desc;
+extern const struct __MUIBuiltinClass _MUI_Draghandle_desc;
+extern const struct __MUIBuiltinClass _MUI_Paneltitle_desc;
+extern const struct __MUIBuiltinClass _MUI_Virtgroup_desc;
+extern const struct __MUIBuiltinClass _MUI_Scrollgroup_desc;
+extern const struct __MUIBuiltinClass _MUI_Popasl_desc;
+
 #endif
 
 
