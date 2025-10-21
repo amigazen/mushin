@@ -8,6 +8,8 @@
 #ifndef _MUI_CLASSES_APPLICATION_H
 #define _MUI_CLASSES_APPLICATION_H
 
+#include "mui.h"
+
 #ifndef EXEC_SEMAPHORES_H
 #include <exec/semaphores.h>
 #endif

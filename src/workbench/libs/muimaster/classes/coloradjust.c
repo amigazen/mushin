@@ -29,6 +29,7 @@
 #include "support_classes.h"
 #include "coloradjust_private.h"
 #include "locale.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"

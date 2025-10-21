@@ -544,6 +544,8 @@ struct MUI_AreaData
 // only 148 bytes for the struct in MUI !
 };
 
+#define MUI_AREADATA_DEFINED
+
 /* Flags during MUIM_Draw */
 #define MADF_DRAWOBJECT        (1<< 0)  /* draw object completely */
 #define MADF_DRAWUPDATE        (1<< 1)  /* update object */

@@ -406,23 +406,21 @@
 #endif
 #endif
 
-struct __dummyAreaData__
-{
-    struct MUI_NotifyData mnd;
-    struct MUI_AreaData   mad CLASS_INSTANCE_ALIGN;
-};
-
+/* The __dummyAreaData__ struct is defined in area_macros.h when needed */
+#ifndef MUI_AREADATA_DEFINED
 #define muiNotifyData(obj) (&(((struct __dummyAreaData__ *)(obj))->mnd))
 #define muiAreaData(obj)   (&(((struct __dummyAreaData__ *)(obj))->mad))
+#endif
 
+#ifndef MUI_AREADATA_DEFINED
 #define muiGlobalInfo(obj) \
     (((struct __dummyAreaData__ *)(obj))->mnd.mnd_GlobalInfo)
 #define muiUserData(obj)   \
     (((struct __dummyAreaData__ *)(obj))->mnd.mnd_UserData)
 #define muiRenderInfo(obj) \
     (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo)
-
-
+#endif
+#ifndef MUI_AREADATA_DEFINED
 /* the following macros are only valid inbetween MUIM_Setup and MUIM_Cleanup */
 #define _app(obj)          (muiGlobalInfo(obj)->mgi_ApplicationObject)
 #define _win(obj)          (muiRenderInfo(obj)->mri_WindowObject)
@@ -459,6 +457,7 @@ struct __dummyAreaData__
 #define _defwidth(obj)     (muiAreaData(obj)->mad_MinMax.DefWidth)
 #define _defheight(obj)    (muiAreaData(obj)->mad_MinMax.DefHeight)
 #define _flags(obj)        (muiAreaData(obj)->mad_Flags)
+#endif
 
 
 

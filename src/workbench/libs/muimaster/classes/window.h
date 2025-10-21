@@ -2,12 +2,14 @@
 #define _MUI_CLASSES_WINDOW_H
 
 /*
-    Copyright © 1999, David Le Corfec.
-    Copyright © 2002-2025, The AROS Development Team.
+    Copyright ï¿½ 1999, David Le Corfec.
+    Copyright ï¿½ 2002-2025, The AROS Development Team.
     All rights reserved.
 
     $Id$
 */
+
+#include "mui.h"
 
 /*** Name *******************************************************************/
 #define MUIC_Window                 "Window.mui"

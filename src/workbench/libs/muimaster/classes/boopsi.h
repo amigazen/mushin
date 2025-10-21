@@ -5,11 +5,13 @@
 #ifndef _MUI_CLASSES_BOOPSI_H
 #define _MUI_CLASSES_BOOPSI_H
 
+#include <libraries/mui.h>
+
 /*** Name *******************************************************************/
 #define MUIC_Boopsi             "Boopsi.mui"
 
 /*** Identifier base (for Zune extensions) **********************************/
-#define MUIB_Boopsi             (MUIB_ZUNE | 0x00000600)
+/* MUIB_Boopsi is defined in libraries/mui.h */
 
 /*** Attributes *************************************************************/
 #define MUIA_Boopsi_Class \

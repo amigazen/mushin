@@ -1,4 +1,4 @@
-CFLAGS = NOVERS gst=all.gst idlen=40 IDIR=include IGNORE=63 
+CFLAGS = NOVERS gst=all.gst idlen=40 IDIR=include IGNORE=63 IGNORE=100 IGNORE=224
 LIBCODE =
 
 SUPPORTOBJS = \
@@ -66,8 +66,8 @@ CLASSESOBJS= \
   objs/classes/framedisplay.o \
   objs/classes/gauge.o \
   objs/classes/group.o \
-  objs/classes/iconlist.o \
-  objs/classes/iconlistview.o \
+  #objs/classes/iconlist.o \
+  #objs/classes/iconlistview.o \
   objs/classes/image.o \
   objs/classes/imageadjust.o \
   objs/classes/imagedisplay.o \

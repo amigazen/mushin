@@ -1,9 +1,8 @@
 #ifndef _COLORADJUST_PRIVATE_H_
 #define _COLORADJUST_PRIVATE_H_
 
-#ifndef _MUIMASTER_SUPPORT_H
+#include "mui.h"
 #include "support.h"
-#endif
 
 /*** Instance data **********************************************************/
 struct Coloradjust_DATA
@@ -17,7 +16,7 @@ struct Coloradjust_DATA
     LONG            gradpen;
     BOOL            truecolor;
 
-    EXEC_INTERFACE_DECLARE(struct ColorWheelIFace * icolorwheel);
+    struct ColorWheelIFace * icolorwheel;
 };
 
 #endif /* _COLORADJUST_PRIVATE_H_ */

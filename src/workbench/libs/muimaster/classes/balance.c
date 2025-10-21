@@ -19,11 +19,24 @@
 #include "support.h"
 #include "prefs.h"
 #include "balance_private.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 0 */
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Private structure definition for MUI_GlobalInfo */
+struct MUI_GlobalInfo_Private
+{
+    ULONG priv0;
+    Object *mgi_ApplicationObject;
+    struct MsgPort *mgi_WindowsPort;
+    struct MsgPort *mgi_AppPort;
+    Object *mgi_Configdata;
+    struct ZunePrefsNew *mgi_Prefs;
+    struct Screen *mgi_CustomScreen;
+};
 
 /*
  *  [FirstBound .... <- balance -> .... SecondBound]
@@ -197,12 +210,12 @@ static LONG get_first_bound(struct Balance_DATA *data, Object *obj)
     if (data->horizgroup)
     {
         get(_parent(obj), MUIA_Group_HorizSpacing, &spacing);
-        return _left(obj) + _minwidth(obj) + _subwidth(obj) + spacing;
+        return (LONG)(_left(obj) + _minwidth(obj) + _subwidth(obj) + spacing);
     }
     else
     {
         get(_parent(obj), MUIA_Group_VertSpacing, &spacing);
-        return _top(obj) + _minheight(obj) + _subheight(obj) + spacing;
+        return (LONG)(_top(obj) + _minheight(obj) + _subheight(obj) + spacing);
     }
 }
 
@@ -213,12 +226,12 @@ static LONG get_second_bound(struct Balance_DATA *data, Object *obj)
     if (data->horizgroup)
     {
         get(_parent(obj), MUIA_Group_HorizSpacing, &spacing);
-        return _right(obj) - _minwidth(obj) - _subwidth(obj) - spacing;
+        return (LONG)(_right(obj) - _minwidth(obj) - _subwidth(obj) - spacing);
     }
     else
     {
         get(_parent(obj), MUIA_Group_VertSpacing, &spacing);
-        return _bottom(obj) - _minheight(obj) - _subheight(obj) - spacing;
+        return (LONG)(_bottom(obj) - _minheight(obj) - _subheight(obj) - spacing);
     }
 }
 
@@ -251,11 +264,11 @@ static BOOL is_fixed_size(struct Balance_DATA *data, Object *obj)
 {
     if (data->horizgroup)
     {
-        return (_minwidth(obj) == _maxwidth(obj));
+        return (BOOL)(_minwidth(obj) == _maxwidth(obj));
     }
     else
     {
-        return (_minheight(obj) == _maxheight(obj));
+        return (BOOL)(_minheight(obj) == _maxheight(obj));
     }
 }
 
@@ -265,11 +278,11 @@ static ULONG get_total_weight_2(struct Balance_DATA *data, Object *objA,
 {
     if (data->horizgroup)
     {
-        return _hweight(objA) + _hweight(objB);
+        return (ULONG)(_hweight(objA) + _hweight(objB));
     }
     else
     {
-        return _vweight(objA) + _vweight(objB);
+        return (ULONG)(_vweight(objA) + _vweight(objB));
     }
 }
 
@@ -310,13 +323,13 @@ static void set_weight_2(struct Balance_DATA *data, WORD current)
 
     if (data->horizgroup)
     {
-        _hweight(data->obj_before) = weightA;
-        _hweight(data->obj_after) = weightB;
+        set(data->obj_before, MUIA_HorizWeight, weightA);
+        set(data->obj_after, MUIA_HorizWeight, weightB);
     }
     else
     {
-        _vweight(data->obj_before) = weightA;
-        _vweight(data->obj_after) = weightB;
+        set(data->obj_before, MUIA_VertWeight, weightA);
+        set(data->obj_after, MUIA_VertWeight, weightB);
     }
 }
 
@@ -386,11 +399,11 @@ static void set_weight(struct Balance_DATA *data, Object *obj, LONG w)
 {
     if (data->horizgroup)
     {
-        _hweight(obj) = w;
+        set(obj, MUIA_HorizWeight, w);
     }
     else
     {
-        _vweight(obj) = w;
+        set(obj, MUIA_VertWeight, w);
     }
 }
 
@@ -667,7 +680,7 @@ static void handle_move(struct IClass *cl, Object *obj, WORD mouse)
         return;
 
     /* full drawing, or sketch */
-    if (muiGlobalInfo(obj)->mgi_Prefs->balancing_look ==
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->balancing_look ==
         BALANCING_SHOW_OBJECTS)
     {
         DoMethod(_parent(obj), MUIM_Hide);

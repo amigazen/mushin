@@ -15,6 +15,7 @@
 #include <proto/utility.h>
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
+#include <utility/tagitem.h>
 
 #include <string.h>
 
@@ -24,6 +25,7 @@
 #include "support.h"
 #include "support_classes.h"
 #include "colorfield_private.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
@@ -173,9 +175,17 @@ IPTR Colorfield__OM_SET(struct IClass *cl, Object *obj,
     ULONG *rgb;
     BOOL newcol = FALSE;
     IPTR retval;
-    struct TagItem extra_tags[] = {{TAG_IGNORE, 0}, {TAG_IGNORE, 0},
-        {TAG_IGNORE, 0}, {TAG_IGNORE, 0},
-        {TAG_MORE, (IPTR)msg->ops_AttrList}};
+    struct TagItem extra_tags[5];
+    extra_tags[0].ti_Tag = TAG_IGNORE;
+    extra_tags[0].ti_Data = 0;
+    extra_tags[1].ti_Tag = TAG_IGNORE;
+    extra_tags[1].ti_Data = 0;
+    extra_tags[2].ti_Tag = TAG_IGNORE;
+    extra_tags[2].ti_Data = 0;
+    extra_tags[3].ti_Tag = TAG_IGNORE;
+    extra_tags[3].ti_Data = 0;
+    extra_tags[4].ti_Tag = TAG_MORE;
+    extra_tags[4].ti_Data = (IPTR)msg->ops_AttrList;
 
     data = INST_DATA(cl, obj);
 
@@ -313,7 +323,7 @@ void Colorfield_SetupPen(Object *obj, struct Colorfield_DATA *data)
         if (pen == -1)
         {
             data->flags |= FLAG_NO_PEN;
-            data->pen = -1;
+            data->pen = 0;
         }
         else
         {
@@ -350,7 +360,7 @@ IPTR Colorfield__MUIM_Cleanup(struct IClass *cl, Object *obj,
         struct ColorMap *cm = data->cm;
         data->flags &= ~FLAG_PEN_ALLOCATED;
         data->cm = NULL;
-        data->pen = -1;
+        data->pen = 0;
         ReleasePen(cm, disposepen);
     }
     data->flags &= ~FLAG_NO_PEN;

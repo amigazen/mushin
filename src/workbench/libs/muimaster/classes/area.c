@@ -6,11 +6,16 @@
 */
 
 #include "frame.h"
-#include <devices/rawkeycodes.h>
+#include "area.h"
 #include <exec/types.h>
 #include <graphics/gfxmacros.h>
 #include <intuition/imageclass.h>
 #include <libraries/gadtools.h>
+#include <libraries/mui.h>
+#include "area_macros.h"
+/* Raw key codes - minimal definitions for wheel events */
+#define RAWKEY_NM_WHEEL_UP      0x7A
+#define RAWKEY_NM_WHEEL_DOWN    0x7B
 #include <stdlib.h>
 #include <string.h>
 
@@ -140,6 +145,7 @@ static void _zune_focus_new(Object *obj, int type)
     Object *parent;
     struct RastPort *rp;
     UWORD oldDrPt;
+    int x1, y1, x2, y2;
 
     // bug("_zune_focus_new 1 %p\n", obj);
 
@@ -147,7 +153,6 @@ static void _zune_focus_new(Object *obj, int type)
         return;
 
     parent = _parent(obj);
-    int x1, y1, x2, y2;
     
     rp = _rp(obj);
     oldDrPt = rp->LinePtrn;
@@ -183,6 +188,8 @@ static void _zune_focus_new(Object *obj, int type)
 static void _zune_focus_destroy(Object *obj, int type)
 {
     Object *parent;
+    int x1, y1, x2, y2;
+    int width, height;
 
     // bug("_zune_focus_destroy 1 %p\n", obj);
 
@@ -190,12 +197,10 @@ static void _zune_focus_destroy(Object *obj, int type)
         return;
 
     parent = _parent(obj);
-    int x1 = _left(obj);
-    int y1 = _top(obj);
-    int x2 = _left(obj) + _width(obj) - 1;
-    int y2 = _top(obj) + _height(obj) - 1;
-    int width;
-    int height;
+    x1 = _left(obj);
+    y1 = _top(obj);
+    x2 = _left(obj) + _width(obj) - 1;
+    y2 = _top(obj) + _height(obj) - 1;
 
     if (type == ZUNE_FOCUS_TYPE_ACTIVE_OBJ) {
         if (!parent || parent == _win(obj))
@@ -1116,15 +1121,15 @@ static void Area_Draw_handle_frame(Object *obj, struct MUI_AreaData *data,
     struct TextExtent te;
     int nchars;
     int maxtxtwidth;
+    struct dt_frame_image temp_frame;
+    struct MUI_FrameSpec_intern tempframe;
+    const struct MUI_FrameSpec_intern *framespec;
+    struct dt_frame_image *frame_img;
 
     /* no frametitle, just draw frame and return */
     if (!data->mad_FrameTitle) {
-        struct dt_frame_image temp_frame;
-        struct MUI_FrameSpec_intern tempframe;
-        const struct MUI_FrameSpec_intern *framespec =
-            get_intframe(obj, data, &tempframe);
-        struct dt_frame_image *frame_img =
-            zune_frame_prepare_for_drawing(zframe, framespec, &temp_frame);
+        framespec = get_intframe(obj, data, &tempframe);
+        frame_img = zune_frame_prepare_for_drawing(zframe, framespec, &temp_frame);
         zframe->draw(frame_img, muiRenderInfo(obj), _left(obj), _top(obj),
                      _width(obj), _height(obj), _left(obj), _top(obj), _width(obj),
                      _height(obj));
@@ -1177,12 +1182,8 @@ static void Area_Draw_handle_frame(Object *obj, struct MUI_AreaData *data,
 
     /* Pass our frame_img (either customframe or properly prepared local) to the
      * draw function */
-    struct dt_frame_image temp_frame;
-    struct MUI_FrameSpec_intern tempframe;
-    const struct MUI_FrameSpec_intern *framespec =
-        get_intframe(obj, data, &tempframe);
-    struct dt_frame_image *frame_img =
-        zune_frame_prepare_for_drawing(zframe, framespec, &temp_frame);
+    framespec = get_intframe(obj, data, &tempframe);
+    frame_img = zune_frame_prepare_for_drawing(zframe, framespec, &temp_frame);
     zframe->draw(frame_img, muiRenderInfo(obj), _left(obj), frame_top,
                  _width(obj), frame_height, _left(obj), frame_top, _width(obj),
                  frame_height);
@@ -1337,6 +1338,10 @@ static IPTR Area__MUIM_DrawBackground(struct IClass *cl, Object *obj,
     struct MUI_AreaData *data = INST_DATA(cl, obj);
     struct MUI_ImageSpec_intern *bg;
     LONG state;
+    const struct ZuneFrameGfx *zframe;
+    const struct MUI_FrameSpec_intern *frame;
+    struct MUI_FrameSpec_intern tempframe;
+    int xstate;
 
     if (!(data->mad_Flags & MADF_CANDRAW)) /* not between show/hide */
         return FALSE;
@@ -1352,10 +1357,6 @@ static IPTR Area__MUIM_DrawBackground(struct IClass *cl, Object *obj,
         state = IDS_NORMAL;
     }
 
-    const struct ZuneFrameGfx *zframe;
-    const struct MUI_FrameSpec_intern *frame;
-    struct MUI_FrameSpec_intern tempframe;
-
     if (!bg) {
         D(bug("Area_DrawBackground(%p) : MUIM_DrawParentBackground\n", obj));
 
@@ -1365,7 +1366,7 @@ static IPTR Area__MUIM_DrawBackground(struct IClass *cl, Object *obj,
     }
     frame = get_intframe(obj, data, &tempframe);
 
-    int xstate = frame->state;
+    xstate = frame->state;
     if ((data->mad_Flags & MADF_SELECTED) &&
             (data->mad_Flags & MADF_SHOWSELSTATE))
         xstate ^= 1;
@@ -2402,6 +2403,7 @@ static IPTR Area__MUIM_CreateFrameClippingRegion(
     struct MUI_AreaData *data = INST_DATA(cl, obj);
     const struct MUI_FrameSpec_intern *frame;
     struct MUI_FrameSpec_intern tempframe;
+    struct MUI_FrameCharacteristics characteristics;
 
     if (!msg->clipinfo)
         return FALSE;
@@ -2410,7 +2412,6 @@ static IPTR Area__MUIM_CreateFrameClippingRegion(
         return FALSE;
 
     frame = get_intframe(obj, data, &tempframe);
-    struct MUI_FrameCharacteristics characteristics;
 
     if (!zune_frame_get_characteristics(obj, frame, &characteristics)) {
         return FALSE;

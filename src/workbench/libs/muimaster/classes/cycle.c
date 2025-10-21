@@ -21,6 +21,20 @@
 #include "support.h"
 #include "prefs.h"
 #include "textengine.h"
+#include "area_macros.h"
+#include <utility/tagitem.h>
+
+/* Private structure definition for MUI_GlobalInfo */
+struct MUI_GlobalInfo_Private
+{
+    ULONG priv0;
+    Object *mgi_ApplicationObject;
+    struct MsgPort *mgi_WindowsPort;
+    struct MsgPort *mgi_AppPort;
+    Object *mgi_Configdata;
+    struct ZunePrefsNew *mgi_Prefs;
+    struct Screen *mgi_CustomScreen;
+};
 
 extern struct Library *MUIMasterBase;
 
@@ -217,10 +231,11 @@ IPTR Cycle__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
 
     if (noforward)
     {
-        struct TagItem tags[] = {
-            {MUIA_Group_Forward,        FALSE                   },
-            {TAG_MORE,                  (IPTR)msg->ops_AttrList }
-        };
+        struct TagItem tags[2];
+        tags[0].ti_Tag = MUIA_Group_Forward;
+        tags[0].ti_Data = FALSE;
+        tags[1].ti_Tag = TAG_MORE;
+        tags[1].ti_Data = (IPTR)msg->ops_AttrList;
         supMsg.MethodID = msg->MethodID;
         supMsg.ops_AttrList = tags;
         supMsg.ops_GInfo = msg->ops_GInfo;
@@ -405,7 +420,7 @@ static void RenderPopupItem(Object *obj, struct MUI_CycleData *data,
     {
         WORD off = 0;
 
-        if (muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_recessed_entries)
+        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
         {
             SetAPen(data->popwin->RPort, _pens(obj)[MPEN_SHADOW]);
             RectFill(data->popwin->RPort, x1, y1, x1, y2);
@@ -438,7 +453,7 @@ static void RenderPopupItem(Object *obj, struct MUI_CycleData *data,
     SetAPen(data->popwin->RPort, _pens(obj)[MPEN_TEXT]);
 
     y1 += POPITEM_EXTRAHEIGHT / 2;
-    if (muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_recessed_entries)
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
     {
         y1++;
     }
@@ -473,7 +488,7 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
     data->popitemwidth += POPITEM_EXTRAWIDTH;
     data->popitemheight += POPITEM_EXTRAHEIGHT;
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_recessed_entries)
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
     {
         data->popitemwidth += 2;
         data->popitemheight += 2;
@@ -481,22 +496,22 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
 
     zframe =
         zune_zframe_get(obj,
-        &muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_PopUp]);
+        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp]);
 
     data->popitemoffx =
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_PopUp].innerLeft +
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerLeft +
         zframe->ileft;
 
     data->popitemoffy =
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_PopUp].innerTop +
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerTop +
         zframe->itop;
 
     winw = data->popitemwidth + data->popitemoffx +
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_PopUp].innerRight +
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerRight +
         zframe->iright;
 
     winh = data->popitemheight * data->entries_num + data->popitemoffy +
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_PopUp].
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].
         innerBottom + zframe->ibottom;
 
     if ((winw > _screen(obj)->Width) || (winh > _screen(obj)->Height))
@@ -531,7 +546,7 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
     winx = _window(obj)->LeftEdge + _mleft(data->pageobj) -
         data->popitemoffx - POPITEM_EXTRAWIDTH / 2;
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_position ==
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_position ==
         CYCLE_MENU_POSITION_BELOW)
     {
         winy = _window(obj)->TopEdge + _bottom(obj) + 1;
@@ -582,7 +597,7 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
     x = data->popitemoffx;
     y = data->popitemoffy + POPITEM_EXTRAHEIGHT / 2;
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_recessed_entries)
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
     {
         y++;
     }
@@ -640,7 +655,7 @@ IPTR Cycle__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
         case MUIKEY_PRESS:
             if (data->entries_num <
-                muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_min_entries)
+                ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_min_entries)
             {
                 /* fall through to MUIKEY_DOWN */
             }
@@ -738,7 +753,7 @@ IPTR Cycle__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
     if (!msg->imsg ||
         data->entries_num <
-        muiGlobalInfo(obj)->mgi_Prefs->cycle_menu_min_entries)
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_min_entries)
     {
         return 0;
     }

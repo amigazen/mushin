@@ -14,11 +14,16 @@
 #include <proto/muimaster.h>
 
 #include "debug.h"
-#include "mui.h"
+#include <libraries/mui.h>
 #include "support_classes.h"
 #include "muimaster_intern.h"
 #include "boopsi_private.h"
+#include "classes/boopsi.h"
 #include "classes/area.h"
+#include "area_macros.h"
+
+/* Define MUIA_Boopsi_OnlyTrigger directly */
+#define MUIA_Boopsi_OnlyTrigger (MUIB_Boopsi | 0x00000000)
 
 /* Ensure MADF_ISVIRTUALGROUP is defined */
 #ifndef MADF_ISVIRTUALGROUP

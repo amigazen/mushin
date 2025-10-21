@@ -6,6 +6,7 @@
 */
 
 #include <exec/types.h>
+#include <exec/lists.h>
 #include <devices/timer.h>
 #include <dos/dostags.h>
 #include <dos/datetime.h>
@@ -15,6 +16,8 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <intuition/classusr.h>
 
 #include <clib/alib_protos.h>
 #include <libraries/commodities.h>
@@ -43,7 +46,33 @@
 
 #include "muimaster_intern.h"
 #include "mui.h"
+#include "configdata.h"
 #include "support.h"
+#include "application.h"
+#include "window.h"
+
+/* Private structure definition for MUI_GlobalInfo */
+struct MUI_GlobalInfo_Private
+{
+    ULONG priv0;
+    Object *mgi_ApplicationObject;
+    struct MsgPort *mgi_WindowsPort;
+    struct MsgPort *mgi_AppPort;
+    Object *mgi_Configdata;
+    struct ZunePrefsNew *mgi_Prefs;
+    struct Screen *mgi_CustomScreen;
+};
+
+/* Define missing constants */
+#ifndef MUIA_Configdata_ZunePrefs
+#define MUIA_Configdata_ZunePrefs (MUIB_Configdata | 0x00000001)
+#endif
+#ifndef MUIM_Window_Refresh
+#define MUIM_Window_Refresh (MUIB_Window | 0x00000008)
+#endif
+#ifndef MUIM_Window_UpdateMenu
+#define MUIM_Window_UpdateMenu (MUIB_Window | 0x00000007)
+#endif
 
 #include <string.h>
 
@@ -353,8 +382,8 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
         return 0;
     }
 
-    data->app_GlobalInfo.mgi_ApplicationObject = obj;
-    if (!(data->app_GlobalInfo.mgi_WindowsPort = CreateMsgPort()))
+    ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_ApplicationObject = obj;
+    if (!(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort = CreateMsgPort()))
     {
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
@@ -416,16 +445,16 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
         return 0;
     }
 
-    data->app_GlobalInfo.mgi_Configdata =
+    ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata =
         MUI_NewObject(MUIC_Configdata, MUIA_Configdata_Application, obj,
         TAG_DONE);
-    if (!data->app_GlobalInfo.mgi_Configdata)
+    if (!((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata)
     {
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
-    get(data->app_GlobalInfo.mgi_Configdata, MUIA_Configdata_ZunePrefs,
-        &data->app_GlobalInfo.mgi_Prefs);
+    get(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata, MUIA_Configdata_ZunePrefs,
+        &((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Prefs);
 
 //    D(bug("muimaster.library/application.c: Message Port created at 0x%p\n",
 //    data->app_GlobalInfo.mgi_WindowPort));
@@ -699,7 +728,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
         DoMethod(data->app_Menustrip, MUIM_ConnectParent, (IPTR) obj);
 
     data->app_AppPort = CreateMsgPort();
-    data->app_GlobalInfo.mgi_AppPort = data->app_AppPort;
+    ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_AppPort = data->app_AppPort;
     if (data->app_AppPort == NULL)
     {
         CoerceMethod(cl, obj, OM_DISPOSE);
@@ -731,17 +760,17 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
     if (data->app_Base)
     {
         char filename[255];
-        positionmode = data->app_GlobalInfo.mgi_Prefs->window_position;
+        positionmode = ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Prefs->window_position;
         if (positionmode >= 1)
         {
             snprintf(filename, 255, "ENV:zune/%s.prefs", data->app_Base);
-            DoMethod(data->app_GlobalInfo.mgi_Configdata,
+            DoMethod(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata,
                 MUIM_Configdata_Save, (IPTR) filename);
         }
         if (positionmode == 2)
         {
             snprintf(filename, 255, "ENVARC:zune/%s.prefs", data->app_Base);
-            DoMethod(data->app_GlobalInfo.mgi_Configdata,
+            DoMethod(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata,
                 MUIM_Configdata_Save, (IPTR) filename);
         }
     }
@@ -863,10 +892,10 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
         DeleteMsgPort(data->app_AppPort);
     }
 
-    if (data->app_GlobalInfo.mgi_Configdata)
-        MUI_DisposeObject(data->app_GlobalInfo.mgi_Configdata);
+    if (((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata)
+        MUI_DisposeObject(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata);
 
-    DeleteMsgPort(data->app_GlobalInfo.mgi_WindowsPort);
+    DeleteMsgPort(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort);
 
     FreeVec(data->app_Base);
 
@@ -916,12 +945,11 @@ static IPTR Application__OM_SET(struct IClass *cl, Object *obj,
         case MUIA_Application_SetWinPos:
             {
                 struct windowpos *winp;
+                int i;
                 winp = (struct windowpos *)tag->ti_Data;
                 //kprintf("SetWinPos %d %d %d %d %d\n", winp->id, winp->x1,
                 //    winp->y1, winp->w1, winp->h1);
-                {
-                    int i;
-                    for (i = 0; i < MAXWINS - 1; i++)
+                for (i = 0; i < MAXWINS - 1; i++)
                 {
                     if (data->winpos[i].w1)
                     {
@@ -1205,9 +1233,8 @@ static IPTR Application__OM_GET(struct IClass *cl, Object *obj,
                 }
             }
             STORE = 0;
-            return 1;
+            return TRUE;
         }
-        return TRUE;
 
     case MUIA_Version:
         STORE = __version;
@@ -1436,7 +1463,7 @@ static IPTR Application__MUIM_InputBuffered(struct IClass *cl, Object *obj,
         ;
 
     imsg =
-        (struct IntuiMessage *)GetMsg(data->app_GlobalInfo.mgi_WindowsPort);
+        (struct IntuiMessage *)GetMsg(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort);
     if (imsg != NULL)
     {
         /* Let window object process message */
@@ -1474,7 +1501,7 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
         handler_mask |= ihn->ihn_Signals;
     }
 
-    signalmask = (1L << data->app_GlobalInfo.mgi_WindowsPort->mp_SigBit)
+    signalmask = (1L << ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort->mp_SigBit)
         | (1L << data->app_TimerPort->mp_SigBit) | handler_mask;
 
     if (data->app_Broker)
@@ -1499,14 +1526,14 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
 
     if (signal & signalmask)
     {
-        if (signal & (1L << data->app_GlobalInfo.mgi_WindowsPort->
+        if (signal & (1L << ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort->
                 mp_SigBit))
         {
             struct IntuiMessage *imsg;
             /* process all pushed methods */
 
             while ((imsg =
-                    (struct IntuiMessage *)GetMsg(data->app_GlobalInfo.
+                    (struct IntuiMessage *)GetMsg(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->
                         mgi_WindowsPort)))
             {
                 /* Let window object process message */
@@ -1591,9 +1618,9 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
         if (data->app_RexxPort
             && (signal & (1L << data->app_RexxPort->mp_SigBit)))
         {
+            struct RexxMsg *rmsg;
 
             D(bug("[MUI] Got Rexx message!\n"));
-            struct RexxMsg *rmsg;
             while ((rmsg = (struct RexxMsg *)GetMsg(data->app_RexxPort)))
             {
                 if (IsRexxMsg(rmsg))
@@ -1607,9 +1634,11 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
 
                         if (Strnicmp(commandstr, cmd->mc_Name, len) == 0)
                         {
-                            IPTR args[cmd->mc_Parameters];
+                            IPTR *args;
+                            IPTR res;
                             struct RDArgs *rdargs = NULL, *rdargsret = NULL;
-                            if (cmd->mc_Template)
+                            args = AllocVec(cmd->mc_Parameters * sizeof(IPTR), MEMF_ANY);
+                            if (args && cmd->mc_Template)
                             {
                                 STRPTR tmp = commandstr + len;
                                 STRPTR arguments;
@@ -1634,14 +1663,14 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
 
                                     memset(args, 0, cmd->mc_Parameters * sizeof(IPTR));
 
-                                    rdargsret = ReadArgs(cmd->mc_Template, args, rdargs);
+                                    rdargsret = ReadArgs(cmd->mc_Template, (LONG *)args, rdargs);
                                 }
 
                                 FreeVec(arguments);
                             }
 
                             data->app_RexxMsg = rmsg;
-                            IPTR res = CallHookPkt(cmd->mc_Hook, obj, cmd->mc_Template ? args : NULL);
+                            res = CallHookPkt(cmd->mc_Hook, obj, cmd->mc_Template ? args : NULL);
                             data->app_RexxMsg = NULL;
 
                             if (rdargsret)
@@ -1649,6 +1678,9 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
 
                             if (rdargs)
                                 FreeDosObject(DOS_RDARGS, rdargs);
+
+                            if (args)
+                                FreeVec(args);
 
                             rmsg->rm_Result1 = (LONG)res;
                             if ((rmsg->rm_Action & RXFF_RESULT) && data->app_RexxString)
@@ -1743,7 +1775,7 @@ static IPTR Application__MUIM_Input(struct IClass *cl, Object *obj,
         handler_mask |= ihn->ihn_Flags;
     }
 
-    signal = (1L << data->app_GlobalInfo.mgi_WindowsPort->mp_SigBit)
+    signal = (1L << ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort->mp_SigBit)
         | (1L << data->app_TimerPort->mp_SigBit) | handler_mask;
 
     if (data->app_RexxPort)
@@ -1788,7 +1820,7 @@ static IPTR Application__MUIM_PushMethod(struct IClass *cl, Object *obj,
 
     /* CHECKME: to wake task up as soon as possible! */
     Signal(data->app_Task,
-        1L << data->app_GlobalInfo.mgi_WindowsPort->mp_SigBit);
+        1L << ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_WindowsPort->mp_SigBit);
 
     return (IPTR)mq;
 }
@@ -1800,17 +1832,17 @@ static IPTR Application__MUIM_PushMethod(struct IClass *cl, Object *obj,
 static IPTR Application__MUIM_UnpushMethod(struct IClass *cl, Object *obj,
     struct MUIP_Application_UnpushMethod *msg)
 {
+    struct MUI_ApplicationData *data = INST_DATA(cl, obj);
+    struct MQNode *current = NULL, *next = NULL;
+    ULONG removed = 0;
+
     D(bug("[Application__MUIM_UnpushMethod] dest %p id %p method %u\n",
         msg->dest, msg->methodid, msg->method));
 
-    struct MUI_ApplicationData *data = INST_DATA(cl, obj);
-
-    struct MQNode *current, *next;
-    ULONG removed = 0;
-
     ObtainSemaphore(&data->app_MethodSemaphore);
-    ForeachNodeSafe(&data->app_MethodQueue, current, next)
-    {
+    current = (struct MQNode *)data->app_MethodQueue.mlh_Head;
+    while (current != (struct MQNode *)&data->app_MethodQueue.mlh_Tail) {
+        next = (struct MQNode *)current->mq_Node.mln_Succ;
         D(bug("[Application__MUIM_UnpushMethod] examine dest %p id %p "
             "method %u\n",
             current->mq_Dest, current, current->mq_Msg[0]));
@@ -1825,6 +1857,7 @@ static IPTR Application__MUIM_UnpushMethod(struct IClass *cl, Object *obj,
             D(bug("[Application__MUIM_UnpushMethod] current %p removed\n",
                 current));
         }
+        current = next;
     }
     ReleaseSemaphore(&data->app_MethodSemaphore);
 
@@ -1984,7 +2017,7 @@ static void Application__CloseWindows(struct IClass *cl, Object *obj)
         cstate = (Object *) children->mlh_Head;
         if ((child = NextObject(&cstate)))
         {
-            D(bug("[MUI:App] %s: closing window %p\n", __func__, child));
+            D(bug("[MUI:App] Application__CloseWindows: closing window %p\n", child));
 
             set(child, MUIA_Window_Open, FALSE);
 
@@ -1999,11 +2032,11 @@ static IPTR Application__MUIM_SetConfigdata(struct IClass *cl, Object *obj,
 
     Application__CloseWindows(cl, obj);
 
-    if (data->app_GlobalInfo.mgi_Configdata)
-        MUI_DisposeObject(data->app_GlobalInfo.mgi_Configdata);
-    data->app_GlobalInfo.mgi_Configdata = msg->configdata;
-    get(data->app_GlobalInfo.mgi_Configdata, MUIA_Configdata_ZunePrefs,
-        &data->app_GlobalInfo.mgi_Prefs);
+    if (((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata)
+        MUI_DisposeObject(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata);
+    ((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata = msg->configdata;
+    get(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata, MUIA_Configdata_ZunePrefs,
+        &((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Prefs);
 
     DoMethod(obj, MUIM_Application_PushMethod, (IPTR) obj, 1,
         MUIM_Application_OpenWindows);
@@ -2014,7 +2047,7 @@ static IPTR Application__MUIM_SetConfigItem(struct IClass *cl, Object *obj,
     struct MUIP_Application_SetConfigItem *msg)
 {
     struct MUI_ApplicationData *data = INST_DATA(cl, obj);
-    if (data->app_GlobalInfo.mgi_Configdata) {
+    if (((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata) {
         switch (msg->item) {
             /*
             case MUICFG_Window_Spacing_Left:
@@ -2085,7 +2118,7 @@ static IPTR Application__MUIM_SetConfigItem(struct IClass *cl, Object *obj,
             case MUICFG_Drag_LMBModifier:
             case MUICFG_Drag_MMBModifier:
             case MUICFG_Iconification_Hotkey:
-                DoMethod(data->app_GlobalInfo.mgi_Configdata, MUIM_Configdata_SetString, msg->item, msg->data);
+                DoMethod(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata, MUIM_Configdata_SetString, msg->item, msg->data);
                 break;
             case MUICFG_Font_Normal:
             case MUICFG_Font_List:
@@ -2105,7 +2138,7 @@ static IPTR Application__MUIM_SetConfigItem(struct IClass *cl, Object *obj,
             case MUICFG_ActiveObject_Color:
             case MUICFG_PublicScreen:
                 Application__CloseWindows(cl, obj);
-                DoMethod(data->app_GlobalInfo.mgi_Configdata, MUIM_Configdata_SetString, msg->item, msg->data);
+                DoMethod(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata, MUIM_Configdata_SetString, msg->item, msg->data);
                 DoMethod(obj, MUIM_Application_PushMethod, (IPTR) obj, 1,
                     MUIM_Application_OpenWindows);
                 break;
@@ -2164,7 +2197,7 @@ static IPTR Application__MUIM_OpenConfigWindow(struct IClass *cl,
     if (data->app_Base)
     {
         snprintf(cmd, 255, "ENV:zune/%s.prefs", data->app_Base);
-        DoMethod(data->app_GlobalInfo.mgi_Configdata, MUIM_Configdata_Load,
+        DoMethod(((struct MUI_GlobalInfo_Private *)&data->app_GlobalInfo)->mgi_Configdata, MUIM_Configdata_Load,
             (IPTR) cmd);
     }
 
@@ -2225,7 +2258,7 @@ static IPTR Application__MUIM_Load(struct IClass *cl, Object *obj,
     Object *cstate;
     Object *child;
 
-    bug("[MUI:App] %s(0x%p)\n", __func__, obj);
+    bug("[MUI:App] Application__MUIM_Load(0x%p)\n", obj);
 
     if (!data->app_Base)
         return 0;
@@ -2241,7 +2274,7 @@ static IPTR Application__MUIM_Load(struct IClass *cl, Object *obj,
     else
         strncpy(name, message->name, sizeof(name) - 1);
 
-    bug("[MUI:App] %s: opening '%s'\n", __func__, name);
+    bug("[MUI:App] Application__MUIM_Load: opening '%s'\n", name);
 
     fh = Open(name, MODE_OLDFILE);
     if (fh)
@@ -2333,7 +2366,7 @@ static IPTR Application__MUIM_Save(struct IClass *cl, Object *obj,
                     {
                         struct FilePrefHeader head;
 
-                        head.ph_Version = PHV_CURRENT;
+                        head.ph_Version = 0; /* PHV_AMIGAOS */
                         head.ph_Type = 0;
                         head.ph_Flags[0] =
                             head.ph_Flags[1] =

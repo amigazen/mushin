@@ -5,6 +5,8 @@
 #ifndef _MUI_CLASSES_CONFIGDATA_H
 #define _MUI_CLASSES_CONFIGDATA_H
 
+#include "mui.h"
+
 /*** Name *******************************************************************/
 #define MUIC_Configdata  "Configdata.mui"
 

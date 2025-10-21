@@ -22,9 +22,15 @@
 
 #include "muimaster_intern.h"
 #include "mui.h"
+#include "classes/configdata.h"
 #include "support.h"
 #include "prefs.h"
 #include "imspec.h"
+
+/* Define missing constants if not found */
+#ifndef MUIA_Configdata_ZunePrefs
+#define MUIA_Configdata_ZunePrefs (MUIB_Configdata | 0x00000001)
+#endif
 
 #include <proto/muiscreen.h>
 
@@ -47,12 +53,12 @@ struct MUI_ConfigdataData
     struct List                 pubscreens;
 };
 
-static inline CONST_STRPTR GetConfigString(Object *obj, ULONG id)
+static CONST_STRPTR GetConfigString(Object *obj, ULONG id)
 {
     return (CONST_STRPTR) DoMethod(obj, MUIM_Configdata_GetString, id);
 }
 
-static inline ULONG GetConfigULong(Object *obj, ULONG id)
+static ULONG GetConfigULong(Object *obj, ULONG id)
 {
     return (ULONG) DoMethod(obj, MUIM_Configdata_GetULong, id);
 }
@@ -541,10 +547,13 @@ static void Configdata__DisposeDescriptors(struct MUI_ConfigdataData *data)
     DPSD(bug("[MUI:Cfg] %s()\n", __func__);)
 
     ObtainSemaphore(&data->psLock);
-    ForeachNodeSafe(&data->pubscreens, psNode, tmp) {
+    psNode = (struct Node *)data->pubscreens.lh_Head;
+    while (psNode != (struct Node *)&data->pubscreens.lh_Tail) {
+        tmp = (struct Node *)psNode->ln_Succ;
         Remove(psNode);
         MUIS_FreePubScreenDesc((struct MUI_PubScreenDesc *)psNode->ln_Name);
         FreeVec(psNode);
+        psNode = tmp;
     }
     ReleaseSemaphore(&data->psLock);
 }
@@ -582,11 +591,10 @@ IPTR Configdata__OM_GET(struct IClass *cl, Object *obj,
     {
     case MUIA_Configdata_ZunePrefs:
         *store = (IPTR) & data->prefs;
-        DoMethod(obj, MUIM_Configdata_GetWindowPos, 0);
         return 1;
+    default:
+        return DoSuperMethodA(cl, obj, (Msg) msg);
     }
-
-    return DoSuperMethodA(cl, obj, (Msg) msg);
 }
 
 #ifndef AROS_BIG_ENDIAN
@@ -830,7 +838,7 @@ IPTR Configdata__MUIM_SetFont(struct IClass *cl, Object *obj,
     return 0;
 }
 
-static inline void Configdata__SetKey(ZuneKeySpec *key, CONST_STRPTR val)
+static void Configdata__SetKey(ZuneKeySpec *key, CONST_STRPTR val)
 {
     if ((key->readable_hotkey = val) != NULL)
         key->ix_well =
@@ -847,6 +855,7 @@ IPTR Configdata__MUIM_SetString(struct IClass *cl, Object *obj,
     struct MUIP_Configdata_SetString *msg)
 {
     int i, def = 0;
+    struct MUI_ConfigdataData *data;
 
     for (i = 0; DefStrValues[i].id; i++)
     {
@@ -859,7 +868,7 @@ IPTR Configdata__MUIM_SetString(struct IClass *cl, Object *obj,
             }
     }
 
-    struct MUI_ConfigdataData *data = INST_DATA(cl, obj);
+    data = INST_DATA(cl, obj);
     
     if (def == 0) {
         DoMethod(obj, MUIM_Dataspace_Add, (IPTR) msg->string,
@@ -1288,8 +1297,11 @@ IPTR Configdata__MUIM_Load(struct IClass *cl, Object *obj,
 static IPTR Configdata_GetPubScrnDesc(struct IClass *cl, Object *obj,
     struct MUIP_Configdata_GetPubScrnDesc *msg)
 {
-    struct MUI_ConfigdataData *data = INST_DATA(cl, obj);
-    struct MUI_PubScreenDesc *desc = NULL;
+    struct MUI_ConfigdataData *data;
+    struct MUI_PubScreenDesc *desc;
+    
+    data = INST_DATA(cl, obj);
+    desc = NULL;
 
     DPSD(bug("[MUI:Cfg] %s()\n", __func__);)
 
@@ -1314,7 +1326,7 @@ static IPTR Configdata_LoadPubScreens(struct IClass *cl, Object *obj,
 
     if (MUIScreenBase) {
         struct MUI_ConfigdataData *data = INST_DATA(cl, obj);
-        struct Node *psNode, *tmpName;
+        struct Node *psNode;
         APTR pfh;
 
         Configdata__DisposeDescriptors(data);

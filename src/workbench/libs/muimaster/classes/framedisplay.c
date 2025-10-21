@@ -20,14 +20,16 @@
 #include "datatypescache.h"
 #include "debug.h"
 #include "frame.h"
+#include "framedisplay.h"
 #include "framedisplay_private.h"
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
 #include "support_classes.h"
+#include "area_macros.h"
 
-#define DEBUG 0
-#include <aros/debug.h>
+//#define MYDEBUG 1
+#include "debug.h"
 
 extern struct Library *MUIMasterBase;
 
@@ -115,6 +117,9 @@ IPTR Framedisplay__MUIM_Draw(struct IClass *cl, Object *obj,
     APTR region;
     WORD ileft, itop, iright, ibottom;
     int i;
+    struct dt_frame_image temp_frame;
+    struct MUI_FrameSpec_intern tempframe;
+    struct dt_frame_image *frame_img;
 
     DoSuperMethodA(cl, obj, (Msg)msg);
 
@@ -122,13 +127,10 @@ IPTR Framedisplay__MUIM_Draw(struct IClass *cl, Object *obj,
         return 0;
 
     zframe = zune_zframe_get(obj, &data->fs_intern);
-    struct dt_frame_image temp_frame;
-    struct MUI_FrameSpec_intern tempframe;
     
     if (!zframe)
         return 0;
-    struct dt_frame_image *frame_img =
-        zune_frame_prepare_for_drawing(zframe, &data->fs_intern, &temp_frame);
+    frame_img = zune_frame_prepare_for_drawing(zframe, &data->fs_intern, &temp_frame);
 
     zframe->draw(frame_img, muiRenderInfo(obj), _left(obj), _top(obj),
                  _width(obj), _height(obj), _left(obj), _top(obj), _width(obj),

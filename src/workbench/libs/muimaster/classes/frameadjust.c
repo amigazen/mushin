@@ -24,6 +24,7 @@
 /*  #define MYDEBUG 1 */
 #include "debug.h"
 #include "frame.h"
+#include "frameadjust.h"
 #include "frameadjust_private.h"
 #include "locale.h"
 #include "mui.h"

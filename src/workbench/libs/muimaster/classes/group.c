@@ -19,6 +19,7 @@ extern struct Library *MUIMasterBase;
 #include "muimaster_intern.h"
 #include "mui.h"
 #include "classes/area.h"
+#include "group.h"
 
 /* Ensure MADF_ISVIRTUALGROUP is defined */
 #ifndef MADF_ISVIRTUALGROUP
@@ -26,9 +27,52 @@ extern struct Library *MUIMasterBase;
 #endif
 #include "support.h"
 #include "prefs.h"
+#include "area_macros.h"
+#include <utility/tagitem.h>
 
-/*  #define MYDEBUG 1 */
+/* #define MYDEBUG 1 */
 #include "debug.h"
+
+/* Define missing constants */
+#ifndef MUIM_Window_RecalcDisplay
+#define MUIM_Window_RecalcDisplay (MUIB_Window | 0x00000009)
+#endif
+#ifndef MUIA_Virtgroup_MinWidth
+#define MUIA_Virtgroup_MinWidth (MUIB_Group | 0x00000001)
+#endif
+#ifndef MUIA_Virtgroup_MinHeight
+#define MUIA_Virtgroup_MinHeight (MUIB_Group | 0x00000002)
+#endif
+#ifndef MUIM_Group_ExitChange2
+#define MUIM_Group_ExitChange2 (MUIB_Group | 0x00000003)
+#endif
+#ifndef MUIM_DragQueryExtended
+#define MUIM_DragQueryExtended (MUIB_Group | 0x00000004)
+#endif
+#ifndef MUIM_FindAreaObject
+#define MUIM_FindAreaObject (MUIB_Group | 0x00000005)
+#endif
+
+/* Define missing message structure */
+struct MUIP_FindAreaObject
+{
+    ULONG MethodID;
+    Object *obj;
+    WORD x, y;
+    Object **result;
+};
+
+/* Private structure definition for MUI_GlobalInfo */
+struct MUI_GlobalInfo_Private
+{
+    ULONG priv0;
+    Object *mgi_ApplicationObject;
+    struct MsgPort *mgi_WindowsPort;
+    struct MsgPort *mgi_AppPort;
+    Object *mgi_Configdata;
+    struct ZunePrefsNew *mgi_Prefs;
+    struct Screen *mgi_CustomScreen;
+};
 
 #define ROUND(x) ((int)(x + 0.5))
 #define IS_HIDDEN(obj) (! (_flags(obj) & MADF_SHOWME) \
@@ -485,6 +529,7 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     BOOL forward = TRUE;
     BOOL need_recalc = FALSE;
     IPTR retval;
+    struct TagItem *origTags;
 
     int virt_offx = data->virt_offx, virt_offy = data->virt_offy;
 
@@ -572,10 +617,11 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     if (forward)
     {
         struct TagItem *attrsOrig = msg->ops_AttrList;
-        struct TagItem nestedAttrs[2] = {
-            { MUIA_NestedDisabled,  FALSE},
-            { TAG_MORE,             (IPTR)msg->ops_AttrList}
-        };
+        struct TagItem nestedAttrs[2];
+        nestedAttrs[0].ti_Tag = MUIA_NestedDisabled;
+        nestedAttrs[0].ti_Data = FALSE;
+        nestedAttrs[1].ti_Tag = TAG_MORE;
+        nestedAttrs[1].ti_Data = (IPTR)msg->ops_AttrList;
 
         /* Attributes which are to be filtered out, so that they are ignored
            when OM_SET is passed to group's children */
@@ -628,11 +674,12 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
 
     if (disableTag)
     {
-        struct TagItem disableAttrs[2] = {
-            { MUIA_Disabled,  disableTag->ti_Data },
-            { TAG_DONE, 		0}
-        };
-        struct TagItem *origTags = msg->ops_AttrList;
+        struct TagItem disableAttrs[2];
+        disableAttrs[0].ti_Tag = MUIA_Disabled;
+        disableAttrs[0].ti_Data = disableTag->ti_Data;
+        disableAttrs[1].ti_Tag = TAG_DONE;
+        disableAttrs[1].ti_Data = 0;
+        origTags = msg->ops_AttrList;
         msg->ops_AttrList = disableAttrs;
         DoSuperMethodA(cl, obj, (Msg) msg);
         msg->ops_AttrList = origTags;
@@ -1045,9 +1092,9 @@ IPTR Group__MUIM_Setup(struct IClass *cl, Object *obj,
     ASSERT_VALID_PTR(muiGlobalInfo(obj));
 
     if (!(data->flags & GROUP_HSPACING))
-        data->horiz_spacing = muiGlobalInfo(obj)->mgi_Prefs->group_hspacing;
+        data->horiz_spacing = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_hspacing;
     if (!(data->flags & GROUP_VSPACING))
-        data->vert_spacing = muiGlobalInfo(obj)->mgi_Prefs->group_vspacing;
+        data->vert_spacing = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_vspacing;
     get(data->family, MUIA_Family_List, &(ChildList));
     cstate = ChildList->mlh_Head;
     while ((child = NextObject(&cstate)))
@@ -1183,7 +1230,7 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
     if (data->flags & GROUP_CHANGING)
         return FALSE;
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->window_redraw
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_redraw
         == WINDOW_REDRAW_WITHOUT_CLEAR)
     {
         struct Region *r = group_children_clip_region(cl, obj);
@@ -1206,7 +1253,7 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
         struct Region *r = NULL;
         APTR c = (APTR)-1;
 
-        if (muiGlobalInfo(obj)->mgi_Prefs->window_redraw
+        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_redraw
             == WINDOW_REDRAW_WITHOUT_CLEAR)
             r = group_children_clip_region(cl, obj);
 
