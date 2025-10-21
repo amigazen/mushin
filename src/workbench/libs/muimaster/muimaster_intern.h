@@ -46,6 +46,10 @@
 #include "prefs.h"
 #include "penspec.h"
 
+#ifndef BNULL
+#define BNULL NULL
+#endif
+
 
 struct MUIMasterBase_intern
 {

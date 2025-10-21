@@ -18,6 +18,12 @@ extern struct Library *MUIMasterBase;
 
 #include "muimaster_intern.h"
 #include "mui.h"
+#include "classes/area.h"
+
+/* Ensure MADF_ISVIRTUALGROUP is defined */
+#ifndef MADF_ISVIRTUALGROUP
+#define MADF_ISVIRTUALGROUP (1<<30)
+#endif
 #include "support.h"
 #include "prefs.h"
 

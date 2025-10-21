@@ -883,7 +883,7 @@ VOID DrawBitMapNode(struct BitMapNode *bmn, LONG x, LONG y)
 
 //                SetRast(&temp_rp,0);
 
-                // Neuen Hintergrund in temporäre Bitmap
+                // Neuen Hintergrund in temporï¿½re Bitmap
 //                SafeBltBitMapRastPort( rp->BitMap, x, y,
 //                                        &temp_rp, 0, 0, width, height,0xc0);
 
@@ -893,7 +893,7 @@ VOID DrawBitMapNode(struct BitMapNode *bmn, LONG x, LONG y)
 //                BltBitMapRastPort(temp_bmap,0,0,rp,100+bmn->bmn_Left,
 //                        20+bmn->bmn_Top,bmn->bmn_Width,bmn->bmn_Height,0xc0);
 
-                // Teile des alten Hintergrundes, die neu verdeckt werden in temporäre Bitmap
+                // Teile des alten Hintergrundes, die neu verdeckt werden in temporï¿½re Bitmap
                 BltBitMapRastPort(bmn->bmn_SaveBitMap, result_x, result_y,
                     &temp_rp, (result_x ? 0 : (save_width - result_width)),
                     result_y ? 0 : (save_height - result_height),
@@ -921,7 +921,7 @@ VOID DrawBitMapNode(struct BitMapNode *bmn, LONG x, LONG y)
                         save_width, save_height - result_height, 0xc0);
                 }
 
-                // temporäre BitMap ist neuer Hintergrund
+                // temporï¿½re BitMap ist neuer Hintergrund
                 BltBitMap(temp_bmap, 0, 0,
                     bmn->bmn_SaveBitMap, 0, 0, width, height, 0xc0, -1,
                     NULL);
@@ -929,7 +929,7 @@ VOID DrawBitMapNode(struct BitMapNode *bmn, LONG x, LONG y)
                 /* Blit drag image bitmap to temporary bitmap */
                 BltBitMapNode(bmn, 0, 0, &temp_rp, 0, 0, width, height);
 
-                // Angenzende BitMaps in temporäre BitMap
+                // Angenzende BitMaps in temporï¿½re BitMap
                 BltNearBitMaps(bmn, &temp_rp, x, y, width, height);
 
                 /* Debug code */

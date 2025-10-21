@@ -286,7 +286,7 @@ AROS_UFP3
         _ret; \
 })
 
-#else
+#else /* Must be SAS/C */
 
 struct MUI_CustomClass *MCC_Query(ULONG d0);
 #pragma  libcall mcclib MCC_Query 01e 001

@@ -17,6 +17,31 @@
 #include "support.h"
 #include "support_classes.h"
 #include "muimaster_intern.h"
+#include "classes/notify.h"
+#include "classes/family.h"
+#include "classes/application.h"
+#include "classes/window.h"
+#include "classes/area.h"
+#include "classes/rectangle.h"
+#include "classes/group.h"
+#include "classes/image.h"
+#include "classes/configdata.h"
+#include "classes/text.h"
+#include "classes/numeric.h"
+#include "classes/slider.h"
+#include "classes/string.h"
+#include "classes/prop.h"
+#include "classes/scrollbar.h"
+#include "classes/register.h"
+#include "classes/menuitem.h"
+#include "classes/scrollbutton.h"
+#include "classes/semaphore.h"
+#include "classes/dataspace.h"
+#include "classes/bitmap.h"
+#include "classes/bodychunk.h"
+#include "classes/chunkyimage.h"
+#include "classes/cycle.h"
+#include "classes/popstring.h"
 
 /*#define MYDEBUG*/
 #include "debug.h"
@@ -234,10 +259,12 @@ Class *ZUNE_GetBuiltinClass(ClassID classid, struct Library * mb)
 
         if (cl)
         {
+            char *count;
+            
             ZUNE_AddBuiltinClass(cl, mb);
 
             /* Increase the reference counter */
-            char *count = cl->cl_Dispatcher.h_Data;
+            count = cl->cl_Dispatcher.h_Data;
             count++;
             cl->cl_Dispatcher.h_Data = count;
         }

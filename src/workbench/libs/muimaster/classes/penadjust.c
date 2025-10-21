@@ -123,12 +123,12 @@ static IPTR MuipenDisplayFunc(struct Hook *hook, char **array, char *entry)
 IPTR Penadjust__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {
     static const char *register_labels[4];
+    static const char *lv_labels[9];
+    
     register_labels[0] = _(MSG_PENADJUST_MUI);
     register_labels[1] = _(MSG_PENADJUST_COLORMAP);
     register_labels[2] = _(MSG_PENADJUST_RGB);
     register_labels[3] = NULL;
-    
-    static const char *lv_labels[9];
     lv_labels[0] = _(MSG_PENADJUST_SHINE);
     lv_labels[1] = _(MSG_PENADJUST_HALFSHINE);
     lv_labels[2] = _(MSG_PENADJUST_BACKGROUND);

@@ -1,0 +1,51 @@
+==id $VER: muimaster_lib.sfd 19.50
+* "muimaster.library"
+==base _MUIMasterBase
+==basetype struct Library *
+==libname muimaster.library
+==include <exec/types.h>
+==include <intuition/classes.h>
+==include <utility/tagitem.h>
+==include <libraries/mui.h>
+==bias 30
+==typedef Object
+==typedef LONGBITS
+==typedef IPTR
+==public
+Object * MUI_NewObjectA(CONST_STRPTR classname, struct TagItem * tags) (a0,a1)
+==varargs
+Object * MUI_NewObject(CONST_STRPTR classname, ...) (a0,a1)
+VOID MUI_DisposeObject(Object * obj) (a0)
+LONG MUI_RequestA(APTR app, APTR win, LONGBITS flags, CONST_STRPTR title, CONST_STRPTR gadgets, CONST_STRPTR format, APTR params) (d0,d1,d2,a0,a1,a2,a3)
+==varargs
+LONG MUI_Request(APTR app, APTR win, LONGBITS flags, CONST_STRPTR title, CONST_STRPTR gadgets, CONST_STRPTR format, ...) (d0,d1,d2,a0,a1,a2,a3)
+APTR MUI_AllocAslRequest(ULONG reqType, struct TagItem * tagList) (d0,a0)
+==varargs
+APTR MUI_AllocAslRequestTags(ULONG reqType, ...) (d0,a0)
+BOOL MUI_AslRequest(APTR requester, struct TagItem * tagList) (a0,a1)
+==varargs
+BOOL MUI_AslRequestTags(APTR requester, ...) (a0,a1)
+VOID MUI_FreeAslRequest(APTR requester) (a0)
+LONG MUI_Error() ()
+LONG MUI_SetError(LONG num) (d0)
+struct IClass * MUI_GetClass(CONST_STRPTR classname) (a0)
+VOID MUI_FreeClass(struct IClass * classptr) (a0)
+VOID MUI_RequestIDCMP(Object * obj, ULONG flags) (a0,d0)
+VOID MUI_RejectIDCMP(Object * obj, ULONG flags) (a0,d0)
+VOID MUI_Redraw(Object * obj, ULONG flags) (a0,d0)
+struct MUI_CustomClass * MUI_CreateCustomClass(struct Library * base, CONST_STRPTR supername, struct MUI_CustomClass * supermcc, ULONG datasize, APTR dispatcher) (a0,a1,a2,d0,a3)
+BOOL MUI_DeleteCustomClass(struct MUI_CustomClass * mcc) (a0)
+Object * MUI_MakeObjectA(LONG type, IPTR * params) (d0,a0)
+==varargs
+Object * MUI_MakeObject(LONG type, ...) (d0,a0)
+BOOL MUI_Layout(Object * obj, LONG left, LONG top, LONG width, LONG height, ULONG flags) (a0,d0,d1,d2,d3,d4)
+==reserve 4
+LONG MUI_ObtainPen(struct MUI_RenderInfo * mri, struct MUI_PenSpec * spec, ULONG flags) (a0,a1,d0)
+VOID MUI_ReleasePen(struct MUI_RenderInfo * mri, LONG pen) (a0,d0)
+APTR MUI_AddClipping(struct MUI_RenderInfo * mri, WORD left, WORD top, WORD width, WORD height) (a0,d0,d1,d2,d3)
+VOID MUI_RemoveClipping(struct MUI_RenderInfo * mri, APTR handle) (a0,a1)
+APTR MUI_AddClipRegion(struct MUI_RenderInfo * mri, struct Region * r) (a0,a1)
+VOID MUI_RemoveClipRegion(struct MUI_RenderInfo * mri, APTR handle) (a0,a1)
+BOOL MUI_BeginRefresh(struct MUI_RenderInfo * mri, ULONG flags) (a0,d0)
+VOID MUI_EndRefresh(struct MUI_RenderInfo * mri, ULONG flags) (a0,d0)
+==end

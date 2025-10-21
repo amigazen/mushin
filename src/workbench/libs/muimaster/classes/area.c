@@ -147,13 +147,15 @@ static void _zune_focus_new(Object *obj, int type)
         return;
 
     parent = _parent(obj);
+    int x1, y1, x2, y2;
+    
     rp = _rp(obj);
     oldDrPt = rp->LinePtrn;
 
-    int x1 = _left(obj);
-    int y1 = _top(obj);
-    int x2 = _left(obj) + _width(obj) - 1;
-    int y2 = _top(obj) + _height(obj) - 1;
+    x1 = _left(obj);
+    y1 = _top(obj);
+    x2 = _left(obj) + _width(obj) - 1;
+    y2 = _top(obj) + _height(obj) - 1;
 
     if (!parent || parent == _win(obj))
         return;

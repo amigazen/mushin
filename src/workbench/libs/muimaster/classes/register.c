@@ -221,9 +221,11 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
     WritePixel(_rp(obj), right_item_bar_x - 3, top_item_bar_y + 1);
 
     /* text */
+    APTR clip;
+    
     fitwidth = item_bar_width - TEXTSPACING;
     x = left_item_bar_x + TEXTSPACING / 2;
-    APTR clip = MUI_AddClipping(muiRenderInfo(obj), x, top_item_bar_y,
+    clip = MUI_AddClipping(muiRenderInfo(obj), x, top_item_bar_y,
         fitwidth, bottom_item_bar_y - top_item_bar_y + 1);
 
     SetAPen(_rp(obj), _pens(obj)[MPEN_TEXT]);

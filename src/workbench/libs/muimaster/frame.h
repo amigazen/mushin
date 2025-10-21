@@ -8,7 +8,7 @@
 #ifndef _MUI_FRAME_H
 #define _MUI_FRAME_H
 
-#include "intuition/classusr.h"
+#include <intuition/classusr.h>
 #include <proto/graphics.h>
 
 #ifndef EXEC_TYPES_H

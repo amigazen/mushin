@@ -3,7 +3,7 @@
     All rights reserved.
     
 
-    Library code for AmigaOS, based on Dirk Stöckers Libary
+    Library code for AmigaOS, based on Dirk Stï¿½ckers Libary
     Example
 */
 

@@ -2,7 +2,7 @@
 #define _MUI_MACROS_H
 
 /*
-    Copyright © 2002-2025, The AROS Development Team. All rights reserved.
+    Copyright ï¿½ 2002-2025, The AROS Development Team. All rights reserved.
     $Id$
 
     Macros available in original MUI and also some additional ones.
@@ -398,8 +398,12 @@
 #include "classes/area.h"
 #endif
 
+#ifdef __SASC
+#define CLASS_INSTANCE_ALIGN
+#else
 #ifndef INTUITION_CLASSALIGN_H
 #include <intuition/classalign.h>
+#endif
 #endif
 
 struct __dummyAreaData__

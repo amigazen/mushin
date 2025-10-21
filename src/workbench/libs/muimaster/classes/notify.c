@@ -25,6 +25,7 @@
 
 extern struct Library *MUIMasterBase;
 
+#ifdef __AROS__
 AROS_UFH2S(void, cpy_func,
     AROS_UFHA(UBYTE, chr, D0),
     AROS_UFHA(STRPTR *, strPtrPtr, A3))
@@ -35,7 +36,14 @@ AROS_UFH2S(void, cpy_func,
 
     AROS_USERFUNC_EXIT
 }
+#else
+void cpy_func(UBYTE chr, STRPTR **strPtrPtr)
+{
+    *(*strPtrPtr)++ = chr;
+}
+#endif
 
+#ifdef __AROS__
 AROS_UFH2S(void, len_func,
     AROS_UFHA(UBYTE, chr, D0),
     AROS_UFHA(LONG *, lenPtr, A3))
@@ -46,6 +54,12 @@ AROS_UFH2S(void, len_func,
 
     AROS_USERFUNC_EXIT
 }
+#else
+void len_func(UBYTE chr, LONG *lenPtr)
+{
+    (*lenPtr)++;
+}
+#endif
 
 
 /*
@@ -817,6 +831,7 @@ IPTR Notify__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
 }
 
 
+#ifdef __AROS__
 BOOPSI_DISPATCHER(IPTR, Notify_Dispatcher, cl, obj, msg)
 {
     switch (msg->MethodID)
@@ -873,6 +888,63 @@ BOOPSI_DISPATCHER(IPTR, Notify_Dispatcher, cl, obj, msg)
     return DoSuperMethodA(cl, obj, msg);
 }
 BOOPSI_DISPATCHER_END
+#else
+IPTR Notify_Dispatcher(struct IClass *cl, Object *obj, Msg msg)
+{
+    switch (msg->MethodID)
+    {
+    case OM_NEW:
+        return Notify__OM_NEW(cl, obj, (struct opSet *)msg);
+    case OM_DISPOSE:
+        return Notify__OM_DISPOSE(cl, obj, msg);
+    case OM_SET:
+        return Notify__OM_SET(cl, obj, (struct opSet *)msg);
+    case OM_GET:
+        return Notify__OM_GET(cl, obj, (struct opGet *)msg);
+    case MUIM_CallHook:
+        return Notify__MUIM_CallHook(cl, obj, (APTR) msg);
+    case MUIM_Export:
+        return TRUE;
+    case MUIM_FindUData:
+        return Notify__MUIM_FindUData(cl, obj, (APTR) msg);
+    case MUIM_GetUData:
+        return Notify__MUIM_GetUData(cl, obj, (APTR) msg);
+    case MUIM_Import:
+        return TRUE;
+    case MUIM_KillNotify:
+        return Notify__MUIM_KillNotify(cl, obj, (APTR) msg);
+    case MUIM_KillNotifyObj:
+        return Notify__MUIM_KillNotifyObj(cl, obj, (APTR) msg);
+    case MUIM_MultiSet:
+        return Notify__MUIM_MultiSet(cl, obj, (APTR) msg);
+    case MUIM_NoNotifySet:
+        return Notify__MUIM_NoNotifySet(cl, obj, (APTR) msg);
+    case MUIM_Notify:
+        return Notify__MUIM_Notify(cl, obj, (APTR) msg);
+    case MUIM_Set:
+        return Notify__MUIM_Set(cl, obj, (APTR) msg);
+    case MUIM_SetAsString:
+        return Notify__MUIM_SetAsString(cl, obj, (APTR) msg);
+    case MUIM_SetUData:
+        return Notify__MUIM_SetUData(cl, obj, (APTR) msg);
+    case MUIM_SetUDataOnce:
+        return Notify__MUIM_SetUData(cl, obj, (APTR) msg);
+            /* use Notify_SetUData */
+    case MUIM_WriteLong:
+        return Notify__MUIM_WriteLong(cl, obj, (APTR) msg);
+    case MUIM_WriteString:
+        return Notify__MUIM_WriteString(cl, obj, (APTR) msg);
+    case MUIM_ConnectParent:
+        return Notify__MUIM_ConnectParent(cl, obj, (APTR) msg);
+    case MUIM_DisconnectParent:
+        return Notify__MUIM_DisconnectParent(cl, obj, (APTR) msg);
+    case MUIM_GetConfigItem:
+        return Notify__MUIM_GetConfigItem(cl, obj, (APTR) msg);
+    }
+
+    return DoSuperMethodA(cl, obj, msg);
+}
+#endif
 
 /*
  * Class descriptor.

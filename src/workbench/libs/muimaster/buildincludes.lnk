@@ -1,0 +1,4 @@
+FROM LIB:c.o "buildincludes.o"
+TO "buildincludes"
+LIB LIB:sc.lib LIB:amiga.lib
+

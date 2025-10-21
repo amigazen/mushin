@@ -450,10 +450,10 @@ struct NewImage *GetImageFromFile(char *name, struct Screen *scr)
 
 BOOL ReadPropConfig(struct dt_node * data, struct Screen * scr)
 {
-
     char buffer[256];
     char *line, *v;
     BPTR file;
+    STRPTR path;
 
     file = Open(data->filename, MODE_OLDFILE);
     if (file)
@@ -545,7 +545,7 @@ BOOL ReadPropConfig(struct dt_node * data, struct Screen * scr)
         while (line);
         Close(file);
     }
-    STRPTR path = allocPath(data->filename);
+    path = allocPath(data->filename);
     if (path)
     {
         BPTR lock = Lock(path, ACCESS_READ);
@@ -595,10 +595,10 @@ void FreePropConfig(struct dt_node *data)
 BOOL ReadFrameConfig(CONST_STRPTR filename, struct dt_frame_image *fi,
     struct Screen *scr)
 {
-
     char buffer[256];
     char *line, *v;
     BPTR file;
+    STRPTR path;
 
     fi->noalpha = FALSE;
 
@@ -652,7 +652,7 @@ BOOL ReadFrameConfig(CONST_STRPTR filename, struct dt_frame_image *fi,
         Close(file);
     }
 
-    STRPTR path = allocPath(filename);
+    path = allocPath(filename);
     if (path)
     {
         BPTR lock = Lock(path, ACCESS_READ);
@@ -919,11 +919,12 @@ void dt_put_mim_on_rastport(struct dt_node *node, struct RastPort *rp,
     ULONG *img;
 
     Object *o;
+    int width;
 
     o = node->o;
     if (NULL == o)
         return;
-    int width = dt_width(node) >> 1;
+    width = dt_width(node) >> 1;
     if (node->mask == mskHasAlpha)
     {
         img =
@@ -931,8 +932,9 @@ void dt_put_mim_on_rastport(struct dt_node *node, struct RastPort *rp,
             MEMF_ANY);
         if (img)
         {
+            int height;
 
-            int height = dt_height(node);
+            height = dt_height(node);
             pa.MethodID = PDTM_READPIXELARRAY;
             pa.pbpa_PixelData = (UBYTE *) img;
             pa.pbpa_PixelFormat = PBPAFMT_ARGB;

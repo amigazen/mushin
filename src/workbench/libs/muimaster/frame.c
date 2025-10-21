@@ -20,10 +20,15 @@
 #include "mui.h"
 #include "muimaster_intern.h"
 
-#define DEBUG 0
-#include <aros/debug.h>
+//#define MYDEBUG 1
+#include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Prototype for WritePixelArrayAlpha */
+#ifndef WritePixelArrayAlpha
+LONG WritePixelArrayAlpha(ULONG *pixelArray, LONG srcX, LONG srcY, LONG srcMod, struct RastPort *rp, LONG destX, LONG destY, LONG width, LONG height, ULONG mask);
+#endif
 
 /**************************************************************************
  custom frames
@@ -182,7 +187,8 @@ static void draw_tile_frame(struct RastPort *rport, BOOL tc, BOOL direct,
     mw = width - lw - rw;
     mh = height - th - bh;
 
-    struct NewImage *d;
+    {
+        struct NewImage *d;
 
     if (direct)
         d = NULL;
@@ -216,6 +222,7 @@ static void draw_tile_frame(struct RastPort *rport, BOOL tc, BOOL direct,
                     src->w - fi->tile_left - fi->tile_right,
                     src->h - fi->tile_bottom - fi->tile_top, lw, th, mw, mh, left,
                     top);
+    }
 }
 
 struct FrameFillInfo {
@@ -232,32 +239,41 @@ struct BackFillMsg {
     STACKED LONG OffsetY;
 };
 
+#ifdef __AROS__
 AROS_UFH3S(void, WindowPatternBackFillFunc, AROS_UFHA(struct Hook *, Hook, A0),
            AROS_UFHA(struct RastPort *, RP, A2),
            AROS_UFHA(struct BackFillMsg *, BFM, A1))
 {
     AROS_USERFUNC_INIT
+#else
+void WindowPatternBackFillFunc(struct Hook *Hook, struct BackFillMsg *BFM, struct RastPort *RP)
+{
+#endif
 
     // get the data for our backfillhook
     struct FrameFillInfo *FFI = (struct FrameFillInfo *)Hook;
+    ULONG depth;
+    BOOL truecolor;
+    BOOL alpha;
+    BOOL direct;
+    int left, top, width, height;
 
-    ULONG depth = (ULONG)GetBitMapAttr(RP->BitMap, BMA_DEPTH);
-
-    BOOL truecolor = TRUE;
+    depth = (ULONG)GetBitMapAttr(RP->BitMap, BMA_DEPTH);
+    truecolor = TRUE;
 
     if (depth < 15)
         truecolor = FALSE;
 
-    int left = BFM->Bounds.MinX;
-    int top = BFM->Bounds.MinY;
-    int width = BFM->Bounds.MaxX - left + 1;
-    int height = BFM->Bounds.MaxY - top + 1;
+    left = BFM->Bounds.MinX;
+    top = BFM->Bounds.MinY;
+    width = BFM->Bounds.MaxX - left + 1;
+    height = BFM->Bounds.MaxY - top + 1;
 
     left -= FFI->ox;
     top -= FFI->oy;
 
-    BOOL alpha = !FFI->fi->noalpha;
-    BOOL direct = FALSE;
+    alpha = !FFI->fi->noalpha;
+    direct = FALSE;
 
     if (!truecolor)
         direct = TRUE;
@@ -286,7 +302,9 @@ AROS_UFH3S(void, WindowPatternBackFillFunc, AROS_UFHA(struct Hook *, Hook, A0),
                         height);
     }
 
+#ifdef __AROS__
     AROS_USERFUNC_EXIT
+#endif
 }
 
 void dt_do_frame_rects(struct RastPort *rp, struct dt_frame_image *fi,
@@ -380,7 +398,7 @@ static void frame_custom_down(struct dt_frame_image *fi,
 **************************************************************************/
 
 /** Horizontal line drawing */
-static inline void draw_horizontal_line(struct RastPort *rp, int x1, int x2,
+static void draw_horizontal_line(struct RastPort *rp, int x1, int x2,
                                         int y, ULONG pen)
 {
     if (x1 > x2)
@@ -390,7 +408,7 @@ static inline void draw_horizontal_line(struct RastPort *rp, int x1, int x2,
 }
 
 /** Vertical line drawing */
-static inline void draw_vertical_line(struct RastPort *rp, int x, int y1,
+static void draw_vertical_line(struct RastPort *rp, int x, int y1,
                                       int y2, ULONG pen)
 {
     if (y1 > y2)
@@ -1101,15 +1119,17 @@ static void frame_rounded_draw(struct dt_frame_image *fi,
                                int height, MPen light_pen, MPen dark_pen)
 {
     struct RastPort *rp = mri->mri_RastPort;
+    int radius;
+    int frame_width;
 
     /* Use the radius from the frame image struct */
-    int radius = fi ? fi->border_radius : 8;
+    radius = fi ? fi->border_radius : 8;
 
     if (width <= radius * 2 + 4 || height <= radius * 2 + 4)
         return; /* Need space for radius plus some margin */
 
     /* Use the frame width from the frame image struct */
-    int frame_width = fi ? fi->frame_width : 1;
+    frame_width = fi ? fi->frame_width : 1;
 
     SetAPen(rp, mri->mri_Pens[light_pen]);
     /* Top edge: from end of left curve to start of right curve */
@@ -1382,11 +1402,11 @@ const struct ZuneFrameGfx *zune_zframe_get_with_state(
 BOOL zune_frame_intern_to_spec(const struct MUI_FrameSpec_intern *intern,
                                STRPTR spec)
 {
-    if (!intern || !spec)
-        return FALSE;
-
     char tmpSpec[3];
     char sp;
+
+    if (!intern || !spec)
+        return FALSE;
 
     if (intern->type < 10)
         sp = ((char)intern->type) + '0';
@@ -1569,6 +1589,9 @@ struct Region *zune_frame_create_clip_region(int left, int top, int width,
 {
     struct Region *region;
     struct Rectangle rect;
+    int radius;
+    int x, y;
+    int cx, cy;
 
     if (width <= 0 || height <= 0)
         return NULL;
@@ -1591,7 +1614,7 @@ struct Region *zune_frame_create_clip_region(int left, int top, int width,
     if (!region)
         return NULL;
 
-    int radius = border_radius;
+    radius = border_radius;
 
     /* Ensure radius doesn't exceed frame dimensions */
     if (radius * 2 > width)
@@ -1630,8 +1653,6 @@ struct Region *zune_frame_create_clip_region(int left, int top, int width,
     }
 
     /* Add rounded corner pixels using circle algorithm */
-    int x, y;
-    int cx, cy;
 
     /* For each corner, calculate which pixels are inside the rounded area */
     for (y = 0; y < radius; y++) {

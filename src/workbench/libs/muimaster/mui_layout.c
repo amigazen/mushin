@@ -9,6 +9,12 @@
 
 #include "mui.h"
 #include "muimaster_intern.h"
+#include "classes/area.h"
+
+/* Ensure MADF_ISVIRTUALGROUP is defined */
+#ifndef MADF_ISVIRTUALGROUP
+#define MADF_ISVIRTUALGROUP (1<<30)
+#endif
 
 //#define MYDEBUG 1
 #include "debug.h"
@@ -36,7 +42,7 @@
     RESULT
 
     NOTES
-
+Z
     EXAMPLE
 
     BUGS

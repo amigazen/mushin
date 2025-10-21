@@ -4,6 +4,7 @@
 
 #include <proto/muimaster.h>
 #include <proto/intuition.h>
+#include <intuition/classes.h>
 
 #include "muimaster_intern.h"
 
@@ -46,11 +47,11 @@
     if (obj == NULL)
         return;
     
-    Class *cl = OCLASS(obj);
-
-    DisposeObject(obj);
-
-    MUI_FreeClass(cl);
+    {
+        Class *cl = OCLASS(obj);
+        DisposeObject(obj);
+        MUI_FreeClass(cl);
+    }
 
     AROS_LIBFUNC_EXIT
 

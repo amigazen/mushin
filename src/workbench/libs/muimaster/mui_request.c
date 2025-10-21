@@ -141,7 +141,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
         es.es_Title        = title;
         es.es_TextFormat   = format;
         es.es_GadgetFormat = gadgets;
-        return EasyRequestArgs(NULL,&es,NULL,_params);
+        return EasyRequestArgs(NULL,&es,NULL,params);
     }
 
     reqtxt_len = 0;

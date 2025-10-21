@@ -5,6 +5,10 @@
 #include <string.h>
 #include <exec/types.h>
 #include <clib/alib_protos.h>
+
+#ifndef SIPTR
+#define SIPTR LONG
+#endif
 #include <proto/exec.h>
 #include <proto/diskfont.h>
 #include <proto/dos.h>

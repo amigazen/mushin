@@ -12,6 +12,12 @@
 #include <proto/utility.h>
 #include <proto/muimaster.h>
 #include <proto/cybergraphics.h>
+#include "classes/area.h"
+
+/* Ensure MADF_ISVIRTUALGROUP is defined */
+#ifndef MADF_ISVIRTUALGROUP
+#define MADF_ISVIRTUALGROUP (1<<30)
+#endif
 
 #ifdef __AROS__
 #include <intuition/windecorclass.h>
@@ -427,8 +433,9 @@ IPTR Prop__MUIM_Setup(struct IClass *cl, Object *obj,
             data->defheight = 50;
         }
 
-        struct MUI_AreaData *adata = muiAreaData(obj);
-        struct MUI_ImageSpec_intern *spec = adata->mad_Background;
+        {
+            struct MUI_AreaData *adata = muiAreaData(obj);
+            struct MUI_ImageSpec_intern *spec = adata->mad_Background;
 
         if (spec)
         {
@@ -458,6 +465,7 @@ IPTR Prop__MUIM_Setup(struct IClass *cl, Object *obj,
                     }
                 }
             }
+        }
         }
     }
 

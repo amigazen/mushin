@@ -176,8 +176,10 @@ IPTR Numeric__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     if (data->format != oldfmt || data->min != oldmin
         || data->max != oldmax)
     {
+        Object *parent;
+        
         values_changed = TRUE;
-        Object *parent = _parent(obj);
+        parent = _parent(obj);
         if (parent)
         {
             DoMethod(parent, MUIM_Group_InitChange);

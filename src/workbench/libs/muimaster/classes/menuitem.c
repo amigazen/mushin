@@ -262,9 +262,9 @@ IPTR Menuitem__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     struct MUI_MenuitemData *data;
     struct TagItem *tags, *tag;
 
-    data = INST_DATA(cl, obj);
-
     BOOL rebuild = FALSE;
+    
+    data = INST_DATA(cl, obj);
 
     for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)
     {

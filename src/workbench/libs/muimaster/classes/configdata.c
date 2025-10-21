@@ -644,10 +644,11 @@ static IPTR Configdata_SetWindowPos(struct IClass *cl, Object *obj,
     struct MUIP_Configdata_GetString *msg)
 {
     struct MUI_ConfigdataData *data;
-    //kprintf ("setwindowpos\n");
-    data = INST_DATA(cl, obj);
     IPTR addr = 0;
     LONG size = 0;
+    
+    //kprintf ("setwindowpos\n");
+    data = INST_DATA(cl, obj);
 
     if (data->app)
     {
@@ -858,11 +859,12 @@ IPTR Configdata__MUIM_SetString(struct IClass *cl, Object *obj,
             }
     }
 
+    struct MUI_ConfigdataData *data = INST_DATA(cl, obj);
+    
     if (def == 0) {
         DoMethod(obj, MUIM_Dataspace_Add, (IPTR) msg->string,
             strlen(msg->string) + 1, msg->id);
     }
-    struct MUI_ConfigdataData *data = INST_DATA(cl, obj);
     switch (msg->id) {
     case MUICFG_Font_Normal:
         data->prefs.fonts[-MUIV_Font_Normal] = msg->string;

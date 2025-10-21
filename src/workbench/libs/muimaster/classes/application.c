@@ -30,7 +30,11 @@
 #include <proto/muimaster.h>
 #include <proto/iffparse.h>
 #include <proto/rexxsyslib.h>
+#ifdef __AROS__
 #include <proto/workbench.h>
+#else
+#include <proto/wb.h>
+#endif /* __AROS__ */
 #include <proto/icon.h>
 
 //#define MYDEBUG 1
@@ -674,8 +678,8 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
             data->app_RexxPort->mp_Node.ln_Name = StrDup(data->app_Base);
             if (data->app_RexxPort->mp_Node.ln_Name != NULL)
             {
-                D(bug("[MUI] %s is using REXX!\n", data->app_RexxPort->mp_Node.ln_Name));
                 char *i;
+                D(bug("[MUI] %s is using REXX!\n", data->app_RexxPort->mp_Node.ln_Name));
                 for (i = data->app_RexxPort->mp_Node.ln_Name; *i != '\0';
                     i++)
                 {
@@ -915,8 +919,9 @@ static IPTR Application__OM_SET(struct IClass *cl, Object *obj,
                 winp = (struct windowpos *)tag->ti_Data;
                 //kprintf("SetWinPos %d %d %d %d %d\n", winp->id, winp->x1,
                 //    winp->y1, winp->w1, winp->h1);
-                int i;
-                for (i = 0; i < MAXWINS - 1; i++)
+                {
+                    int i;
+                    for (i = 0; i < MAXWINS - 1; i++)
                 {
                     if (data->winpos[i].w1)
                     {

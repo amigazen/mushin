@@ -18,6 +18,12 @@
 #include "support_classes.h"
 #include "muimaster_intern.h"
 #include "boopsi_private.h"
+#include "classes/area.h"
+
+/* Ensure MADF_ISVIRTUALGROUP is defined */
+#ifndef MADF_ISVIRTUALGROUP
+#define MADF_ISVIRTUALGROUP (1<<30)
+#endif
 
 extern struct Library *MUIMasterBase;
 

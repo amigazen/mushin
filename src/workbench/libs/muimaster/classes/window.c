@@ -26,8 +26,11 @@
 #include <proto/layers.h>
 #include <proto/gadtools.h>
 #include <proto/muimaster.h>
+#ifdef __AROS__
 #include <proto/workbench.h>
-
+#else
+#include <proto/wb.h>
+#endif /* __AROS__ */
 #define MUI_OBSOLETE            /* for the obsolete menu stuff */
 
 #include "mui.h"
@@ -481,7 +484,8 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
         data->wd_Flags |= MUIWF_SCREENLOCKED;
     }
 
-    struct Screen *scr = mri->mri_Screen;
+    {
+        struct Screen *scr = mri->mri_Screen;
     if (!(mri->mri_DrawInfo = GetScreenDrawInfo(scr)))
     {
         if (data->wd_Flags & MUIWF_SCREENLOCKED)
@@ -574,6 +578,7 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
         }
         else
             mri->mri_BorderBottom = scr->WBorBottom;
+    }
     }
 
     return TRUE;
@@ -774,9 +779,11 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
     if (!(flags & WFLG_SIZEBRIGHT))
         flags |= WFLG_SIZEBBOTTOM;
 
+    struct Screen *scr;
+    
     CalcWindowPosition(obj, data);
 
-    struct Screen *scr = data->wd_RenderInfo.mri_Screen;
+    scr = data->wd_RenderInfo.mri_Screen;
     if ((visinfo = GetVisualInfoA(scr, NULL)))
     {
         if (data->wd_Menustrip)
@@ -821,8 +828,9 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
     if (muiGlobalInfo(obj)->mgi_Prefs->window_refresh ==
         WINDOW_REFRESH_SMART)
         flags &= ~WFLG_SIMPLE_REFRESH;
-    set(_app(obj), MUIA_Application_SearchWinId, data->wd_ID);
     struct windowpos *winp = 0;
+    
+    set(_app(obj), MUIA_Application_SearchWinId, data->wd_ID);
     get(_app(obj), MUIA_Application_GetWinPos, &winp);
     if (winp)
     {
