@@ -239,7 +239,7 @@
     if (clip != (APTR)-1)
     {
         /* This call actually also frees the region */
-        MUI_RemoveClipRegion(muiRenderInfo(obj), clip);
+        MUI_RemoveClipRegion(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo, clip);
     }
 
 } /* MUI_Redraw */

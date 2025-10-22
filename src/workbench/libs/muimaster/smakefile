@@ -286,11 +286,11 @@ objs/mui_getclass.o: mui_getclass.c
 objs/mui_layout.o: mui_layout.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_layout.c objname=$@
 
-objs/mui_makeobject.o: staticlib/mui_makeobject.c
-  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) staticlib/mui_makeobject.c objname=$@
+objs/mui_makeobject.o: mui_makeobject.c
+  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_makeobject.c objname=$@
 
-objs/mui_newobject.o: staticlib/mui_newobject.c
-  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) staticlib/mui_newobject.c objname=$@
+objs/mui_newobject.o: mui_newobject.c
+  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_newobject.c objname=$@
 
 objs/mui_obtainpen.o: mui_obtainpen.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_obtainpen.c objname=$@

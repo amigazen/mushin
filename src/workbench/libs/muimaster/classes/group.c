@@ -181,11 +181,11 @@ struct MUI_GroupData
    too, but for hgroups only in x direction, and for vgroups only in
    y direction. I think ... */
 
-#define w0_defwidth(x) (_hweight(x) ? _defwidth(x) : _minwidth(x))
-#define w0_maxwidth(x) (_hweight(x) ? _maxwidth(x) : _minwidth(x))
+#define w0_defwidth(x) (((struct __dummyAreaData__ *)(x))->mad.mad_HorizWeight ? _defwidth(x) : _minwidth(x))
+#define w0_maxwidth(x) (((struct __dummyAreaData__ *)(x))->mad.mad_HorizWeight ? _maxwidth(x) : _minwidth(x))
 
-#define w0_defheight(x) (_vweight(x) ? _defheight(x) : _minheight(x))
-#define w0_maxheight(x) (_vweight(x) ? _maxheight(x) : _minheight(x))
+#define w0_defheight(x) (((struct __dummyAreaData__ *)(x))->mad.mad_VertWeight ? _defheight(x) : _minheight(x))
+#define w0_maxheight(x) (((struct __dummyAreaData__ *)(x))->mad.mad_VertWeight ? _maxheight(x) : _minheight(x))
 
 static const int __version = 1;
 static const int __revision = 1;

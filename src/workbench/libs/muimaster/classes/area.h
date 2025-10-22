@@ -546,6 +546,10 @@ struct MUI_AreaData
 
 #define MUI_AREADATA_DEFINED
 
+/* Define muiRenderInfo macro since MUI_AREADATA_DEFINED is set */
+#define muiRenderInfo(obj) \
+    (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo)
+
 /* Flags during MUIM_Draw */
 #define MADF_DRAWOBJECT        (1<< 0)  /* draw object completely */
 #define MADF_DRAWUPDATE        (1<< 1)  /* update object */

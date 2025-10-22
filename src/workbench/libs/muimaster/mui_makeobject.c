@@ -4,6 +4,7 @@
 
 #define MUIMASTER_YES_INLINE_STDARG
 
+#include <stdarg.h>
 #include <proto/alib.h>
 #include <proto/intuition.h>
 #include <intuition/classusr.h>
@@ -24,6 +25,77 @@
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Forward declaration for MUI_MakeObjectA */
+__asm __saveds Object *MUI_MakeObjectA(register __d0 LONG type, register __a0 IPTR *params);
+
+/*****************************************************************************
+
+    NAME */
+        Object * MUI_MakeObject (
+
+/*  SYNOPSIS */
+        LONG type,
+        ...)
+
+/*  FUNCTION
+        Create an object from the builtin object collection.
+        See file libraries/mui.h for a list of available objects
+        and their parameters. Note that this is not a taglist.
+
+    INPUTS
+        type - Object type to create
+        ... - Parameters for the object
+
+    RESULT
+        Object pointer or NULL on failure
+
+    NOTES
+
+    EXAMPLE
+
+    BUGS
+
+    SEE ALSO
+
+    INTERNALS
+
+    HISTORY
+
+*****************************************************************************/
+{
+    va_list args;
+    IPTR param[20];
+    LONG i, numparams;
+    
+    /* Count parameters */
+    numparams = 0;
+    va_start(args, type);
+    
+    while (va_arg(args, IPTR) != TAG_DONE && numparams < 19)
+    {
+        numparams++;
+    }
+    
+    va_end(args);
+    
+    if (numparams == 0)
+    {
+        return MUI_MakeObjectA(type, NULL);
+    }
+    
+    va_start(args, type);
+    
+    for(i = 0; i < numparams; i++)
+    {
+        param[i] = va_arg(args, IPTR);
+    }
+    
+    va_end (args);
+    
+    return MUI_MakeObjectA(type, param);
+    
+} /* MUI_MakeObject */
 
 STATIC int get_control_char(const char *label)
 {
@@ -514,3 +586,4 @@ Object *INTERNAL_ImageButton(CONST_STRPTR label, CONST_STRPTR imagePath,
     return NULL;
 
 }                               /* MUI_MakeObjectA */
+

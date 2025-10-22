@@ -323,7 +323,7 @@ IPTR Configdata__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 
     data = INST_DATA(cl, obj);
 
-    NEWLIST(&data->pubscreens);
+    NewList(&data->pubscreens);
     InitSemaphore(&data->psLock);
 
     for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)

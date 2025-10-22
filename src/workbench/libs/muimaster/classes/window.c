@@ -35,6 +35,7 @@
 #include <proto/wb.h>
 #endif
 #include <proto/muiscreen.h>
+#include <proto/cybergraphics.h>
 
 
 #define MUI_OBSOLETE /* for the obsolete menu stuff */
@@ -46,6 +47,9 @@
 
 extern struct Library *MUIMasterBase;
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
+
+/* Forward declaration for RefreshWindow */
+void RefreshWindow(Object *obj, struct MUI_WindowData *data);
 #include "area_macros.h"
 #include "imspec.h"
 #include "prefs.h"
@@ -4345,6 +4349,17 @@ BOOPSI_DISPATCHER(IPTR, Window_Dispatcher, cl, obj, msg)
 }
 BOOPSI_DISPATCHER_END
 
+
+/*
+ * RefreshWindow function - refreshes the window display
+ */
+void RefreshWindow(Object *obj, struct MUI_WindowData *data)
+{
+    /* Simple implementation - just redraw the window */
+    if (data && data->wd_RenderInfo.mri_Window) {
+        RefreshWindowFrame(data->wd_RenderInfo.mri_Window);
+    }
+}
 
 /*
  * Class descriptor.

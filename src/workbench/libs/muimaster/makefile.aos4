@@ -40,7 +40,8 @@ TARGET = zunemaster.library
 LIBS = -ldebug -lm
 
 # Version of the binary to build
-VERSION = 0
+VERSION = 19
+REVISION = 50
 
 # Source code files used in this project
 
@@ -196,4 +197,4 @@ clean:
 
 .PHONY: revision
 revision:
-	bumprev $(VERSION) $(TARGET)
+	bumprev $(VERSION) $(REVISION) $(TARGET)

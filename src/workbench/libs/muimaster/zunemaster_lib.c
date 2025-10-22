@@ -24,10 +24,42 @@ LONG ReturnError2(void)
 
 #include "muimaster_intern.h"
 
-#define VERSION   1
-#define REVISION  0
+/* Function declarations for MUI functions - matching muimaster_lib.sfd */
+extern Object *MUI_NewObjectA(CONST_STRPTR classname, struct TagItem *tags);
+extern Object *MUI_NewObject(CONST_STRPTR classname, ...);
+extern VOID MUI_DisposeObject(Object *obj);
+extern LONG MUI_RequestA(APTR app, APTR win, LONGBITS flags, CONST_STRPTR title, CONST_STRPTR gadgets, CONST_STRPTR format, APTR params);
+extern LONG MUI_Request(APTR app, APTR win, LONGBITS flags, CONST_STRPTR title, CONST_STRPTR gadgets, CONST_STRPTR format, ...);
+extern APTR MUI_AllocAslRequest(ULONG reqType, struct TagItem *tagList);
+extern APTR MUI_AllocAslRequestTags(ULONG reqType, ...);
+extern BOOL MUI_AslRequest(APTR requester, struct TagItem *tagList);
+extern BOOL MUI_AslRequestTags(APTR requester, ...);
+extern VOID MUI_FreeAslRequest(APTR requester);
+extern LONG MUI_Error(void);
+extern LONG MUI_SetError(LONG num);
+extern struct IClass *MUI_GetClass(CONST_STRPTR classname);
+extern VOID MUI_FreeClass(struct IClass *classptr);
+extern VOID MUI_RequestIDCMP(Object *obj, ULONG flags);
+extern VOID MUI_RejectIDCMP(Object *obj, ULONG flags);
+extern VOID MUI_Redraw(Object *obj, ULONG flags);
+extern struct MUI_CustomClass *MUI_CreateCustomClass(struct Library *base, CONST_STRPTR supername, struct MUI_CustomClass *supermcc, ULONG datasize, APTR dispatcher);
+extern BOOL MUI_DeleteCustomClass(struct MUI_CustomClass *mcc);
+extern Object *MUI_MakeObjectA(LONG type, IPTR *params);
+extern Object *MUI_MakeObject(LONG type, ...);
+extern BOOL MUI_Layout(Object *obj, LONG left, LONG top, LONG width, LONG height, ULONG flags);
+extern LONG MUI_ObtainPen(struct MUI_RenderInfo *mri, struct MUI_PenSpec *spec, ULONG flags);
+extern VOID MUI_ReleasePen(struct MUI_RenderInfo *mri, LONG pen);
+extern APTR MUI_AddClipping(struct MUI_RenderInfo *mri, WORD left, WORD top, WORD width, WORD height);
+extern VOID MUI_RemoveClipping(struct MUI_RenderInfo *mri, APTR handle);
+extern APTR MUI_AddClipRegion(struct MUI_RenderInfo *mri, struct Region *r);
+extern VOID MUI_RemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle);
+extern BOOL MUI_BeginRefresh(struct MUI_RenderInfo *mri, ULONG flags);
+extern VOID MUI_EndRefresh(struct MUI_RenderInfo *mri, ULONG flags);
+
+#define VERSION   19
+#define REVISION  50
 #define DATETXT   "27.06.2003"
-#define VERSTXT   "1.0"
+#define VERSTXT   "19.50"
 
 #define LIBNAME  "zunemaster.library"
 #define IDSTRING "zunemaster.library " VERSTXT " (" DATETXT ")\r\n"

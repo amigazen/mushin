@@ -2,6 +2,7 @@
     Copyright (C) 2002-2007, The AROS Development Team. All rights reserved.
 */
 
+#include <stdarg.h>
 #include <proto/exec.h>
 #include <proto/intuition.h>
 
@@ -57,3 +58,46 @@
 
     return NULL;
 } /* MUI_NewObjectA */
+
+/*****************************************************************************
+
+    NAME */
+        Object * MUI_NewObject (
+
+/*  SYNOPSIS */
+        CONST_STRPTR classname,
+        ...)
+
+/*  FUNCTION
+        Create a new object from a class.
+
+    INPUTS
+        classname - Name of the class to create
+        ... - Tag list parameters
+
+    RESULT
+        Object pointer or NULL on failure
+
+    NOTES
+
+    EXAMPLE
+
+    BUGS
+
+    SEE ALSO
+
+    INTERNALS
+
+    HISTORY
+
+*****************************************************************************/
+{
+    struct TagItem *tagList;
+    Object *retval;
+    
+    tagList = (struct TagItem *)&classname;
+    retval = MUI_NewObjectA(classname, tagList);
+    
+    return retval;
+    
+} /* MUI_NewObject */

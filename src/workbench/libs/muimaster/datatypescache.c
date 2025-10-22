@@ -23,12 +23,17 @@
 #include <proto/cybergraphics.h>
 
 //#define MYDEBUG 1
+
+/* External declarations */
+extern struct Library *MUIMasterBase;
+typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 #include "debug.h"
 #include "support.h"
 #include "muimaster_intern.h"
 #include "datatypescache.h"
 
 extern struct Library *MUIMasterBase;
+extern struct Library *CyberGfxBase;
 
 static struct List dt_list;
 static int dt_initialized;
@@ -721,7 +726,7 @@ struct dt_frame_image *load_custom_frame(CONST_STRPTR filename,
 struct dt_node *dt_load_picture(CONST_STRPTR filename, struct Screen *scr)
 {
     struct dt_node *node;
-    ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ObtainSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
     if (!dt_initialized)
     {
         NewList(&dt_list);
@@ -734,7 +739,7 @@ struct dt_node *dt_load_picture(CONST_STRPTR filename, struct Screen *scr)
         if (!Stricmp(filename, node->filename) && scr == node->scr)
         {
             node->count++;
-            ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+            ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
             return node;
         }
         node = Node_Next(node);
@@ -760,7 +765,7 @@ struct dt_node *dt_load_picture(CONST_STRPTR filename, struct Screen *scr)
                     node->scr = scr;
                     node->count = 1;
                     AddTail((struct List *)&dt_list, (struct Node *)node);
-                    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+                    ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
                     return node;
                 }
                 else
@@ -788,7 +793,7 @@ struct dt_node *dt_load_picture(CONST_STRPTR filename, struct Screen *scr)
                     node->scr = scr;
                     node->count = 1;
                     AddTail((struct List *)&dt_list, (struct Node *)node);
-                    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+                    ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
                     return node;
                 }
             }
@@ -796,13 +801,13 @@ struct dt_node *dt_load_picture(CONST_STRPTR filename, struct Screen *scr)
         }
         FreeVec(node);
     }
-    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
     return NULL;
 }
 
 void dt_dispose_picture(struct dt_node *node)
 {
-    ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ObtainSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
     if (node && node->count)
     {
         node->count--;
@@ -823,7 +828,7 @@ void dt_dispose_picture(struct dt_node *node)
             FreeVec(node);
         }
     }
-    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 }
 
 int dt_width(struct dt_node *node)
@@ -878,8 +883,10 @@ void dt_put_on_rastport(struct dt_node *node, struct RastPort *rp, int x,
             pa.pbpa_Width = dt_width(node);
             pa.pbpa_Height = dt_height(node);
             DoMethodA(o, (Msg) & pa);
+#ifdef __AROS__
             WritePixelArrayAlpha(img, 0, 0, dt_width(node) * 4, rp, x, y,
                 dt_width(node), dt_height(node), 0xffffffff);
+#endif
             FreeVec((APTR) img);
         }
     }
@@ -944,8 +951,10 @@ void dt_put_mim_on_rastport(struct dt_node *node, struct RastPort *rp,
             pa.pbpa_Width = width;
             pa.pbpa_Height = height;
             DoMethodA(o, (Msg) & pa);
+#ifdef __AROS__
             WritePixelArrayAlpha(img, 0, 0, width * 4, rp, x, y, width,
                 height, 0xffffffff);
+#endif
             FreeVec((APTR) img);
         }
     }
@@ -1127,7 +1136,7 @@ void dt_put_on_rastport_tiled(struct dt_node *node, struct RastPort *rp,
     if (NULL == bitmap)
         return;
 
-    ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ObtainSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
     if (!node->bfi)
     {
@@ -1201,5 +1210,5 @@ void dt_put_on_rastport_tiled(struct dt_node *node, struct RastPort *rp,
             UnlockLayer(rp->Layer);
         }
     }
-    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 }

@@ -27,6 +27,10 @@
 
 #define IMSPEC_EXTERNAL_PREFIX "MUI:Images/"
 
+/* Function declarations */
+LONG HexToIPTR(CONST_STRPTR s, ULONG *val);
+LONG HexToLong(CONST_STRPTR s, ULONG *val);
+
 /* Define all classes as built in...should be moved out to config.h like file */
 #define ZUNE_BUILTIN_ABOUTMUI 1
 #define ZUNE_BUILTIN_BALANCE 1
@@ -74,7 +78,11 @@ Object *VARARGS68K DoSuperNewTags(struct IClass *cl, Object *obj, void *dummy, .
 int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
 
 
-/* WritePixelArrayAlpha macro removed - using proper function declaration from frame.c */
+#ifdef __amigaos4__       /* PRIV */
+#ifndef WritePixelArrayAlpha /* PRIV */
+#define WritePixelArrayAlpha(srcRect, SrcX, SrcY, SrcMod, RastPort, DestX, DestY, SizeX, SizeY, globalAlpha) ICyberGfx->WritePixelArrayAlpha(srcRect, SrcX, SrcY, SrcMod, RastPort, DestX, DestY, SizeX, SizeY, globalAlpha) /* PRIV */
+#endif /* PRIV */
+#endif /* PRIV */
 
 
 /*** HookEntry for OS4 (is only a dummy) ************************************/

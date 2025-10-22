@@ -25,11 +25,8 @@
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+extern struct Library *CyberGfxBase;
 
-/* Prototype for WritePixelArrayAlpha */
-#ifndef WritePixelArrayAlpha
-LONG WritePixelArrayAlpha(ULONG *pixelArray, LONG srcX, LONG srcY, LONG srcMod, struct RastPort *rp, LONG destX, LONG destY, LONG width, LONG height, ULONG mask);
-#endif
 
 /**************************************************************************
  custom frames

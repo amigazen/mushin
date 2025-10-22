@@ -19,7 +19,6 @@
 #include "imspec_intern.h"
 #include "support.h"
 
-/* CyberGfxBase is already declared in muimaster_init.c */
 #include "area_macros.h"
 #define MYDEBUG 1
 #include "debug.h"
