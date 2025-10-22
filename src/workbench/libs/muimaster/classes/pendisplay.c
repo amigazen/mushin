@@ -25,6 +25,7 @@
 #include "support.h"
 #include "support_classes.h"
 #include "pendisplay_private.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
@@ -105,8 +106,15 @@ IPTR Pendisplay__OM_SET(struct IClass *cl, Object *obj,
     struct opSet supMsg;
     BOOL newcol = FALSE;
     IPTR retval;
-    struct TagItem extra_tags[] = {{TAG_IGNORE, 0}, {TAG_IGNORE, 0},
-        {TAG_IGNORE, 0}, {TAG_MORE, (IPTR)msg->ops_AttrList}};
+    struct TagItem extra_tags[4];
+    extra_tags[0].ti_Tag = TAG_IGNORE;
+    extra_tags[0].ti_Data = 0;
+    extra_tags[1].ti_Tag = TAG_IGNORE;
+    extra_tags[1].ti_Data = 0;
+    extra_tags[2].ti_Tag = TAG_IGNORE;
+    extra_tags[2].ti_Data = 0;
+    extra_tags[3].ti_Tag = TAG_MORE;
+    extra_tags[3].ti_Data = (IPTR)msg->ops_AttrList;
 
     data = INST_DATA(cl, obj);
 

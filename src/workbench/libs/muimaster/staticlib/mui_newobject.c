@@ -4,9 +4,9 @@
     
 */
 
-#define AROS_TAGRETURNTYPE Object *
 #include <utility/tagitem.h>
 #include <proto/alib.h>
+#include <stdarg.h>
 
 /*****************************************************************************
 
@@ -18,8 +18,7 @@ extern struct Library * MUIMasterBase;
         Object * MUI_NewObject (
 
 /*  SYNOPSIS */
-        const char * classname,
-        Tag tag1,
+        CONST_STRPTR classname,
         ...)
 
 /*  FUNCTION
@@ -42,9 +41,15 @@ extern struct Library * MUIMasterBase;
 
 *****************************************************************************/
 {
-    AROS_SLOWSTACKTAGS_PRE(tag1)
-
-    retval = MUI_NewObjectA(classname, AROS_SLOWSTACKTAGS_ARG(tag1));
+    va_list args;
+    struct TagItem *tagList;
+    Object *retval;
     
-    AROS_SLOWSTACKTAGS_POST
+    va_start(args, classname);
+    tagList = (struct TagItem *)va_arg(args, Tag);
+    
+    retval = MUI_NewObjectA(classname, tagList);
+    
+    va_end(args);
+    return retval;
 } /* MUI_NewObject */

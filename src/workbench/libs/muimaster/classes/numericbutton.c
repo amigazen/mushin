@@ -18,7 +18,9 @@
 
 #include "mui.h"
 #include "muimaster_intern.h"
+#include "area_macros.h"
 #include "support.h"
+
 #include "frame.h"
 #include "support_classes.h"
 #include "prefs.h"
@@ -320,8 +322,8 @@ static BOOL MakePopupWin(Object *obj, struct Numericbutton_DATA *data)
 
     zframe =
         zune_zframe_get_with_state(obj,
-        &muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Slider],
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Slider].state);
+        (const struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Slider],
+        0);
 
     data->pop_innerx = zframe->ileft;
     data->pop_innery = zframe->itop;

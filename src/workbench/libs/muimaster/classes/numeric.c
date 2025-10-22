@@ -2,7 +2,10 @@
     Copyright (C) 2002-2013, The AROS Development Team. All rights reserved.
 */
 
-#include <devices/rawkeycodes.h>
+/* Raw key codes - minimal definitions for wheel events */
+#define RAWKEY_NM_WHEEL_UP      0x7A
+#define RAWKEY_NM_WHEEL_DOWN    0x7B
+
 #include <stdio.h>
 
 #include <clib/alib_protos.h>
@@ -16,6 +19,7 @@
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
+#include "area_macros.h"
 
 struct MUI_NumericData
 {
@@ -466,7 +470,7 @@ IPTR Numeric__MUIM_ScaleToValue(struct IClass *cl, Object *obj,
 
     val += min;
 
-    return val;
+    return (IPTR)val;
 }
 
 /**************************************************************************
@@ -523,7 +527,7 @@ IPTR Numeric__MUIM_ValueToScale(struct IClass *cl, Object *obj,
 
     val = CLAMP(val, msg->scalemin, msg->scalemax);
 
-    return val;
+    return (IPTR)val;
 }
 
 /**************************************************************************
@@ -554,7 +558,7 @@ IPTR Numeric__MUIM_ValueToScaleExt(struct IClass *cl, Object *obj,
 
     scale = CLAMP(scale, msg->scalemin, msg->scalemax);
 
-    return scale;
+    return (IPTR)scale;
 }
 
 /**************************************************************************

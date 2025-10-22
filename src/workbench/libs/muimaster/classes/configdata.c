@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include <exec/types.h>
+#include <exec/lists.h>
 #include <prefs/prefhdr.h>
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
@@ -21,6 +22,9 @@
 #include "debug.h"
 
 #include "muimaster_intern.h"
+
+/* External library base */
+extern struct Library *MUIScreenBase;
 #include "mui.h"
 #include "classes/configdata.h"
 #include "support.h"
@@ -608,18 +612,22 @@ static LONG windowpos_swapbytes(IPTR data, LONG size)
     WORD cnt, i, j;
     void *p = (void *)data;
 
-    *((LONG *) p) = AROS_SWAP_BYTES_LONG(size);
+    *((LONG *) p) = ((size & 0xFF000000) >> 24) | ((size & 0x00FF0000) >> 8) | ((size & 0x0000FF00) << 8) | ((size & 0x000000FF) << 24);
 
     cnt = sizeof(LONG);
     items = (size - sizeof(LONG)) / sizeof(struct windowpos);
     D(bug("[MUI:Cfg] %s: size = %d items = %d\n", __func__, size, items));
     for (i = 0; i < items; i++) {
-        *((LONG *) ((IPTR)p + cnt)) =
-            AROS_SWAP_BYTES_LONG(*((LONG *) ((IPTR)p + cnt)));
+        {
+            LONG val = *((LONG *) ((IPTR)p + cnt));
+            *((LONG *) ((IPTR)p + cnt)) = ((val & 0xFF000000) >> 24) | ((val & 0x00FF0000) >> 8) | ((val & 0x0000FF00) << 8) | ((val & 0x000000FF) << 24);
+        }
         cnt += sizeof(LONG);
         for (j = 0; j < 8; j++) {
-            *((WORD *) ((IPTR)p + cnt)) =
-                AROS_SWAP_BYTES_WORD(*((WORD *) ((IPTR)p + cnt)));
+            {
+                WORD val = *((WORD *) ((IPTR)p + cnt));
+                *((WORD *) ((IPTR)p + cnt)) = ((val & 0xFF00) >> 8) | ((val & 0x00FF) << 8);
+            }
             cnt += sizeof(WORD);
         }
     }

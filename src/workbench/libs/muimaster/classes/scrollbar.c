@@ -11,18 +11,24 @@
 #include <proto/utility.h>
 #include <proto/muimaster.h>
 
-#include "../datatypescache.h"
-#include "../imspec_intern.h"
+#include "/datatypescache.h"
+#include "/imspec_intern.h"
 
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
 #include "prefs.h"
+#include "area_macros.h"
 
 #define MYDEBUG 1
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing attribute definitions */
+#ifndef MUIA_Image_Prop
+#define MUIA_Image_Prop (MUIB_Image | 0x00000001)
+#endif
 
 struct Scrollbar_DATA
 {
@@ -124,7 +130,7 @@ IPTR Scrollbar__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
 
     if (!(_flags(obj) & MADF_BORDERGADGET) && !data->sb_pos)
     {
-        switch (muiGlobalInfo(obj)->mgi_Prefs->scrollbar_arrangement)
+        switch (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_arrangement)
         {
         case SCROLLBAR_ARRANGEMENT_TOP:
             DoMethod(obj, MUIM_Group_Sort, (IPTR) data->prop,
@@ -141,7 +147,7 @@ IPTR Scrollbar__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
             break;
         }
 
-        switch (muiGlobalInfo(obj)->mgi_Prefs->scrollbar_type)
+        switch (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type)
         {
         case SCROLLBAR_TYPE_STANDARD:
             break;

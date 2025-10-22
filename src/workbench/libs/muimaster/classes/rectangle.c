@@ -21,6 +21,7 @@
 #include "support.h"
 #include "textengine.h"
 #include "prefs.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
@@ -208,7 +209,7 @@ IPTR Rectangle__MUIM_AskMinMax(struct IClass *cl, Object *obj,
         msg->MinMaxInfo->MinWidth += data->ztext->width;
         msg->MinMaxInfo->MinHeight += data->ztext->height;
         D(bug("rect: minheight %ld\n", data->ztext->height));
-        if (muiGlobalInfo(obj)->mgi_Prefs->group_title_color ==
+        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_title_color ==
             GROUP_TITLE_COLOR_3D)
         {
             msg->MinMaxInfo->MinWidth += 1;
@@ -284,7 +285,7 @@ IPTR Rectangle__MUIM_Draw(struct IClass *cl, Object *obj,
             _mwidth(obj), _mheight(obj))); */
 
         SetAPen(_rp(obj), _pens(obj)[MPEN_SHADOW]);
-        if (muiGlobalInfo(obj)->mgi_Prefs->group_title_color ==
+        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_title_color ==
             GROUP_TITLE_COLOR_3D)
         {
             tw = data->ztext->width + 1;
@@ -315,7 +316,7 @@ IPTR Rectangle__MUIM_Draw(struct IClass *cl, Object *obj,
         }
         else                    /* black or white */
         {
-            if (muiGlobalInfo(obj)->mgi_Prefs->group_title_color ==
+            if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_title_color ==
                 GROUP_TITLE_COLOR_HILITE)
                 SetAPen(_rp(obj), _pens(obj)[MPEN_SHINE]);
 

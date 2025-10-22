@@ -11,12 +11,21 @@
 #include <libraries/commodities.h>
 #endif
 
-#ifndef LIBRARIES_MUI_H
-#include "mui.h"
-#endif
-
 #ifndef _MUI_FRAME_H
 #include "frame.h"
+#endif
+
+#ifndef _MUI_CLASSES_AREA_H
+#include "classes/area.h"
+#endif
+
+/* Forward declarations for MUI constants */
+#ifndef MUIV_Font_NegCount
+#define MUIV_Font_NegCount ((IPTR)-9)
+#endif
+
+#ifndef MUII_Count
+#define MUII_Count 42UL
 #endif
 
 typedef enum CycleMenuPosition {

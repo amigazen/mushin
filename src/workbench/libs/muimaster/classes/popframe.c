@@ -19,8 +19,25 @@
 #include "popframe_private.h"
 #include "support.h"
 #include "support_classes.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing method definitions */
+#ifndef MUIM_Popframe_OpenWindow
+#define MUIM_Popframe_OpenWindow (MUIB_Popframe | 0x00000001)
+#endif
+
+#ifndef MUIM_Popframe_CloseWindow
+#define MUIM_Popframe_CloseWindow (MUIB_Popframe | 0x00000002)
+#endif
+
+/* Missing struct definition */
+struct MUIP_Popframe_CloseWindow
+{
+    ULONG MethodID;
+    BOOL ok;
+};
 
 IPTR Popframe__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {

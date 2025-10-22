@@ -17,13 +17,20 @@
 #include "muimaster_intern.h"
 #include "mui.h"
 #include "support.h"
+#include "area_macros.h"
 
 #include "notify.h"
+
+/* Define RAWARG macro for RawDoFmt */
+#ifndef RAWARG
+#define RAWARG APTR
+#endif
 
 #define MYDEBUG
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
 
 #ifdef __AROS__
 AROS_UFH2S(void, cpy_func,
@@ -32,14 +39,14 @@ AROS_UFH2S(void, cpy_func,
 {
     AROS_USERFUNC_INIT
 
-    *(*strPtrPtr)++ = chr;
+    *(UBYTE *)(*strPtrPtr)++ = chr;
 
     AROS_USERFUNC_EXIT
 }
 #else
 void cpy_func(UBYTE chr, STRPTR **strPtrPtr)
 {
-    *(*strPtrPtr)++ = chr;
+    *(UBYTE *)(*strPtrPtr)++ = chr;
 }
 #endif
 
@@ -485,7 +492,7 @@ IPTR Notify__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
     {
     case MUIA_ApplicationObject:
         if (data->mnd_GlobalInfo)
-            STORE = (IPTR) data->mnd_GlobalInfo->mgi_ApplicationObject;
+            STORE = (IPTR) ((struct MUI_GlobalInfo_Private *)data->mnd_GlobalInfo)->mgi_ApplicationObject;
         else
             STORE = 0;
         return TRUE;
@@ -816,7 +823,7 @@ IPTR Notify__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
     struct MUIP_GetConfigItem *msg)
 {
     IPTR found =
-        DoMethod(muiGlobalInfo(obj)->mgi_Configdata, MUIM_Dataspace_Find,
+        DoMethod(((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Configdata, MUIM_Dataspace_Find,
         msg->id);
 
     if (found)

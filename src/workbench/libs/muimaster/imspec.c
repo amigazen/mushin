@@ -34,10 +34,17 @@
 #include "debug.h"
 
 #include "mui.h"
+#include "classes/area.h"
+#include "area_macros.h"
 
 #include "datatypescache.h"
 #include "imspec.h"
 #include "support.h"
+
+/* Forward declaration for SPrintf */
+int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
+
+/* MUI_GlobalInfo_Private is defined in muimaster_intern.h */
 
 #include "muimaster_intern.h"
 #include "prefs.h"
@@ -544,7 +551,7 @@ struct MUI_ImageSpec_intern *zune_imspec_setup(IPTR s,
     case IST_CONFIG:
         {
             Object *win = mri->mri_WindowObject;
-            struct ZunePrefsNew *prefs = muiGlobalInfo(win)->mgi_Prefs;
+            MUI_Prefs *prefs = ((struct MUI_GlobalInfo_Private *)((struct __dummyAreaData__ *)(win))->mnd.mnd_GlobalInfo)->mgi_Prefs;
             /* potential for deadloop if Zune prefs images contain a 6: */
             CONST_STRPTR spec_desc = prefs->imagespecs[spec->u.cfg.muiimg];
             zune_imspec_free(spec);

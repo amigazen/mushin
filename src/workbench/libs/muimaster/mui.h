@@ -674,4 +674,8 @@ struct MUI_Command
 #include "macros.h"
 #endif
 
+#ifndef _ZUNE_PREFS_H__
+#include "prefs.h"
+#endif
+
 #endif /* LIBRARIES_MUI_H */

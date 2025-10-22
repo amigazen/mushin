@@ -24,17 +24,7 @@
 #include "area_macros.h"
 #include <utility/tagitem.h>
 
-/* Private structure definition for MUI_GlobalInfo */
-struct MUI_GlobalInfo_Private
-{
-    ULONG priv0;
-    Object *mgi_ApplicationObject;
-    struct MsgPort *mgi_WindowsPort;
-    struct MsgPort *mgi_AppPort;
-    Object *mgi_Configdata;
-    struct ZunePrefsNew *mgi_Prefs;
-    struct Screen *mgi_CustomScreen;
-};
+/* MUI_GlobalInfo_Private is defined in muimaster_intern.h */
 
 extern struct Library *MUIMasterBase;
 

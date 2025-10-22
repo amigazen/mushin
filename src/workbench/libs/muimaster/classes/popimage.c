@@ -18,8 +18,25 @@
 #include "support.h"
 #include "support_classes.h"
 #include "popimage_private.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing method definitions */
+#ifndef MUIM_Popimage_OpenWindow
+#define MUIM_Popimage_OpenWindow (MUIB_Popimage | 0x00000001)
+#endif
+
+#ifndef MUIM_Popimage_CloseWindow
+#define MUIM_Popimage_CloseWindow (MUIB_Popimage | 0x00000002)
+#endif
+
+/* Missing struct definition */
+struct MUIP_Popimage_CloseWindow
+{
+    ULONG MethodID;
+    BOOL ok;
+};
 
 IPTR Popimage__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {

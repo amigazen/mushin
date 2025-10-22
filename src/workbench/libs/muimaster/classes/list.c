@@ -9,7 +9,7 @@
 #include <graphics/gfx.h>
 #include <graphics/gfxmacros.h>
 #include <graphics/view.h>
-#include <devices/rawkeycodes.h>
+/* Raw key codes defined below */
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
@@ -27,8 +27,14 @@
 #include "textengine.h"
 #include "listimage.h"
 #include "prefs.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
+
+
+/* Raw key code definitions */
+#define RAWKEY_NM_WHEEL_UP    0x7A
+#define RAWKEY_NM_WHEEL_DOWN  0x7B
 
 #define ENTRY_TITLE (-1)
 
@@ -60,11 +66,28 @@ struct ListEntry
     LONG width;    /* Line width */
     LONG height;   /* Line height */
     WORD flags;    /* see below */
-    LONG widths[]; /* Widths of the columns */
+    LONG *widths;  /* Widths of the columns */
 };
 
 #define ENTRY_SELECTED   (1<<0)
 #define ENTRY_RENDER     (1<<1)
+
+/* Missing attribute definitions */
+#ifndef MUIA_List_VertProp_Visible
+#define MUIA_List_VertProp_Visible (MUIB_List | 0x00000001)
+#endif
+#ifndef MUIA_List_VertProp_First
+#define MUIA_List_VertProp_First (MUIB_List | 0x00000002)
+#endif
+#ifndef MUIA_List_VertProp_Entries
+#define MUIA_List_VertProp_Entries (MUIB_List | 0x00000003)
+#endif
+#ifndef MUIA_List_ListArea
+#define MUIA_List_ListArea (MUIB_List | 0x00000004)
+#endif
+#ifndef MUIM_List_SelectChange
+#define MUIM_List_SelectChange (MUIB_List | 0x00000005)
+#endif
 
 
 struct ColumnInfo
@@ -510,6 +533,8 @@ static struct ListEntry *AllocListEntry(struct MUI_ListData *data)
         /* possible, that we have an external pool, which does not have
            MEMF_CLEAR set.. */
         memset(le, 0, size);
+        /* Initialize widths pointer to point to space after the struct */
+        le->widths = (LONG *)(le + 1);
     }
     return le;
 }
@@ -692,7 +717,7 @@ static BOOL ParseListFormat(struct MUI_ListData *data, STRPTR format,
                 rdargs->RDA_Flags = 0;
 
                 memset(args, 0, sizeof args);
-                if (ReadArgs(FORMAT_TEMPLATE, args, rdargs))
+                if (ReadArgs(FORMAT_TEMPLATE, (LONG *)args, rdargs))
                 {
                     if (args[ARG_COL])
                         data->ci[i].colno = *(LONG *) args[ARG_COL];
@@ -946,6 +971,8 @@ static BOOL IncreaseColumns(struct MUI_ListData *data, int new_columns)
             return FALSE;
         }
         memset(le, 0, newsize);
+        /* Initialize widths pointer to point to space after the struct */
+        le->widths = (LONG *)(le + 1);
         D(bug("IncreaseColumns: CopyMem(%p, %p, %d)\n", data->entries[i],
             le, oldsize));
         CopyMem(data->entries[i], le, oldsize);
@@ -1165,7 +1192,7 @@ IPTR List__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
      * this, but this seems least evil approach, as this hack is
      * encapsulated in the List class itself.
      */
-    muiAreaData(obj)->mad_ehn.ehn_Priority--;
+    ((struct __dummyAreaData__ *)obj)->mad.mad_ehn.ehn_Priority--;
 
     data->hook.h_Entry = HookEntry;
     data->hook.h_SubEntry = (HOOKFUNC) List_Function;
@@ -1766,11 +1793,11 @@ IPTR List__MUIM_Setup(struct IClass *cl, Object *obj,
     if (!DoSuperMethodA(cl, obj, (Msg) msg))
         return 0;
 
-    data->prefs_refresh = muiGlobalInfo(obj)->mgi_Prefs->list_refresh;
+    data->prefs_refresh = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_refresh;
     data->prefs_linespacing =
-        muiGlobalInfo(obj)->mgi_Prefs->list_linespacing;
-    data->prefs_smoothed = muiGlobalInfo(obj)->mgi_Prefs->list_smoothed;
-    data->prefs_smoothval = muiGlobalInfo(obj)->mgi_Prefs->list_smoothval;
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_linespacing;
+    data->prefs_smoothed = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_smoothed;
+    data->prefs_smoothval = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_smoothval;
 
     data->list_cursor =
         zune_imspec_setup(MUII_ListCursor, muiRenderInfo(obj));
@@ -1779,7 +1806,7 @@ IPTR List__MUIM_Setup(struct IClass *cl, Object *obj,
     data->list_selcur =
         zune_imspec_setup(MUII_ListSelCur, muiRenderInfo(obj));
 
-    data->prefs_multi = muiGlobalInfo(obj)->mgi_Prefs->list_multi;
+    data->prefs_multi = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_multi;
     if (data->multiselect == MUIV_Listview_MultiSelect_Default)
     {
         if (data->prefs_multi == LISTVIEW_MULTI_SHIFTED)
@@ -1995,6 +2022,7 @@ IPTR List__MUIM_Draw(struct IClass *cl, Object *obj, struct MUIP_Draw *msg)
     BOOL scroll_caused_damage = FALSE;
     struct MUI_ImageSpec_intern *highlight;
     IPTR ret = (IPTR)0;
+    ULONG x1, col;
 
     D(bug("[Zune:List] %s()\n", __func__);)
 
@@ -2168,8 +2196,7 @@ IPTR List__MUIM_Draw(struct IClass *cl, Object *obj, struct MUIP_Draw *msg)
         }
     }
 
-    ULONG x1 = _mleft(data->area);
-    ULONG col;
+    x1 = _mleft(data->area);
     y = _mtop(data->area);
 
     if (data->title_height && data->title)
@@ -2812,8 +2839,9 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
     struct MUIP_List_Insert *msg)
 {
     struct MUI_ListData *data = INST_DATA(cl, obj);
-    LONG pos, count, sort, active;
+    LONG pos, count, sort, active, until;
     BOOL adjusted = FALSE;
+    APTR *toinsert;
 
     count = msg->count;
     sort = 0;
@@ -2864,8 +2892,8 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
     if (!(SetListSize(data, data->entries_num + count)))
         return ~0;
 
-    LONG until = pos + count;
-    APTR *toinsert = msg->entries;
+    until = pos + count;
+    toinsert = msg->entries;
 
     if (!(PrepareInsertListEntries(data, pos, count)))
         return ~0;
@@ -3632,11 +3660,9 @@ IPTR List__MUIM_TestPos(struct IClass *cl, Object *obj,
 {
     struct MUI_ListData *data = INST_DATA(cl, obj);
     struct MUI_List_TestPos_Result *result = msg->res;
-    LONG col = -1, row = -1;
+    LONG col_idx = -1, row = -1;
     UWORD flags = 0, i;
-    LONG mx;
-    LONG ey;
-    LONG entries_visible;
+    LONG mx, ey, entries_visible;
 
     if (data->entries_visible <= data->entries_num)
         entries_visible = data->entries_visible;
@@ -3683,7 +3709,7 @@ IPTR List__MUIM_TestPos(struct IClass *cl, Object *obj,
             if (data->entries_num > 0 && data->columns > 0)
             {
                 LONG width_sum = 0;
-                col = data->columns - 1;
+                col_idx = data->columns - 1;
                 for (i = 0; i < data->columns; i++)
                 {
                     result->xoffset = mx - width_sum;
@@ -3696,8 +3722,8 @@ IPTR List__MUIM_TestPos(struct IClass *cl, Object *obj,
                         i, data->ci[i].entries_width, width_sum, mx));
                     if (mx < width_sum)
                     {
-                        col = i;
-                        D(bug("[List/MUIM_TestPos] Column hit %d\n", col));
+                        col_idx = i;
+                        D(bug("[List/MUIM_TestPos] Column hit %d\n", col_idx));
                         break;
                     }
                 }
@@ -3706,7 +3732,7 @@ IPTR List__MUIM_TestPos(struct IClass *cl, Object *obj,
     }
 
     result->entry = row;
-    result->column = col;
+    result->column = col_idx;
     result->flags = flags;
 
     return TRUE;
@@ -3886,10 +3912,11 @@ static IPTR List__MUIM_CreateDragImage(struct IClass *cl, Object *obj,
     struct MUI_DragImage *img = NULL;
     const struct ZuneFrameGfx *zframe;
     LONG depth;
+    struct RastPort *rp_save;
 
     /* If entries aren't draggable, allow the list as a whole to be */
     if (data->drag_type == MUIV_Listview_DragType_None)
-        return DoSuperMethodA(cl, obj, msg);
+        return DoSuperMethodA(cl, obj, (Msg)msg);
 
     /* Get info on dragged entry */
     DoMethod(obj, MUIM_List_TestPos, _left(data->area) + msg->touchx,
@@ -3917,7 +3944,7 @@ static IPTR List__MUIM_CreateDragImage(struct IClass *cl, Object *obj,
     {
         /* Get drag frame */
         zframe = zune_zframe_get(obj,
-            &muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Drag]);
+            (const struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Drag]);
 
         /* Allocate drag image buffer */
         img->width = width + zframe->ileft + zframe->iright;
@@ -3937,7 +3964,7 @@ static IPTR List__MUIM_CreateDragImage(struct IClass *cl, Object *obj,
                 0xc0);
 
             /* Render frame */
-            struct RastPort *rp_save = muiRenderInfo(obj)->mri_RastPort;
+            rp_save = muiRenderInfo(obj)->mri_RastPort;
             muiRenderInfo(obj)->mri_RastPort = &temprp;
             zframe->draw(zframe->customframe, muiRenderInfo(obj), 0, 0,
                 img->width, img->height, 0, 0, img->width, img->height);
@@ -3989,11 +4016,11 @@ IPTR List__MUIM_HandleEvent(struct IClass *cl, Object *obj,
     struct MUI_ListData *data = INST_DATA(cl, obj);
     struct MUI_List_TestPos_Result pos;
     LONG seltype = MUIV_List_Select_On, old_active, new_active, visible,
-        first, last, i;
+        first, last, j;
     IPTR result = 0;
     BOOL select = FALSE, clear = FALSE, range_select = FALSE, changing;
     WORD delta;
-    typeof(msg->muikey) muikey = msg->muikey;
+    ULONG muikey = msg->muikey;
 
     new_active = old_active = XGET(obj, MUIA_List_Active);
     visible = XGET(obj, MUIA_List_Visible);
@@ -4271,8 +4298,8 @@ IPTR List__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                 first = old_active + 1, last = new_active;
             else
                 first = new_active, last = old_active - 1;
-            for (i = first; i <= last; i++)
-                DoMethod(obj, MUIM_List_Select, i, seltype, NULL);
+            for (j = first; j <= last; j++)
+                DoMethod(obj, MUIM_List_Select, j, seltype, NULL);
         }
         else
         {

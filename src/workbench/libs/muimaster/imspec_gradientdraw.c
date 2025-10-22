@@ -18,6 +18,7 @@
 #include "mui.h"
 #include "imspec_intern.h"
 #include "support.h"
+#include "area_macros.h"
 #define MYDEBUG 1
 #include "debug.h"
 
@@ -137,6 +138,8 @@ void FillPixelArrayGradientRelative(struct RastPort *rp, int xt, int yt,
     int xb, int yb, int xp, int yp, int w, int h, ULONG *start_rgb,
     ULONG *end_rgb, int angle, int xoff, int yoff)
 {
+    UBYTE *buf;
+    UBYTE *bufptr;
     /* The basic idea of this algorithm is to calc the intersection between
      * the diagonal of the rectangle (xs,ys) with dimension (xw,yw) a with
      * the line starting at (x,y) (every pixel inside the rectangle) and
@@ -171,7 +174,7 @@ void FillPixelArrayGradientRelative(struct RastPort *rp, int xt, int yt,
 
     if ((w <= 0) || (h <= 0))
         return;
-    UBYTE *buf = AllocVec(w * h * 3, 0);
+    buf = AllocVec(w * h * 3, 0);
     if (buf == NULL)
         return;
 
@@ -264,7 +267,7 @@ void FillPixelArrayGradientRelative(struct RastPort *rp, int xt, int yt,
      */
 
     incr_y1 = yw * vy * xadd;
-    UBYTE *bufptr = buf;
+    bufptr = buf;
     for (l = 0, y = ystart + ((yp - yt) * yadd); l < h; l++, y += yadd)
     {
 

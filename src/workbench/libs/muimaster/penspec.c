@@ -7,6 +7,7 @@
 #include <string.h>
 #include <proto/dos.h>
 #include <proto/graphics.h>
+#include <proto/utility.h>
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
@@ -99,24 +100,24 @@ BOOL zune_pen_intern_to_spec(const struct MUI_PenSpec_intern *intern,
     {
     case PST_MUI:
         spec->buf[0] = 'm';
-        sprintf(spec->buf + 1, "%ld", (long)intern->p_mui);
+        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_mui);
         break;
 
     case PST_CMAP:
         spec->buf[0] = 'p';
-        sprintf(spec->buf + 1, "%ld", (long)intern->p_cmap);
+        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_cmap);
         break;
 
     case PST_RGB:
         spec->buf[0] = 'r';
-        sprintf(spec->buf + 1, "%08lx,%08lx,%08lx",
+        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%08lx,%08lx,%08lx",
             (long)intern->p_rgb.red, (long)intern->p_rgb.green,
             (long)intern->p_rgb.blue);
         break;
 
     case PST_SYS:
         spec->buf[0] = 's';
-        sprintf(spec->buf + 1, "%ld", (long)intern->p_sys);
+        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_sys);
         break;
 
     default:

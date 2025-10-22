@@ -21,25 +21,33 @@
 #include <string.h>
 
 /*  #define MYDEBUG 1 */
-
-#include "../datatypescache.h"
-#include "../imspec_intern.h"
-
 #include "debug.h"
+
+#include "datatypescache.h"
+
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
 #include "imspec.h"
+#include "image.h"
+#include "area_macros.h"
 
 // FIXME: quick hack to not draw the background for gradients. It should really be generalized
 #include "imspec_intern.h"
 
 extern struct Library *MUIMasterBase;
 
+
 #define MIF_FREEVERT         (1<<0)
 #define MIF_FREEHORIZ        (1<<1)
 #define MIF_FONTMATCHWIDTH   (1<<3)
 #define MIF_FONTMATCHHEIGHT  (1<<4)
+
+#define SCROLLBAR_TYPE_CUSTOM 1
+
+#ifndef MUIA_Image_Prop
+#define MUIA_Image_Prop (MUIB_MUI | 0x004233d6)
+#endif
 
 struct MUI_ImageData
 {
@@ -280,7 +288,7 @@ IPTR Image__MUIM_Setup(struct IClass *cl, Object *obj, struct MUIP_Setup *msg)
 
     if (data->prop)
     {
-        if (muiGlobalInfo(obj)->mgi_Prefs->scrollbar_type == SCROLLBAR_TYPE_CUSTOM)
+        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type == SCROLLBAR_TYPE_CUSTOM)
         {
             struct NewImage *ni = GetPropImage(data, data->prop);
             if (ni)

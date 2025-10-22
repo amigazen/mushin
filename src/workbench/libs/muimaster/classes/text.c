@@ -22,6 +22,7 @@
 #include "muimaster_intern.h"
 #include "support.h"
 #include "textengine.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 

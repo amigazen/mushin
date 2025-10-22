@@ -32,6 +32,11 @@
 
 extern struct Library *MUIMasterBase;
 
+/* Missing attribute definition */
+#ifndef MUIA_Penadjust_Spec
+#define MUIA_Penadjust_Spec (MUIB_Penadjust | 0x00000001)
+#endif
+
 static void UpdateState(Object *obj, struct Penadjust_DATA *data)
 {
     zune_pen_spec_to_intern(&data->penspec, &data->intpenspec);
@@ -124,6 +129,12 @@ IPTR Penadjust__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {
     static const char *register_labels[4];
     static const char *lv_labels[9];
+    static const struct Hook muipen_display_hook =
+        { {NULL, NULL}, HookEntry, MuipenDisplayFunc, NULL };
+    struct Penadjust_DATA *data;
+    struct TagItem *tags;
+    struct TagItem *tag;
+    Object *listobj, *sliderobj, *coloradjobj;
     
     register_labels[0] = _(MSG_PENADJUST_MUI);
     register_labels[1] = _(MSG_PENADJUST_COLORMAP);
@@ -138,14 +149,6 @@ IPTR Penadjust__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     lv_labels[6] = _(MSG_PENADJUST_FILL);
     lv_labels[7] = _(MSG_PENADJUST_MARK);
     lv_labels[8] = NULL;
-
-    static const struct Hook muipen_display_hook =
-        { {NULL, NULL}, HookEntry, MuipenDisplayFunc, NULL };
-
-    struct Penadjust_DATA *data;
-    struct TagItem *tags;
-    struct TagItem *tag;
-    Object *listobj, *sliderobj, *coloradjobj;
 
     obj = (Object *) DoSuperNewTags
     (

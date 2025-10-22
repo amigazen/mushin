@@ -21,15 +21,16 @@
 #include "support_classes.h"
 #include "volumelist_private.h"
 #include "locale.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 
 
-static void printSize(STRPTR string, size_t bufsize, UQUAD size)
+static void printSize(STRPTR string, size_t bufsize, ULONG size)
 {
     char unit = 'B';
 
-    if (size >= 9999999999ULL)
+    if (size >= 999999999UL)
     {
         size = size >> 30;
         unit = 'G';
@@ -165,7 +166,7 @@ IPTR Volumelist__OM_NEW(struct IClass *cl, Object *obj,
 
             entry.type = DLT_DEVICE;
 
-            strncpy(entry.name, AROS_BSTR_ADDR(actdl->dol_Name),
+            strncpy(entry.name, (char *)actdl->dol_Name,
                 sizeof(entry.name));
             entry.name[sizeof(entry.name) - 2] = '\0';
             strcat(entry.name, ":");
@@ -180,8 +181,8 @@ IPTR Volumelist__OM_NEW(struct IClass *cl, Object *obj,
             struct Volumelist_Entry entry;
             struct InfoData diskinfo;
             BPTR lock;
-            UQUAD free;
-            UQUAD used;
+            ULONG free;
+            ULONG used;
 
             entry.full[0] = '\0';
             entry.free[0] = '\0';
@@ -189,7 +190,7 @@ IPTR Volumelist__OM_NEW(struct IClass *cl, Object *obj,
 
             entry.type = DLT_VOLUME;
 
-            strncpy(entry.name, AROS_BSTR_ADDR(actdl->dol_Name),
+            strncpy(entry.name, (char *)actdl->dol_Name,
                 sizeof(entry.name));
             entry.name[sizeof(entry.name) - 2] = '\0';
             strcat(entry.name, ":");
@@ -207,10 +208,10 @@ IPTR Volumelist__OM_NEW(struct IClass *cl, Object *obj,
                     entry.full[sizeof(entry.full) - 1] = '\0';
 
                     used =
-                        (UQUAD) diskinfo.id_NumBlocksUsed *
+                        (ULONG) diskinfo.id_NumBlocksUsed *
                         diskinfo.id_BytesPerBlock;
                     free =
-                        (UQUAD) diskinfo.id_NumBlocks *
+                        (ULONG) diskinfo.id_NumBlocks *
                         diskinfo.id_BytesPerBlock - used;
                     printSize(entry.free, sizeof entry.free, free);
                     printSize(entry.used, sizeof entry.used, used);
@@ -233,7 +234,7 @@ IPTR Volumelist__OM_NEW(struct IClass *cl, Object *obj,
 
             entry.type = DLT_DIRECTORY;
 
-            strncpy(entry.name, AROS_BSTR_ADDR(actdl->dol_Name),
+            strncpy(entry.name, (char *)actdl->dol_Name,
                 sizeof(entry.name));
             entry.name[sizeof(entry.name) - 2] = '\0';
             strcat(entry.name, ":");

@@ -2,7 +2,8 @@
     Copyright (C) 2002-2016, The AROS Development Team. All rights reserved.
 */
 
-#include <aros/debug.h>
+// #define MYDEBUG 1
+#include "debug.h"
 
 #include <clib/alib_protos.h>
 #include <proto/utility.h>
@@ -12,6 +13,17 @@
 #include "mui.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing attribute definitions */
+#ifndef MUIA_List_VertProp_Visible
+#define MUIA_List_VertProp_Visible (MUIB_List | 0x00000001)
+#endif
+#ifndef MUIA_List_VertProp_First
+#define MUIA_List_VertProp_First (MUIB_List | 0x00000002)
+#endif
+#ifndef MUIA_List_VertProp_Entries
+#define MUIA_List_VertProp_Entries (MUIB_List | 0x00000003)
+#endif
 
 struct MUI_ListviewData
 {

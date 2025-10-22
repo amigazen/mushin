@@ -17,6 +17,8 @@
 #include "muimaster_intern.h"
 #include "font.h"
 #include "prefs.h"
+#include "mui.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
@@ -38,7 +40,7 @@ struct TextFont *zune_font_get(Object *obj, IPTR font)
     {
         CONST_STRPTR name;
 
-        mri = muiRenderInfo(obj);
+        mri = ((struct __dummyAreaData__ *)obj)->mad.mad_RenderInfo;
         /* font already loaded, just return it */
         if (mri->mri_Fonts[-preset])
         {
@@ -47,7 +49,7 @@ struct TextFont *zune_font_get(Object *obj, IPTR font)
             return mri->mri_Fonts[-preset];
         }
 
-        mgi = muiGlobalInfo(obj);
+        mgi = ((struct __dummyAreaData__ *)obj)->mnd.mnd_GlobalInfo;
         /* font name given, load it */
         name = mgi->mgi_Prefs->fonts[-preset];
         D(bug("zune_font_get : preset=%d, name=%s\n", preset, name));
@@ -92,7 +94,7 @@ struct TextFont *zune_font_get(Object *obj, IPTR font)
             if ((SIPTR) MUIV_Font_Normal == preset)
             {
                 struct TextAttr scr_attr;
-                scr_attr = *(_screen(obj)->Font);
+                scr_attr = *(((struct __dummyAreaData__ *)obj)->mad.mad_RenderInfo->mri_Screen->Font);
                 scr_attr.ta_Flags = 0;
                 D(bug("zune_font_get : OpenDiskFont(%s) (screen font)\n",
                         scr_attr.ta_Name));

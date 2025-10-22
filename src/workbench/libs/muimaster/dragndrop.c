@@ -76,12 +76,12 @@ static struct MinNode *Node_Prev(APTR node)
 //-------------------------------------
 static struct MinNode *List_Last(APTR list)
 {
-    if (!((struct MinList *)list)->mlh_TailPred)
+    if (!((struct MinList *)list)->mlh_Tail)
         return NULL;
 
-    if (((struct MinList *)list)->mlh_TailPred->mln_Pred == NULL)
+    if (((struct MinList *)list)->mlh_Tail->mln_Pred == NULL)
         return NULL;
-    return ((struct MinList *)list)->mlh_TailPred;
+    return ((struct MinList *)list)->mlh_Tail;
 }
 //-------------------------------------
 #if 0

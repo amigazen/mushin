@@ -20,11 +20,33 @@
 #include "prefs.h"
 #include "font.h"
 #include "textengine.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing attribute definitions */
+#ifndef MADF_INNERLEFT
+#define MADF_INNERLEFT (1<<0)
+#endif
+
+#ifndef MADF_INNERTOP
+#define MADF_INNERTOP (1<<1)
+#endif
+
+#ifndef MADF_INNERRIGHT
+#define MADF_INNERRIGHT (1<<2)
+#endif
+
+#ifndef MADF_INNERBOTTOM
+#define MADF_INNERBOTTOM (1<<3)
+#endif
+
+#ifndef MUIM_UpdateInnerSizes
+#define MUIM_UpdateInnerSizes (MUIB_Group | 0x00000006)
+#endif
 
 #define INTERTAB 4
 #define TEXTSPACING 4
@@ -134,6 +156,7 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
     WORD item_bar_width;
     WORD item_bg_height;
     WORD fitwidth;
+    APTR clip;
 
     if ((item < 0) || (item >= data->numitems))
         return;
@@ -221,8 +244,6 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
     WritePixel(_rp(obj), right_item_bar_x - 3, top_item_bar_y + 1);
 
     /* text */
-    APTR clip;
-    
     fitwidth = item_bar_width - TEXTSPACING;
     x = left_item_bar_x + TEXTSPACING / 2;
     clip = MUI_AddClipping(muiRenderInfo(obj), x, top_item_bar_y,
@@ -353,7 +374,7 @@ static void SetHardCoord(Object *obj, struct Register_DATA *data)
     //    * (data->rows - 1 - data->active/data->columns)
     //    +  REGISTER_FRAMEBOTTOM;
 
-    frame = &muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Group];
+    frame = (struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Group];
 
     adata->mad_InnerLeft = frame->innerLeft + 1;
     adata->mad_InnerTop =
@@ -504,7 +525,7 @@ IPTR Register__MUIM_Setup(struct IClass *cl, Object *obj,
         zune_text_get_bounds(data->items[i].ztext, obj);
     }
 
-    if (!(muiGlobalInfo(obj)->mgi_Prefs->register_truncate_titles))
+    if (!(((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->register_truncate_titles))
     {
         struct RastPort temprp;
         int i;
@@ -637,6 +658,7 @@ IPTR Register__MUIM_Draw(struct IClass *cl, Object *obj,
     struct MUIP_Draw *msg)
 {
     struct Register_DATA *data = INST_DATA(cl, obj);
+    APTR clip;
 
     /* Before all the current page is drawn erase the part of the area covered
      * by tabs which is not erased (between _left(obj) and _mleft(obj) and

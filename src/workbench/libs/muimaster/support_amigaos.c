@@ -125,17 +125,32 @@ Object *VARARGS68K DoSuperNewTags(struct IClass *cl, Object *obj, void *dummy, .
 
 int VARARGS68K SPrintf(char *buf, const char *fmt, ...)
 {
-    va_list argptr;
-    APTR args;
-
-    va_startlinear(argptr, fmt);
-    args = va_getlinearva(argptr, APTR);
-    RawDoFmt((STRPTR)fmt, args, NULL, buf);
-    va_end(argptr);
-
-    return (int)strlen(buf);
+    va_list args;
+    int result;
+    
+    va_start(args, fmt);
+    result = VSNPrintf(buf, 1024, (STRPTR)fmt, args);
+    va_end(args);
+    
+    return result;
 }
 
+/***************************************************
+ Like StrToLong() but for hex numbers
+ that represent addresses
+***************************************************/
+LONG HexToIPTR(CONST_STRPTR s, IPTR *val)
+{
+    return HexToLong((STRPTR)s, val);
+}
+
+LONG HexToLong(CONST_STRPTR s, ULONG *val)
+{
+    char *end;
+    *val = (ULONG)strtoul(s,&end,16);
+    if (end == (char*)s) return -1;
+    return end - (char*)s;
+}
 
 #endif
 

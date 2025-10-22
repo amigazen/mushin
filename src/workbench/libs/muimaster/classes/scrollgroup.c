@@ -20,9 +20,18 @@
 #include "support.h"
 #include "support_classes.h"
 #include "scrollgroup_private.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 
+/* Missing attribute definitions */
+#ifndef MUIA_Virtgroup_MinWidth
+#define MUIA_Virtgroup_MinWidth (MUIB_Group | 0x00000001)
+#endif
+
+#ifndef MUIA_Virtgroup_MinHeight
+#define MUIA_Virtgroup_MinHeight (MUIB_Group | 0x00000002)
+#endif
 
 AROS_UFH3(ULONG, Scrollgroup_Layout_Function,
     AROS_UFHA(struct Hook *, hook, A0),

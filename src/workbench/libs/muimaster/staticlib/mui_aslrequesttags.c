@@ -4,22 +4,19 @@
     
 */
 
-#define AROS_TAGRETURNTYPE BOOL
 #include <utility/tagitem.h>
-#include <proto/alib.h>
+#include <proto/asl.h>
+#include <stdarg.h>
 
 /*****************************************************************************
 
     NAME */
-#define NO_INLINE_STDARG /* turn off inline def */
-#include <proto/muimaster.h>
-extern struct Library * MUIMasterBase;
+extern BOOL MUI_AslRequest(APTR requester, struct TagItem *tagList);
 
         BOOL MUI_AslRequestTags (
 
 /*  SYNOPSIS */
         APTR requester,
-        Tag tag1,
         ...)
 
 /*  FUNCTION
@@ -42,9 +39,15 @@ extern struct Library * MUIMasterBase;
 
 *****************************************************************************/
 {
-    AROS_SLOWSTACKTAGS_PRE(tag1)
+    va_list args;
+    struct TagItem *tagList;
+    BOOL retval;
     
-    retval = MUI_AslRequest(requester, AROS_SLOWSTACKTAGS_ARG(tag1));
+    va_start(args, requester);
+    tagList = (struct TagItem *)va_arg(args, Tag);
     
-    AROS_SLOWSTACKTAGS_POST
+    retval = MUI_AslRequest(requester, tagList);
+    
+    va_end(args);
+    return retval;
 } /* MUI_AslRequestTags */

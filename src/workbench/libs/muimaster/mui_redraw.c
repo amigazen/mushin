@@ -6,14 +6,15 @@
 #include <clib/alib_protos.h>
 #include <intuition/classusr.h>
 #include <graphics/gfxmacros.h>
-/* #include <cybergraphx/cybergraphics.h> */
+#include <cybergraphx/cybergraphics.h>
 #include <proto/graphics.h>
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
-/* #include <proto/cybergraphics.h> */
+#include <proto/cybergraphics.h>
 
 #include "muimaster_intern.h"
 #include "classes/area.h"
+#include "area_macros.h"
 
 /* Ensure MADF_ISVIRTUALGROUP is defined */
 #ifndef MADF_ISVIRTUALGROUP

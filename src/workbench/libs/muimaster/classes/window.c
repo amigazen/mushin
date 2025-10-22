@@ -1,12 +1,15 @@
 /*
-    Copyright (C) 2002-2025, The AROS Development Team.
-    Copyright (C) 1999, David Le Corfec.
+    Copyright � 1999, David Le Corfec.
+    Copyright � 2002-2006, The AROS Development Team.
     All rights reserved.
 
+    $Id: window.c 24617 2006-08-08 15:12:53Z mazze $
 */
 #include <exec/types.h>
 #include <exec/memory.h>
-
+#include <exec/lists.h>
+#include <clib/alib_protos.h>
+//#define static
 #include <string.h>
 #include <stdio.h>
 
@@ -30,28 +33,50 @@
 #include <proto/workbench.h>
 #else
 #include <proto/wb.h>
-#endif /* __AROS__ */
-#define MUI_OBSOLETE            /* for the obsolete menu stuff */
+#endif
+#include <proto/muiscreen.h>
+
+
+#define MUI_OBSOLETE /* for the obsolete menu stuff */
 
 #include "mui.h"
 #include "support.h"
-#include "classes/window.h"
-#include "classes/area.h"
+#include "area.h"
+#include "window.h"
+#include "area_macros.h"
 #include "imspec.h"
-#include "datatypescache.h"
 #include "prefs.h"
 #include "dragndrop.h"
 
 #include "muimaster_intern.h"
-
-#include <proto/muiscreen.h>
+#include "SDI_compiler.h"
 
 //#define MYDEBUG 1
 #include "debug.h"
 
-#define DPS(x)
+/* Direct MADF_INNER flag definitions */
+#define MADF_INNERLEFT         0x00800000
+#define MADF_INNERTOP          0x01000000
+#define MADF_INNERRIGHT        0x02000000
+#define MADF_INNERBOTTOM       0x04000000
 
-//#define ZUNE_WINDOWCLASS_FORCEFANCYPENS
+/* Ensure STACKED is defined */
+#ifndef STACKED
+#define STACKED
+#endif
+
+/* Direct method definitions - no macros */
+#define MUIM_Window_AddControlCharHandler 0x80003600
+#define MUIM_Window_RemControlCharHandler 0x80003606
+#define MUIM_Window_DragObject 0x80003603
+#define MUIM_Window_GetMenuCheck 0x00420414
+#define MUIM_Window_SetMenuCheck 0x00422243
+#define MUIM_Window_GetMenuState 0x00420d2f
+#define MUIM_Window_SetMenuState 0x00422b5e
+#define MUIM_Window_RecalcDisplay 0x80003605
+#define MUIM_Window_DrawBackground 0x80003602
+#define MUIM_Window_UpdateMenu 0x80003607
+#define MUIM_Window_Refresh 0x80003608
 
 extern struct Library *MUIMasterBase;
 
@@ -61,6 +86,15 @@ static const int __revision = 1;
 #define IM(x) ((struct Image*)(x))
 #define G(x) ((struct Gadget*)(x))
 #define GADGETID(x) (((struct Gadget*)(x))->GadgetID)
+
+/* Missing method definitions */
+#define MUIM_DragQueryExtended 0x80000004
+#define MUIM_FindAreaObject 0x80000005
+#define MUI_EHF_HANDLEINPUT 0x00000001
+
+/* Missing attribute definitions */
+#define MUIA_Window_RecreateMenus 0x80003601
+#define MUIA_Window_WandererBackdrop 0x80003602
 
 /* this is for the cycle list */
 struct ObjNode
@@ -81,49 +115,45 @@ struct MUI_ImageSpec_intern;
 struct MUI_WindowData
 {
     struct MUI_RenderInfo wd_RenderInfo;
-    struct MUI_MinMax wd_MinMax;
-    struct IBox wd_AltDim;      /* zoomed dimensions */
-    BOOL wd_ZoomGadget;         /* enable/disable zoomgadget (altdim stuff) */
-    APTR wd_MemoryPool;         /* for nodes and stuff to deallocate at
-                                 * OM_DISPOSE */
-    struct MinList wd_CycleChain;       /* objects activated with tab */
-    struct MinList wd_EHList;   /* event handlers */
-    struct MinList wd_CCList;   /* control chars */
-    struct MinList wd_IDList;   /* gadget ids */
-    ULONG wd_Events;            /* events received */
-    ULONG wd_CrtFlags;          /* window creation flags, see below */
-    Object *wd_ActiveObject;    /* the active object */
-    Object *wd_OldActive;       /* active object before window was closed */
-    APTR wd_DefaultObject;
-    ULONG wd_ID;
-    STRPTR wd_Title;
-    STRPTR wd_ScreenTitle;
-    LONG wd_Height;             /* Current dimensions */
-    LONG wd_Width;
-    LONG wd_X;
-    LONG wd_Y;
-    LONG wd_ReqHeight;          /* given by programmer */
-    LONG wd_ReqWidth;
-    LONG wd_ReqX;
-    LONG wd_ReqY;
-    APTR wd_RootObject;         /* unique child */
-    ULONG wd_Flags;             /* various status flags */
+    struct MUI_MinMax     wd_MinMax;
+    struct IBox    wd_AltDim;       /* zoomed dimensions */
+    BOOL           wd_ZoomGadget;   /* enable/disable zoomgadget (altdim stuff) */
+    APTR           wd_MemoryPool;   /* for nodes and stuff to deallocate at OM_DISPOSE */
+    struct MinList wd_CycleChain;   /* objects activated with tab */
+    struct MinList wd_EHList;       /* event handlers */
+    struct MinList wd_CCList;       /* control chars */
+    struct MinList wd_IDList;       /* gadget ids */
+    ULONG          wd_Events;       /* events received */
+    ULONG          wd_CrtFlags;     /* window creation flags, see below */
+    Object        *wd_ActiveObject; /* the active object */
+    Object        *wd_OldActive;    /* active object before window was closed */
+    APTR           wd_DefaultObject;
+    ULONG          wd_ID;
+    STRPTR         wd_Title;
+    STRPTR         wd_ScreenTitle;
+    LONG           wd_Height;       /* Current dimensions */
+    LONG           wd_Width;
+    LONG           wd_X;
+    LONG           wd_Y;
+    LONG           wd_ReqHeight;    /* given by programmer */
+    LONG           wd_ReqWidth;
+    LONG           wd_ReqX;
+    LONG           wd_ReqY;
+    APTR           wd_RootObject;   /* unique child */
+    ULONG          wd_Flags;        /* various status flags */
     struct MUI_ImageSpec_intern *wd_Background;
-    ULONG wd_DisabledKeys;
-    BOOL wd_NoMenus;            /* MUIA_Window_NoMenus */
+    ULONG          wd_DisabledKeys;
+    BOOL           wd_NoMenus;     /* MUIA_Window_NoMenus */
 
-    Object *wd_DragObject;      /* the object which is being dragged */
-    struct Window *wd_DropWindow;       /* the destination window, for faster
-                                         * access */
-    Object *wd_DropObject;      /* the destination object */
-    struct DragNDrop *wd_dnd;
+    Object        *wd_DragObject; /* the object which is being dragged */
+    struct Window *wd_DropWindow; /* the destination window, for faster access */
+    Object        *wd_DropObject; /* the destination object */
+    struct DragNDrop     *wd_dnd;
     struct MUI_DragImage *wd_DragImage;
-    struct AppWindow *wd_AppWindow;
 
-    Object *wd_Menustrip;       /* The menustrip object which is actually
-                                 * used (either app's or window's or NULL) */
-    Object *wd_ChildMenustrip;  /* If window has its own Menustrip */
-    struct Menu *wd_Menu;       /* the intuition menustrip */
+    Object        *wd_Menustrip; /* The menustrip object which is actually is used (either apps or windows or NULL) */
+    Object *       wd_ChildMenustrip; /* If window has an own Menustrip */
+    struct Menu   *wd_Menu; /* the intuition menustrip */
 
     Object *wd_VertProp;
     Object *wd_UpButton;
@@ -134,20 +164,20 @@ struct MUI_WindowData
     Object *wd_RightButton;
     Object *wd_RefWindow;
 
-    Object *wd_MUIGadget;
-
     Object *wd_HelpObject;
-    APTR wd_HelpBubble;
-    WORD wd_HelpTicker;
+    APTR    wd_HelpBubble;
+    WORD    wd_HelpTicker;
 
     struct Screen *wd_UserScreen;
-    STRPTR wd_UserPublicScreen;
+    STRPTR  	   wd_UserPublicScreen;
 
     WORD wd_SleepCount;         /* MUIA_Window_Sleep nests */
     LONG wd_SleepMaxHeight;     /* Remember Min/Max values for wakeup */
     LONG wd_SleepMaxWidth;
     LONG wd_SleepMinHeight;
     LONG wd_SleepMinWidth;
+
+    struct AppWindow *wd_AppWindow;
 
     struct IClass *wd_Class;
     struct MUI_PenSpec *hshinespec;
@@ -156,121 +186,68 @@ struct MUI_WindowData
 
 #ifndef WFLG_SIZEGADGET
 
-#define WFLG_CLOSEGADGET (1<<0) /* has close gadget */
-#define WFLG_SIZEGADGET  (1<<1) /* has size gadget */
-#define WFLG_BACKDROP    (1<<2) /* is backdrop window */
-#define WFLG_BORDERLESS  (1<<3) /* has no borders */
-#define WFLG_DEPTHGADGET (1<<4) /* has depth gadget */
-#define WFLG_DRAGBAR     (1<<5) /* is draggable */
-#define WFLG_SIZEBRIGHT  (1<<6) /* size gadget is in right border */
+#define WFLG_CLOSEGADGET 0x00000001 /* has close gadget */
+#define WFLG_SIZEGADGET  0x00000002 /* has size gadget */
+#define WFLG_BACKDROP    0x00000004 /* is backdrop window */
+#define WFLG_BORDERLESS  0x00000008 /* has no borders */
+#define WFLG_DEPTHGADGET 0x00000010 /* has depth gadget */
+#define WFLG_DRAGBAR     0x00000020 /* is draggable */
+#define WFLG_SIZEBRIGHT  0x00000040 /* size gadget is in right border */
 
 #endif
 
 /* wd_Flags */
-#define MUIWF_OPENED            (1<<0)  /* window currently opened */
-#define MUIWF_HIDDEN            (1<<1)  /* window currently iconified */
-#define MUIWF_ACTIVE            (1<<2)  /* window currently active */
-#define MUIWF_RESIZING          (1<<4)  /* window currently resizing */
-#define MUIWF_DONTACTIVATE      (1<<7)  /* do not activate the window when
-                                         * opening */
-#define MUIWF_USERIGHTSCROLLER  (1<<8)  /* should have right scroller */
-#define MUIWF_USEBOTTOMSCROLLER (1<<9)  /* should have bottom scroller */
-#define MUIWF_ERASEAREA         (1<<10) /* Erase area after a window resize */
-#define MUIWF_ISAPPWINDOW       (1<<11) /* Is an AppWindow */
-#define MUIWF_ISSUBWINDOW       (1<<12) /* Don't get automatically disposed
-                                         * with app */
-#define MUIWF_BUBBLEMODE        (1<<13) /* Quick bubble mode. Bubbles appear
-                                         * quick when moving */
-#define MUIWF_OPENONUNHIDE      (1<<14) /* Open the window when unhiding */
-#define MUIWF_SCREENLOCKED      (1<<15) /* A pub screen was locked in
-                                         * SetupRenderInfo. Unlock it in
-                                         * CleanupRenderInfo! */
-#define MUIWF_OBJECTGOACTIVESENT (1<<16) /* A MUIM_GoActive msg was sent to
-                                          * window's active object */
-#define MUIWF_TOOLBOX           (1<<17) /* Window should be opened as
-                                         * ToolBox */
+#define MUIWF_OPENED            0x00000001 /* window currently opened */
+#define MUIWF_HIDDEN            0x00000002 /* window currently iconified */
+#define MUIWF_ACTIVE            0x00000004 /* window currently active */
+#define MUIWF_RESIZING          0x00000010 /* window currently resizing, for simple refresh */
+#define MUIWF_DONTACTIVATE      0x00000080 /* do not activate the window when opening */
+#define MUIWF_USERIGHTSCROLLER  0x00000100 /* window should have a right scroller */
+#define MUIWF_USEBOTTOMSCROLLER 0x00000200 /* window should have a bottom scroller */
+#define MUIWF_ERASEAREA         0x00000400 /* Erase area after a window resize */
+#define MUIWF_ISAPPWINDOW      0x00000800 /* Is an app window (user can drop icons on it) */
+#define MUIWF_ISSUBWINDOW      0x00001000 /* Dont get automatically disposed with app */
+#define MUIWF_BUBBLEMODE       0x00002000 /* Quick bubble mode. Bubbles appear quick when moving */
+#define MUIWF_OPENONUNHIDE     0x00004000 /* Open the window when unhiding */
+#define MUIWF_SCREENLOCKED     0x00008000 /* A pub screen was locked in SetupRenderInfo. Unlock it in CleanupRenderInfo! */
+#define MUIWF_OBJECTGOACTIVESENT 0x00010000 /* A MUIM_GoActive msg was sent to window's active object */
 
 #define BUBBLEHELP_TICKER_FIRST 10
-#define BUBBLEHELP_TICKER_LATER 3
+#define BUBBLEHELP_TICKER_LATER 10
+
+//new
+//ULONG screenmode;
+//new end
+
 
 struct __dummyXFC3__
 {
     struct MUI_NotifyData mnd;
-    struct MUI_WindowData mwd CLASS_INSTANCE_ALIGN;
+	struct MUI_WindowData mwd;
 };
 
 #define muiWindowData(obj)   (&(((struct __dummyXFC3__ *)(obj))->mwd))
 
-/****** List.mui/MUIA_Window_DragBar *****************************************
-*
-*   NAME
-*       MUIA_Window_DragBar -- (V4) [I..], BOOL
-*
-*   FUNCTION
-*       Allow the window to be dragged. Defaults to TRUE.
-*
-*   SEE ALSO
-*       MUIA_Window_DepthGadget, MUIA_Window_SizeGadget
-*
-******************************************************************************
-*
-*/
-
-/****** List.mui/MUIA_Window_ScreenTitle *************************************
-*
-*   NAME
-*       MUIA_Window_ScreenTitle -- (V5) [ISG], STRPTR
-*
-*   FUNCTION
-*       The title shown in the drag bar of the window's screen when the
-*       screen is active. If set to NULL, the screen's default title is shown.
-*       The set string is not copied.
-*
-*   SEE ALSO
-*       MUIA_Window_Title
-*
-******************************************************************************
-*
-*/
-
-/****** List.mui/MUIA_Window_Title *******************************************
-*
-*   NAME
-*       MUIA_Window_Title -- (V4) [ISG], STRPTR
-*
-*   FUNCTION
-*       The window title, as shown in the drag bar. If set to NULL, no title
-*       is shown. The set string is not copied.
-*
-*   SEE ALSO
-*       MUIA_Window_ScreenTitle
-*
-******************************************************************************
-*
-*/
-
-static void ActivateObject(struct MUI_WindowData *data);
-static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
-    struct IntuiMessage *event);
-
 static ULONG DoHalfshineGun(ULONG a, ULONG b)
 {
-    ULONG val = ((((a) >> 24) + 3 * ((b) >> 24)) / 4);
-    val = val + (val << 8) + (val << 16) + (val << 24);
+    ULONG val = ((((a)>>24) + 3 * ((b)>>24)) / 4);
+    val = val + (val<<8) + (val<<16) + (val<<24);
     return val;
 }
 
 static ULONG DoHalfshadowGun(ULONG a, ULONG b)
 {
-    ULONG val = ((((a) >> 24) + 5 * ((b) >> 24)) / 6);
-    val = val + (val << 8) + (val << 16) + (val << 24);
+    ULONG val = ((((a)>>24) + 5 * ((b)>>24)) / 6);
+    val = val + (val<<8) + (val<<16) + (val<<24);
     return val;
 }
 
 static Object *CreateSysimage(struct DrawInfo *dri, ULONG which)
 {
     return NewObject(NULL, "sysiclass",
-        SYSIA_DrawInfo, (IPTR) dri, SYSIA_Which, which, TAG_DONE);
+		     SYSIA_DrawInfo, (IPTR)dri,
+		     SYSIA_Which, which,
+		     TAG_DONE);
 }
 
 static void EnqueueByPriAndAddress(struct List *list, struct Node *node)
@@ -281,91 +258,17 @@ static void EnqueueByPriAndAddress(struct List *list, struct Node *node)
        "remove - modify - enqueue" sequence will re-add
        the node at the same place in the list it was
        initially */
+       
     ForeachNode(list, scannode)
     {
-        if (((struct Node *)node)->ln_Pri > scannode->ln_Pri)
-            break;
+    	if (((struct Node *)node)->ln_Pri > scannode->ln_Pri) break;
         if (((struct Node *)node)->ln_Pri == scannode->ln_Pri)
         {
-            if ((IPTR) node > (IPTR) scannode)
-                break;
+	    if ((IPTR)node > (IPTR)scannode) break;
         }
     }
 
     Insert(list, (struct Node *)node, scannode->ln_Pred);
-}
-
-static BOOL InitCustomFrames(Object *obj, struct MUI_RenderInfo *mri)
-{
-    int i;
-
-    for (i = 0; i < 16; i++)
-    {
-        mri->mri_FrameImage[i] = NULL;
-    }
-
-    mri->mri_FrameImage[0] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_1, mri->mri_Screen);
-    mri->mri_FrameImage[1] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_2, mri->mri_Screen);
-    mri->mri_FrameImage[2] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_3, mri->mri_Screen);
-    mri->mri_FrameImage[3] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_4, mri->mri_Screen);
-    mri->mri_FrameImage[4] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_5, mri->mri_Screen);
-    mri->mri_FrameImage[5] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_6, mri->mri_Screen);
-    mri->mri_FrameImage[6] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_7, mri->mri_Screen);
-    mri->mri_FrameImage[7] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_8, mri->mri_Screen);
-    mri->mri_FrameImage[8] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_9, mri->mri_Screen);
-    mri->mri_FrameImage[9] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_10, mri->mri_Screen);
-    mri->mri_FrameImage[10] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_11, mri->mri_Screen);
-    mri->mri_FrameImage[11] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_12, mri->mri_Screen);
-    mri->mri_FrameImage[12] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_13, mri->mri_Screen);
-    mri->mri_FrameImage[13] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_14, mri->mri_Screen);
-    mri->mri_FrameImage[14] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_15, mri->mri_Screen);
-    mri->mri_FrameImage[15] =
-        load_custom_frame(muiGlobalInfo(obj)->mgi_Prefs->
-        customframe_config_16, mri->mri_Screen);
-
-    return TRUE;
-}
-
-static void DisposeCustomFrames(struct MUI_RenderInfo *mri)
-{
-    int i;
-
-    for (i = 0; i < 16; i++)
-    {
-        dispose_custom_frame(mri->mri_FrameImage[i]);
-
-        mri->mri_FrameImage[i] = NULL;
-    }
 }
 
 static void InitRenderInfoPens(struct MUI_RenderInfo *mri, struct MUI_WindowData *data) {
@@ -412,6 +315,19 @@ static void InitRenderInfoPens(struct MUI_RenderInfo *mri, struct MUI_WindowData
     mri->mri_Pens = mri->mri_PensStorage;
 }
 
+static void CleanupRenderInfoPens(struct MUI_RenderInfo *mri, struct MUI_WindowData *data) {
+    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_MARK]);
+    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_HALFSHADOW]);
+    if (data->hshadowpec) {
+        FreeMem(data->hshadowpec, sizeof(struct MUI_PenSpec));
+        data->hshadowpec = NULL;
+    }
+    if (data->hshinespec) {
+        FreeMem(data->hshinespec, sizeof(struct MUI_PenSpec));
+        data->hshinespec = NULL;
+    }
+}
+
 static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
     struct MUI_RenderInfo *mri)
 {
@@ -426,13 +342,13 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
      * specific screen */
     if (!data->wd_UserScreen)
     {
-        ULONG screenmodeid = muiGlobalInfo(obj)->mgi_Prefs->screenmodeid;
+        ULONG screenmodeid = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->screenmodeid;
 
         if (screenmodeid != ~0)
         {
-            if (!muiGlobalInfo(obj)->mgi_CustomScreen)
+            if (!((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_CustomScreen)
             {
-                muiGlobalInfo(obj)->mgi_CustomScreen = OpenScreenTags
+                ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_CustomScreen = OpenScreenTags
                     (NULL,
                     SA_DisplayID, screenmodeid,
                     SA_SharePens, TRUE,
@@ -440,7 +356,7 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
                 /* It's fine if this fails as there is a fallback case below */
             }
 
-            data->wd_UserScreen = muiGlobalInfo(obj)->mgi_CustomScreen;
+            data->wd_UserScreen = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_CustomScreen;
         }
     }
     if (data->wd_UserScreen)
@@ -453,67 +369,39 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
         {
             mri->mri_Screen = LockPubScreen(data->wd_UserPublicScreen);
         }
-        else if (muiGlobalInfo(obj)->mgi_Prefs->publicscreen_name
-            && muiGlobalInfo(obj)->mgi_Prefs->publicscreen_name[0])
+        else if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->publicscreen_name
+            && ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->publicscreen_name[0])
         {
-            DPS(bug("[MUI:Window] %s: using public screen '%s'\n", __func__, muiGlobalInfo(obj)->mgi_Prefs->publicscreen_name);)
-            mri->mri_Screen =
-                LockPubScreen(muiGlobalInfo(obj)->mgi_Prefs->publicscreen_name);
-            if (!mri->mri_Screen && muiGlobalInfo(obj)->mgi_Configdata && MUIScreenBase) {
-                struct MUI_PubScreenDesc *desc  = (struct MUI_PubScreenDesc *)DoMethod(muiGlobalInfo(obj)->mgi_Configdata,
-                                        MUIM_Configdata_GetPubScrnDesc,
-                                        muiGlobalInfo(obj)->mgi_Prefs->publicscreen_name);
-                DPS(bug("[MUI:Window] %s: public screen descriptor @ 0x%p\n", __func__, desc);)
-                if (desc) {
-                    MUIS_OpenPubScreen(desc);
-                mri->mri_Screen =
-                    LockPubScreen(muiGlobalInfo(obj)->mgi_Prefs->publicscreen_name);
-                }
-            }
+            mri->mri_Screen = LockPubScreen(((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->publicscreen_name);
+        }
+        else
+        {
+            mri->mri_Screen = LockPubScreen(NULL);
         }
 
-        if (mri->mri_Screen == NULL)
-        {
-            DPS(bug("[MUI:Window] %s: using default public screen\n", __func__);)
-            mri->mri_Screen = LockPubScreen(NULL);
-            if (mri->mri_Screen == NULL)
-            {
-                return FALSE;
-            }
-        }
+        if (!mri->mri_Screen)
+            return FALSE;
+
         data->wd_Flags |= MUIWF_SCREENLOCKED;
     }
 
-    {
-        struct Screen *scr = mri->mri_Screen;
-    if (!(mri->mri_DrawInfo = GetScreenDrawInfo(scr)))
+    if (!(mri->mri_DrawInfo = GetScreenDrawInfo(mri->mri_Screen)))
     {
         if (data->wd_Flags & MUIWF_SCREENLOCKED)
         {
-            UnlockPubScreen(NULL, scr);
+	    UnlockPubScreen(NULL,mri->mri_Screen);
             data->wd_Flags &= ~MUIWF_SCREENLOCKED;
         }
         return FALSE;
     }
 
-    if (!InitCustomFrames(obj, mri))
-    {
-        if (data->wd_Flags & MUIWF_SCREENLOCKED)
-        {
-            UnlockPubScreen(NULL, scr);
-            data->wd_Flags &= ~MUIWF_SCREENLOCKED;
-        }
-        return FALSE;
-    }
-
-    mri->mri_Colormap = scr->ViewPort.ColorMap;
-
-    if (scr->Width / scr->Height < 2)
+    mri->mri_Colormap     = mri->mri_Screen->ViewPort.ColorMap;
+    if (mri->mri_Screen->Width / mri->mri_Screen->Height < 2)
     {
         mri->mri_Flags |= MUIMRI_THINFRAMES;
     }
 
-    if (GetBitMapAttr(scr->RastPort.BitMap, BMA_DEPTH) >= 15)
+    if (GetBitMapAttr(mri->mri_Screen->RastPort.BitMap, BMA_DEPTH) >= 15)
     {
         mri->mri_Flags |= MUIMRI_TRUECOLOR;
     }
@@ -527,7 +415,7 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
 
     if (data->wd_Flags & MUIWF_USEBOTTOMSCROLLER)
     {
-        mri->mri_LeftImage = CreateSysimage(mri->mri_DrawInfo, LEFTIMAGE);
+	mri->mri_LeftImage  = CreateSysimage(mri->mri_DrawInfo, LEFTIMAGE);
         mri->mri_RightImage = CreateSysimage(mri->mri_DrawInfo, RIGHTIMAGE);
     }
     else
@@ -537,7 +425,7 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
 
     if (data->wd_Flags & MUIWF_USERIGHTSCROLLER)
     {
-        mri->mri_UpImage = CreateSysimage(mri->mri_DrawInfo, UPIMAGE);
+	mri->mri_UpImage   = CreateSysimage(mri->mri_DrawInfo, UPIMAGE);
         mri->mri_DownImage = CreateSysimage(mri->mri_DrawInfo, DOWNIMAGE);
     }
     else
@@ -553,9 +441,8 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
 
     if (data->wd_CrtFlags & WFLG_BORDERLESS)
     {
-        /* In fact borderless windows could also have borders (e.g. if they
-         * have a window title) but since they look ugly anyway we ignore it
-         * for now */
+    	/* Infact borderless windows could also have borders (if they have a window title e.g. but
+    	   since they look ugly anywhy we ignore it for now */
         mri->mri_BorderLeft = 0;
         mri->mri_BorderRight = 0;
         mri->mri_BorderTop = 0;
@@ -563,89 +450,46 @@ static BOOL SetupRenderInfo(Object *obj, struct MUI_WindowData *data,
     }
     else
     {
-        mri->mri_BorderLeft = scr->WBorLeft;
-        mri->mri_BorderRight = scr->WBorRight;
-        mri->mri_BorderTop =
-            scr->WBorTop + scr->Font->ta_YSize + 1;
-        temp_obj =
-            NewObject(NULL, "sysiclass", SYSIA_DrawInfo,
-            (IPTR) mri->mri_DrawInfo, SYSIA_Which, SIZEIMAGE, TAG_DONE);
+	mri->mri_BorderLeft = mri->mri_Screen->WBorLeft;
+	mri->mri_BorderTop = mri->mri_Screen->WBorTop + mri->mri_Screen->Font->ta_YSize+ 1;
+	temp_obj = NewObject
+        (
+            NULL, "sysiclass",
+    	    SYSIA_DrawInfo, (IPTR)mri->mri_DrawInfo,
+    	    SYSIA_Which,    SIZEIMAGE,
+    	    TAG_DONE
+        );
         if (temp_obj)
         {
-            GetAttr(IA_Height, temp_obj, &val);
+	    GetAttr(IA_Height,temp_obj,&val);
             DisposeObject(temp_obj);
             mri->mri_BorderBottom = val;
         }
         else
-            mri->mri_BorderBottom = scr->WBorBottom;
-    }
+	    mri->mri_BorderBottom = mri->mri_Screen->WBorBottom;
     }
 
     return TRUE;
 }
 
-static void CleanupRenderInfoPens(struct MUI_RenderInfo *mri, struct MUI_WindowData *data) {
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_MARK]);
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_HALFSHADOW]);
-    if (data->hshadowpec) {
-        FreeMem(data->hshadowpec, sizeof(struct MUI_PenSpec));
-        data->hshadowpec = NULL;
-    }
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_HALFSHINE]);
-    if (data->hshinespec) {
-        FreeMem(data->hshinespec, sizeof(struct MUI_PenSpec));
-        data->hshinespec = NULL;
-    }
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_MARK]);
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_FILL]);
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_TEXT]);
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_SHADOW]);
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_BACKGROUND]);
-    MUI_ReleasePen(mri, mri->mri_PensStorage[MPEN_SHINE]);
-}
-
-static void CleanupRenderInfo(Object *obj, struct MUI_WindowData *data,
-    struct MUI_RenderInfo *mri)
+static void CleanupRenderInfo(struct MUI_WindowData *data, struct MUI_RenderInfo *mri)
 {
     int i;
 
-    DisposeCustomFrames(mri);
-
-    if (mri->mri_LeftImage)
-    {
-        DisposeObject(mri->mri_LeftImage);
-        mri->mri_LeftImage = NULL;
-    };
-    if (mri->mri_RightImage)
-    {
-        DisposeObject(mri->mri_RightImage);
-        mri->mri_RightImage = NULL;
-    };
-    if (mri->mri_UpImage)
-    {
-        DisposeObject(mri->mri_UpImage);
-        mri->mri_UpImage = NULL;
-    };
-    if (mri->mri_DownImage)
-    {
-        DisposeObject(mri->mri_DownImage);
-        mri->mri_DownImage = NULL;
-    };
-    if (mri->mri_SizeImage)
-    {
-        DisposeObject(mri->mri_SizeImage);
-        mri->mri_SizeImage = NULL;
-    };
+    if (mri->mri_LeftImage) {DisposeObject(mri->mri_LeftImage);mri->mri_LeftImage=NULL;};
+    if (mri->mri_RightImage){DisposeObject(mri->mri_RightImage);mri->mri_RightImage=NULL;};
+    if (mri->mri_UpImage) {DisposeObject(mri->mri_UpImage);mri->mri_UpImage=NULL;};
+    if (mri->mri_DownImage) {DisposeObject(mri->mri_DownImage);mri->mri_DownImage=NULL;};
+    if (mri->mri_SizeImage) {DisposeObject(mri->mri_SizeImage);mri->mri_SizeImage=NULL;};
 
     /*      bug("CleanupRenderInfo\n"); */
     for (i = 0; i < -MUIV_Font_NegCount; i++)
     {
         if (mri->mri_Fonts[i])
         {
-            /*  bug("CleanupRenderInfo: closing font %p (%s/%d)\n", */
-            /*          mri->mri_Fonts[i], */
-            /*          mri->mri_Fonts[i]->tf_Message.mn_Node.ln_Name, */
-            /*          mri->mri_Fonts[i]->tf_YSize); */
+/*  	    bug("CleanupRenderInfo: closing font %p (%s/%d)\n", */
+/*  		mri->mri_Fonts[i], mri->mri_Fonts[i]->tf_Message.mn_Node.ln_Name, */
+/*  		mri->mri_Fonts[i]->tf_YSize); */
             CloseFont(mri->mri_Fonts[i]);
             mri->mri_Fonts[i] = NULL;
         }
@@ -654,33 +498,7 @@ static void CleanupRenderInfo(Object *obj, struct MUI_WindowData *data,
     FreeScreenDrawInfo(mri->mri_Screen, mri->mri_DrawInfo);
     mri->mri_DrawInfo = NULL;
 
-    /* If a custom screen has been opened by zune, close it as soon as zero
-     * windows are opened. See above for comments about refactorization. */
-    if (muiGlobalInfo(obj)->mgi_CustomScreen)
-    {
-        BOOL screenclose = TRUE;
-        Object *_app = _app(obj);
-        if (_app != NULL)
-        {
-            struct List *store = NULL;
-            get(_app, MUIA_Application_WindowList, &store);
-            if (store != NULL)
-            {
-                if (!IsListEmpty(store))
-                    screenclose = FALSE;
-            }
-        }
-        if (screenclose)
-        {
-            /* If the window's user screen really was the custom screen,
-             * clear the reference */
-            if (data->wd_UserScreen == muiGlobalInfo(obj)->mgi_CustomScreen)
-                data->wd_UserScreen = NULL;
-
-            CloseScreen(muiGlobalInfo(obj)->mgi_CustomScreen);
-            muiGlobalInfo(obj)->mgi_CustomScreen = NULL;
-        }
-    }
+  
 
     if (data->wd_Flags & MUIWF_SCREENLOCKED)
     {
@@ -707,15 +525,16 @@ static void HideRenderInfo(struct MUI_RenderInfo *mri)
     mri->mri_RastPort = NULL;
 }
 
-static ULONG GetDefaultEvents(void)
+static ULONG GetDefaultEvents (void)
 {
-    return IDCMP_NEWSIZE | IDCMP_CHANGEWINDOW | IDCMP_REFRESHWINDOW
+    return IDCMP_NEWSIZE      | IDCMP_REFRESHWINDOW 
         | IDCMP_MOUSEBUTTONS | IDCMP_MOUSEMOVE | IDCMP_MENUPICK
-        | IDCMP_CLOSEWINDOW | IDCMP_RAWKEY | IDCMP_INTUITICKS
-        | IDCMP_ACTIVEWINDOW | IDCMP_INACTIVEWINDOW | IDCMP_GADGETUP;
+         | IDCMP_CLOSEWINDOW  | IDCMP_RAWKEY | IDCMP_INTUITICKS
+         | IDCMP_ACTIVEWINDOW | IDCMP_INACTIVEWINDOW
+         | IDCMP_CHANGEWINDOW | IDCMP_GADGETUP;
 }
 
-static void ChangeEvents(struct MUI_WindowData *data, ULONG new_events)
+static void ChangeEvents (struct MUI_WindowData *data, ULONG new_events)
 {
     struct MinNode *mn;
     struct MUI_EventHandlerNode *ehn;
@@ -741,10 +560,8 @@ static void ChangeEvents(struct MUI_WindowData *data, ULONG new_events)
 }
 
 static void CalcWindowPosition(Object *obj, struct MUI_WindowData *data);
-static void CreateWindowScrollbars(Object *obj,
-    struct MUI_WindowData *data);
-static void CalcAltDimensions(Object *obj, struct MUI_WindowData *data,
-    struct IBox *altdims);
+static void CreateWindowScrollbars(Object *obj, struct MUI_WindowData *data);
+static void CalcAltDimensions(Object *obj, struct MUI_WindowData *data);
 static void UndisplayWindow(Object *obj, struct MUI_WindowData *data);
 static struct ObjNode *FindObjNode(struct MinList *list, Object *obj);
 
@@ -753,51 +570,47 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
     struct Window *win;
     ULONG flags = data->wd_CrtFlags;
     struct IBox altdims;
-    ULONG backfill, buttons;
+    ULONG backfill;
 
     struct Menu *menu = NULL;
     struct NewMenu *newmenu = NULL;
     APTR visinfo = NULL;
-
-    Object *gadgets;
+    struct windowpos *winp = 0;
 
     if (!(data->wd_Flags & MUIWF_DONTACTIVATE))
     {
         flags |= WFLG_ACTIVATE;
     }
 
-    /* Toolboxes are handled differently on AmigaOS */
-#ifdef __AROS__
-    if (data->wd_Flags & MUIWF_TOOLBOX)
-        flags |= WFLG_TOOLBOX;
-#endif
-
-    if (data->wd_MinMax.MinHeight == data->wd_MinMax.MaxHeight
-        && data->wd_MinMax.MinWidth == data->wd_MinMax.MaxWidth)
+    if 
+    (
+           data->wd_MinMax.MinHeight == data->wd_MinMax.MaxHeight
+	&& data->wd_MinMax.MinWidth  == data->wd_MinMax.MaxWidth
+    )
         flags &= ~WFLG_SIZEGADGET;
 
     if (!(flags & WFLG_SIZEBRIGHT))
         flags |= WFLG_SIZEBBOTTOM;
-
-    struct Screen *scr;
     
     CalcWindowPosition(obj, data);
 
-    scr = data->wd_RenderInfo.mri_Screen;
-    if ((visinfo = GetVisualInfoA(scr, NULL)))
+    if ((visinfo = GetVisualInfoA(data->wd_RenderInfo.mri_Screen,NULL)))
     {
         if (data->wd_Menustrip)
         {
-            get(data->wd_Menustrip, MUIA_Menuitem_NewMenu, &newmenu);
+	    get(data->wd_Menustrip,MUIA_Menuitem_NewMenu,&newmenu);
             if (newmenu)
             {
-                if ((menu = CreateMenusA(newmenu, NULL)))
-                {
-                    struct TagItem tags[] = {
-                        {GTMN_NewLookMenus, TRUE},
-                        {TAG_DONE, (IPTR) NULL}
+              
+		if ((menu = CreateMenusA(newmenu,NULL)))
+		{
+		    struct TagItem tags[] =
+                    {
+                        { GTMN_NewLookMenus, TRUE       },
+                        { TAG_DONE,          (IPTR)NULL }
                     };
                     LayoutMenusA(menu, visinfo, tags);
+                    
                 }
             }
         }
@@ -805,126 +618,105 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
     }
 
     CreateWindowScrollbars(obj, data);
+    CalcAltDimensions(obj, data);
     altdims = data->wd_AltDim;
-    CalcAltDimensions(obj, data, &altdims);
-
-    /* hack to account for border size, as we only know the innersize and
-     * must give the total size.
+    /* hack to account for border size, as we only know the innersize and must give
+     * the total size.
      */
-    altdims.Width +=
-        scr->WBorLeft +
-        scr->WBorRight;
-    altdims.Height +=
-        scr->WBorTop +
-        scr->WBorBottom +
+    altdims.Width += data->wd_RenderInfo.mri_Screen->WBorLeft + data->wd_RenderInfo.mri_Screen->WBorRight;
+    altdims.Height += data->wd_RenderInfo.mri_Screen->WBorTop + data->wd_RenderInfo.mri_Screen->WBorBottom + 
         data->wd_RenderInfo.mri_DrawInfo->dri_Font->tf_YSize + 1;
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->window_redraw ==
-        WINDOW_REDRAW_WITHOUT_CLEAR)
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_redraw == WINDOW_REDRAW_WITHOUT_CLEAR)
         backfill = WA_BackFill;
     else
         backfill = TAG_IGNORE;
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->window_refresh ==
-        WINDOW_REFRESH_SMART)
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_refresh == WINDOW_REFRESH_SMART)
+
         flags &= ~WFLG_SIMPLE_REFRESH;
-    struct windowpos *winp = 0;
-    
-    set(_app(obj), MUIA_Application_SearchWinId, data->wd_ID);
-    get(_app(obj), MUIA_Application_GetWinPos, &winp);
+
+ //new
+	    set(_app(obj),MUIA_Application_SearchWinId,data->wd_ID);
+    get(_app(obj),MUIA_Application_GetWinPos,&winp);
     if (winp)
     {
-        if (scr->Width >
-            (data->wd_X + data->wd_Width))
-        {
-            data->wd_X = winp->x1;
-            data->wd_Width = winp->w1;
-        }
-        if (scr->Height >
-            (data->wd_Y + data->wd_Height))
-        {
-            data->wd_Y = winp->y1;
-            data->wd_Height = winp->h1;
-        }
-    }
+       if (data->wd_RenderInfo.mri_Screen->Width > (data->wd_X + data->wd_Width))     
+       {
+       data->wd_X=winp->x1;
+       data->wd_Width=winp->w1;
+       }
+      if (data->wd_RenderInfo.mri_Screen->Height > (data->wd_Y + data->wd_Height))     
+       { 
+       data->wd_Y=winp->y1;
+       data->wd_Height=winp->h1;
+       }  
 
-    gadgets =
-        (data->wd_VertProp !=
-        NULL) ? data->wd_VertProp : data->wd_HorizProp;
-    buttons = muiGlobalInfo(obj)->mgi_Prefs->window_buttons;
+    }                                           
+//new e
 
     win = OpenWindowTags
-        (NULL,
-        WA_Left, (IPTR) data->wd_X,
-        WA_Top, (IPTR) data->wd_Y,
-        WA_Flags, (IPTR) flags,
+    (
+        NULL,
+
+        WA_Left,                (IPTR) data->wd_X,
+        WA_Top,                 (IPTR) data->wd_Y,
+        WA_Flags,               (IPTR) flags,
         data->wd_Title ?
-        WA_Title :
-        TAG_IGNORE, (IPTR) data->wd_Title,
+            WA_Title   :
+            TAG_IGNORE,         (IPTR) data->wd_Title,
         data->wd_ScreenTitle ?
-        WA_ScreenTitle :
-        TAG_IGNORE, (IPTR) data->wd_ScreenTitle,
-        WA_CustomScreen, (IPTR) scr,
-        WA_InnerWidth, (IPTR) data->wd_Width,
-        WA_InnerHeight, (IPTR) data->wd_Height,
-        WA_AutoAdjust, (IPTR) TRUE, WA_NewLookMenus, (IPTR) TRUE,
-/* AmigaOS v4 extension */
-#ifdef WA_ToolBox
-        WA_ToolBox, (IPTR) ! !(data->wd_Flags & MUIWF_TOOLBOX),
-#endif
-/* MorphOS extensions */
-#ifdef WA_ExtraGadget_MUI
-        WA_ExtraGadget_MUI,
-        (IPTR) ((buttons & MUIV_Window_Button_MUI) != 0) ? TRUE : FALSE,
-        WA_ExtraGadget_PopUp,
-        (IPTR) ((buttons & MUIV_Window_Button_Popup) != 0) ? TRUE : FALSE,
-        WA_ExtraGadget_Snapshot,
-        (IPTR) ((buttons & MUIV_Window_Button_Snapshot) !=
-            0) ? TRUE : FALSE, WA_ExtraGadget_Iconify,
-        (IPTR) ((buttons & MUIV_Window_Button_Iconify) != 0) ? TRUE : FALSE,
-#endif
+            WA_ScreenTitle   :
+            TAG_IGNORE,         (IPTR) data->wd_ScreenTitle,
+        WA_CustomScreen,        (IPTR) data->wd_RenderInfo.mri_Screen,
+        WA_InnerWidth,          (IPTR) data->wd_Width,
+        WA_InnerHeight,         (IPTR) data->wd_Height,
+        WA_AutoAdjust,          (IPTR) TRUE,
+        WA_NewLookMenus,        (IPTR) TRUE,
         data->wd_NoMenus ?
-        WA_RMBTrap :
-        TAG_IGNORE, (IPTR) TRUE,
-        WA_Gadgets, (IPTR) gadgets,
+            WA_RMBTrap   :
+            TAG_IGNORE,         (IPTR) TRUE,
+        WA_Gadgets,             (IPTR) data->wd_VertProp,
         data->wd_ZoomGadget ?
-        WA_Zoom :
-        TAG_IGNORE, (IPTR) & altdims,
-        backfill, (IPTR) LAYERS_NOBACKFILL, TAG_DONE);
+            WA_Zoom         :
+            TAG_IGNORE,         (IPTR) &altdims,
+        backfill,               (IPTR) LAYERS_NOBACKFILL,
+        TAG_DONE
+    );
 
     if (win)
     {
-
         int hborders = win->BorderLeft + win->BorderRight;
-        int vborders = win->BorderTop + win->BorderBottom;
+        int vborders = win->BorderTop  + win->BorderBottom;
 
-        /* recalc window size (which will hopefully equal our requested
-         * size) */
-        data->wd_Width = win->GZZWidth;
+        /* recalc window size (which will hopefully equal our requested size) */
+        data->wd_Width  = win->GZZWidth;
         data->wd_Height = win->GZZHeight;
 
         /* set window limits according to window contents */
         WindowLimits
-            (win, data->wd_MinMax.MinWidth + hborders,
+        (
+            win, data->wd_MinMax.MinWidth  + hborders,
             data->wd_MinMax.MinHeight + vborders,
-            data->wd_MinMax.MaxWidth + hborders,
-            data->wd_MinMax.MaxHeight + vborders);
+            data->wd_MinMax.MaxWidth  + hborders,
+            data->wd_MinMax.MaxHeight + vborders
+        );
 
-        win->UserData = (BYTE *) data->wd_RenderInfo.mri_WindowObject;
-        win->UserPort = muiGlobalInfo(obj)->mgi_WindowsPort;
-            /* Same port for all windows */
+        win->UserData = (char*)data->wd_RenderInfo.mri_WindowObject;
+        win->UserPort = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_WindowsPort; /* Same port for all windows */
         ModifyIDCMP(win, data->wd_Events);
 
         data->wd_RenderInfo.mri_Window = win;
         data->wd_RenderInfo.mri_VertProp = data->wd_VertProp;
         data->wd_RenderInfo.mri_HorizProp = data->wd_HorizProp;
-        SetDrMd(win->RPort, JAM1);
-            //text is drawn wrong in toolbarclass if not set
+       //new
+        SetDrMd(win->RPort,JAM1); //text is draw wrong in toolbarclass if not set
+        //new end
 
         if (menu)
         {
             data->wd_Menu = menu;
-            SetMenuStrip(win, menu);
+	    SetMenuStrip(win,menu);
         }
 
         if (flags & WFLG_ACTIVATE)
@@ -935,14 +727,13 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
         if (data->wd_Flags & MUIWF_ISAPPWINDOW)
         {
             data->wd_AppWindow = AddAppWindowA(0, (IPTR) obj, win,
-                muiGlobalInfo(obj)->mgi_AppPort, NULL);
+                ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_AppPort, NULL);
         }
 
         return TRUE;
     }
 
-    if (menu)
-        FreeMenus(menu);
+    if (menu) FreeMenus(menu);
     UndisplayWindow(obj, data);
 
     return FALSE;
@@ -952,17 +743,13 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
 static void UndisplayWindow(Object *obj, struct MUI_WindowData *data)
 {
     struct Window *win = data->wd_RenderInfo.mri_Window;
-    BOOL prefssnap =
-        data->wd_ID != 0 &&
-        ((muiGlobalInfo(obj)->mgi_Prefs->window_position ==
-            WINDOW_POSITION_REMEMBER_ON_EXIT)
-        || (muiGlobalInfo(obj)->mgi_Prefs->window_position ==
-            WINDOW_POSITION_SAVE_ON_EXIT));
-
-    if (prefssnap)
-    {
-        DoMethod(obj, MUIM_Window_Snapshot, 1);
-    }
+    //new wp
+      
+      if ((data->wd_ReqX >= 0) && (data->wd_ReqY >= 0))
+      { 
+        DoMethod(obj,MUIM_Window_Snapshot,0);
+      }  
+    //new end wp
 
     data->wd_RenderInfo.mri_Window = NULL;
     data->wd_RenderInfo.mri_VertProp = NULL;
@@ -972,11 +759,32 @@ static void UndisplayWindow(Object *obj, struct MUI_WindowData *data)
 
     if (win != NULL)
     {
+        /* store position and size */
+        
+        if (data->wd_ReqX >=0)
+        data->wd_X      = win->LeftEdge;
+        else
+        data->wd_X      = data->wd_ReqX;
+        
+        if (data->wd_ReqY >=0)
+        data->wd_Y      = win->TopEdge;
+        else
+        data->wd_Y      = data->wd_ReqY;
+        
+        data->wd_Width  = win->GZZWidth;
+        data->wd_Height = win->GZZHeight;
+
         ClearMenuStrip(win);
         if (data->wd_Menu)
         {
             FreeMenus(data->wd_Menu);
             data->wd_Menu = NULL;
+        }
+
+        if (data->wd_AppWindow)
+        {
+            RemoveAppWindow(data->wd_AppWindow);
+            data->wd_AppWindow = NULL;
         }
 
         if (win->UserPort)
@@ -985,11 +793,12 @@ static void UndisplayWindow(Object *obj, struct MUI_WindowData *data)
 
             /* remove all messages pending for this window */
             Forbid();
-            for (msg =
-                (struct IntuiMessage *)win->UserPort->mp_MsgList.lh_Head;
-                (succ =
-                    (struct IntuiMessage *)msg->ExecMessage.mn_Node.
-                    ln_Succ); msg = succ)
+            for
+            (
+                msg  = (struct IntuiMessage *)win->UserPort->mp_MsgList.lh_Head;
+                (succ = (struct IntuiMessage *)msg->ExecMessage.mn_Node.ln_Succ);
+                msg  = succ
+            )
             {
                 if (msg->IDCMPWindow == win)
                 {
@@ -1002,16 +811,15 @@ static void UndisplayWindow(Object *obj, struct MUI_WindowData *data)
             Permit();
         }
 
-        /*  D(bug("before CloseWindow\n")); */
+/*  	D(bug("before CloseWindow\n")); */
         CloseWindow(win);
-        /*  D(bug("after CloseWindow\n")); */
+/*  	D(bug("after CloseWindow\n")); */
     }
 
 #define DISPOSEGADGET(x) \
     if (x)\
     {\
-        DoMethod(obj, MUIM_Window_FreeGadgetID,\
-            ((struct Gadget*)x)->GadgetID);\
+	    DoMethod(obj, MUIM_Window_FreeGadgetID, ((struct Gadget*)x)->GadgetID);\
         DisposeObject(x);\
         x = NULL;\
     }
@@ -1026,68 +834,8 @@ static void UndisplayWindow(Object *obj, struct MUI_WindowData *data)
 }
 
 
-static VOID RefreshWindow(Object *oWin, struct MUI_WindowData *data)
-{
-    if (data->wd_Flags & MUIWF_RESIZING)
-    {
-        //LONG left,top,right,bottom;
-        if (MUI_BeginRefresh(&data->wd_RenderInfo, 0))
-        {
-            MUI_EndRefresh(&data->wd_RenderInfo, 0);
-        }
-        RefreshWindowFrame(data->wd_RenderInfo.mri_Window);
-
-        data->wd_Flags &= ~MUIWF_RESIZING;
-        _width(data->wd_RootObject) = data->wd_Width;
-        _height(data->wd_RootObject) = data->wd_Height;
-        DoMethod(data->wd_RootObject, MUIM_Layout);
-        DoShowMethod(data->wd_RootObject);
-
-        if (muiGlobalInfo(oWin)->mgi_Prefs->window_redraw ==
-            WINDOW_REDRAW_WITH_CLEAR)
-        {
-            LONG left, top, width, height;
-
-            left = data->wd_RenderInfo.mri_Window->BorderLeft;
-            top = data->wd_RenderInfo.mri_Window->BorderTop;
-            width =
-                data->wd_RenderInfo.mri_Window->Width -
-                data->wd_RenderInfo.mri_Window->BorderRight - left;
-            height =
-                data->wd_RenderInfo.mri_Window->Height -
-                data->wd_RenderInfo.mri_Window->BorderBottom - top;
-
-            if (data->wd_Flags & MUIWF_ERASEAREA)
-            {
-                //D(bug("%d:zune_imspec_draw(%p) "
-                //    "l=%d t=%d w=%d h=%d xo=%d yo=%d\n",
-                //    __LINE__, data->wd_Background, left, top, width,
-                //    height, left, top));
-                zune_imspec_draw(data->wd_Background,
-                    &data->wd_RenderInfo, left, top, width, height,
-                    left, top, 0);
-            }
-            MUI_Redraw(data->wd_RootObject, MADF_DRAWALL);
-        }
-        else
-            MUI_Redraw(data->wd_RootObject, MADF_DRAWOBJECT);
-        // but should only draw focus without using MUIM_GoActive !
-        ActivateObject(data);
-    }
-    else
-    {
-        if (MUI_BeginRefresh(&data->wd_RenderInfo, 0))
-        {
-            MUI_Redraw(data->wd_RootObject, MADF_DRAWALL);
-            // but should only draw focus without using MUIM_GoActive !
-            ActivateObject(data);
-            MUI_EndRefresh(&data->wd_RenderInfo, 0);
-        }
-    }
-}
-
-
 /* Initialize data->wd_X and data->wd_Y for DisplayWindow */
+/* FIXME 20030817: needs some fixing, seems not fully implemented */
 static void CalcWindowPosition(Object *obj, struct MUI_WindowData *data)
 {
     struct MUI_RenderInfo *mri = &data->wd_RenderInfo;
@@ -1146,90 +894,122 @@ static void CalcWindowPosition(Object *obj, struct MUI_WindowData *data)
         data->wd_Y += refy;
 }
 
-/* Initialize alternative dimensions for DisplayWindow */
-static void CalcAltDimensions(Object *obj, struct MUI_WindowData *data,
-    struct IBox *altdims)
+/* Initialize data->wd_AltDim for DisplayWindow */
+static void CalcAltDimensions(Object *obj, struct MUI_WindowData *data)
 {
 /* Calculate alternate (zoomed) dimensions.
  */
-    if (altdims->Top == MUIV_Window_AltTopEdge_NoChange)
-        altdims->Top = ~0;
-    else if (altdims->Top == MUIV_Window_AltTopEdge_Centered)
-        altdims->Top =
-            (data->wd_RenderInfo.mri_Screen->Height - data->wd_Height) / 2;
-    else if (altdims->Top == MUIV_Window_AltTopEdge_Moused)
-        /* ? */ altdims->Top = ~0;
+    if (data->wd_AltDim.Top == MUIV_Window_AltTopEdge_NoChange)
+	data->wd_AltDim.Top = ~0;
+    else if (data->wd_AltDim.Top == MUIV_Window_AltTopEdge_Centered)
+	data->wd_AltDim.Top = (data->wd_RenderInfo.mri_Screen->Height - data->wd_Height)/2;
+    else if (data->wd_AltDim.Top == MUIV_Window_AltTopEdge_Moused)
+	/* ? */ data->wd_AltDim.Top = ~0;
 
-    if (altdims->Left == MUIV_Window_AltLeftEdge_NoChange)
-        altdims->Left = ~0;
-    else if (altdims->Left == MUIV_Window_AltLeftEdge_Centered)
-        altdims->Left =
-            (data->wd_RenderInfo.mri_Screen->Width - data->wd_Width) / 2;
-    else if (altdims->Left == MUIV_Window_AltLeftEdge_Moused)
-        /* ? */ altdims->Left = ~0;
+    if (data->wd_AltDim.Left == MUIV_Window_AltLeftEdge_NoChange)
+	data->wd_AltDim.Left = ~0;
+    else if (data->wd_AltDim.Left == MUIV_Window_AltLeftEdge_Centered)
+	data->wd_AltDim.Left = (data->wd_RenderInfo.mri_Screen->Width - data->wd_Width)/2;
+    else if (data->wd_AltDim.Left == MUIV_Window_AltLeftEdge_Moused)
+	/* ? */ data->wd_AltDim.Left = ~0;
 
-    if (_between
-        (MUIV_Window_AltWidth_MinMax(100),
-            altdims->Width, MUIV_Window_AltWidth_MinMax(0)))
+    if 
+    (
+        _between
+        (
+            MUIV_Window_AltWidth_MinMax(100),
+            data->wd_AltDim.Width,
+            MUIV_Window_AltWidth_MinMax(0)
+        )
+    )
     {
-        altdims->Width = data->wd_MinMax.MinWidth
-            - altdims->Width
+	data->wd_AltDim.Width = data->wd_MinMax.MinWidth
+	    - data->wd_AltDim.Width
             * (data->wd_MinMax.MaxWidth - data->wd_MinMax.MinWidth);
     }
     else if
-        (_between
-        (MUIV_Window_AltWidth_Screen(100),
-            altdims->Width, MUIV_Window_AltWidth_Screen(0)))
+    (
+        _between
+        (
+            MUIV_Window_AltWidth_Screen(100),
+            data->wd_AltDim.Width,
+            MUIV_Window_AltWidth_Screen(0)
+        )
+    )
     {
-        altdims->Width = data->wd_RenderInfo.mri_Screen->Width
-            * (-(altdims->Width + 200)) / 100;
+	data->wd_AltDim.Width = data->wd_RenderInfo.mri_Screen->Width
+	    * (- (data->wd_AltDim.Width + 200)) / 100;
     }
     else if
-        (_between
-        (MUIV_Window_AltWidth_Visible(100),
-            altdims->Width, MUIV_Window_AltWidth_Visible(0)))
+    (
+        _between
+        (
+            MUIV_Window_AltWidth_Visible(100),
+            data->wd_AltDim.Width,
+            MUIV_Window_AltWidth_Visible(0)
+        )
+    )
     {
-        altdims->Width = data->wd_RenderInfo.mri_Screen->Width
-            * (-(altdims->Width + 100)) / 100;
+	data->wd_AltDim.Width = data->wd_RenderInfo.mri_Screen->Width
+	    * (- (data->wd_AltDim.Width + 100)) / 100;
     }
 
-    if (_between
-        (MUIV_Window_AltHeight_MinMax(100),
-            altdims->Height, MUIV_Window_AltHeight_MinMax(0)))
+    if
+    (
+        _between
+        (
+            MUIV_Window_AltHeight_MinMax(100),
+            data->wd_AltDim.Height,
+            MUIV_Window_AltHeight_MinMax(0)
+        )
+    )
     {
-        altdims->Height = data->wd_MinMax.MinHeight
-            - altdims->Height
+	data->wd_AltDim.Height = data->wd_MinMax.MinHeight
+	    - data->wd_AltDim.Height
             * (data->wd_MinMax.MaxHeight - data->wd_MinMax.MinHeight);
     }
     else if
-        (_between
-        (MUIV_Window_AltHeight_Screen(100),
-            altdims->Height, MUIV_Window_AltHeight_Screen(0)))
+    (
+        _between
+        (
+            MUIV_Window_AltHeight_Screen(100),
+            data->wd_AltDim.Height,
+            MUIV_Window_AltHeight_Screen(0)
+        )
+    )
     {
-        altdims->Height = data->wd_RenderInfo.mri_Screen->Height
-            * (-(altdims->Height + 200)) / 100;
+	data->wd_AltDim.Height = data->wd_RenderInfo.mri_Screen->Height
+	    * (- (data->wd_AltDim.Height + 200)) / 100;
     }
     else if
-        (_between
-        (MUIV_Window_AltHeight_Visible(100),
-            altdims->Height, MUIV_Window_AltHeight_Visible(0)))
+    (
+        _between
+        (
+            MUIV_Window_AltHeight_Visible(100),
+            data->wd_AltDim.Height,
+            MUIV_Window_AltHeight_Visible(0)
+        )
+    )
     {
-        altdims->Height = data->wd_RenderInfo.mri_Screen->Height
-            * (-(altdims->Height + 100)) / 100;
+	data->wd_AltDim.Height = data->wd_RenderInfo.mri_Screen->Height
+	    * (- (data->wd_AltDim.Height + 100)) / 100;
     }
 
-    altdims->Width = CLAMP
-        (altdims->Width, data->wd_MinMax.MinWidth,
-        data->wd_MinMax.MaxWidth);
-    altdims->Height = CLAMP
-        (altdims->Height, data->wd_MinMax.MinHeight,
-        data->wd_MinMax.MaxHeight);
+    data->wd_AltDim.Width = CLAMP
+    (
+        data->wd_AltDim.Width, data->wd_MinMax.MinWidth, 
+        data->wd_MinMax.MaxWidth
+    );
+    data->wd_AltDim.Height = CLAMP
+    (
+        data->wd_AltDim.Height, data->wd_MinMax.MinHeight,
+        data->wd_MinMax.MaxHeight
+    );
 }
 
 
 /* Create horiz/vert window scrollbars for DisplayWindow */
-static void CreateWindowScrollbars(Object *obj,
-    struct MUI_WindowData *data)
+static void CreateWindowScrollbars(Object *obj, struct MUI_WindowData *data)
 {
     struct MUI_RenderInfo *mri = &data->wd_RenderInfo;
     Object *firstgad = NULL;
@@ -1245,46 +1025,61 @@ static void CreateWindowScrollbars(Object *obj,
 
         id = DoMethod(obj, MUIM_Window_AllocGadgetID);
         firstgad = prevgad = data->wd_VertProp = NewObject
-            (NULL, "propgclass",
-            GA_RelRight, 1 - (IM(mri->mri_UpImage)->Width - voffset),
-            GA_Top, mri->mri_BorderTop + 2,
-            GA_Width, IM(mri->mri_UpImage)->Width - voffset * 2,
-            GA_RelHeight, -(mri->mri_BorderTop + 2)
+        (
+            NULL, "propgclass",
+            
+            GA_RelRight,    1 - (IM(mri->mri_UpImage)->Width - voffset),
+            GA_Top,         mri->mri_BorderTop + 2,
+            GA_Width,       IM(mri->mri_UpImage)->Width - voffset * 2,
+            GA_RelHeight,   - (mri->mri_BorderTop + 2) 
             - IM(mri->mri_UpImage)->Height
             - IM(mri->mri_DownImage)->Height
             - IM(mri->mri_SizeImage)->Height - 2,
             GA_RightBorder, TRUE,
-            GA_ID, id,
+            GA_ID,          id,
             PGA_Borderless, TRUE,
-            PGA_NewLook, TRUE,
-            PGA_Freedom, FREEVERT,
-            PGA_Top, 0,
-            PGA_Total, 2,
-            PGA_Visible, 1, ICA_TARGET, ICTARGET_IDCMP, TAG_DONE);
+            PGA_NewLook,    TRUE,
+            PGA_Freedom,    FREEVERT,
+            PGA_Top,        0,
+            PGA_Total,      2,
+            PGA_Visible,    1,
+            ICA_TARGET,     ICTARGET_IDCMP,
+            TAG_DONE
+        );
 
         id = DoMethod(obj, MUIM_Window_AllocGadgetID);
         prevgad = data->wd_UpButton = NewObject
-            (NULL, "buttongclass",
-            GA_Image, (IPTR) mri->mri_UpImage,
-            GA_RelRight, 1 - IM(mri->mri_UpImage)->Width,
-            GA_RelBottom, 1 - IM(mri->mri_UpImage)->Height
+        (
+            NULL, "buttongclass",
+            
+            GA_Image,       (IPTR)mri->mri_UpImage,
+            GA_RelRight,    1 - IM(mri->mri_UpImage)->Width,
+            GA_RelBottom,   1 - IM(mri->mri_UpImage)->Height 
             - IM(mri->mri_DownImage)->Height
             - IM(mri->mri_SizeImage)->Height,
             GA_RightBorder, TRUE,
-            GA_Previous, (IPTR) prevgad,
-            GA_ID, id, ICA_TARGET, ICTARGET_IDCMP, TAG_DONE);
+            GA_Previous,    (IPTR)prevgad,
+            GA_ID,          id,
+            ICA_TARGET,     ICTARGET_IDCMP,
+            TAG_DONE
+        );
 
         id = DoMethod(obj, MUIM_Window_AllocGadgetID);
         prevgad = data->wd_DownButton = NewObject
-            (NULL, "buttongclass",
-            GA_Image, (IPTR) mri->mri_DownImage,
-            GA_RelRight, 1 - IM(mri->mri_DownImage)->Width,
-            GA_RelBottom, 1 - IM(mri->mri_DownImage)->Height
+        (
+            NULL, "buttongclass",
+            
+            GA_Image,       (IPTR)mri->mri_DownImage,
+            GA_RelRight,    1 - IM(mri->mri_DownImage)->Width,
+            GA_RelBottom,   1 - IM(mri->mri_DownImage)->Height 
             - IM(mri->mri_SizeImage)->Height,
             GA_RightBorder, TRUE,
-            GA_Previous, (IPTR) prevgad,
-            GA_ID, id, ICA_TARGET, ICTARGET_IDCMP, TAG_DONE);
-    }
+            GA_Previous,    (IPTR)prevgad,
+            GA_ID,          id,
+            ICA_TARGET,     ICTARGET_IDCMP,
+            TAG_DONE
+        );
+    } // if (data->wd_Flags & MUIWF_USERIGHTSCROLLER)
 
     /* Create the bottom border scrollers now if requested */
     if (data->wd_Flags & MUIWF_USEBOTTOMSCROLLER)
@@ -1295,92 +1090,109 @@ static void CreateWindowScrollbars(Object *obj,
 
         id = DoMethod(obj, MUIM_Window_AllocGadgetID);
         prevgad = data->wd_HorizProp = NewObject
-            (NULL, "propgclass",
-            GA_RelBottom, 1 - (IM(mri->mri_LeftImage)->Height - hoffset),
-            GA_Left, mri->mri_BorderLeft,
-            GA_Height, IM(mri->mri_LeftImage)->Height
+        (
+            NULL, "propgclass",
+            
+            GA_RelBottom,                       1 - (IM(mri->mri_LeftImage)->Height - hoffset),
+            GA_Left,                            mri->mri_BorderLeft,
+            GA_Height,                          IM(mri->mri_LeftImage)->Height 
             - hoffset * 2,
-            GA_RelWidth, -(mri->mri_BorderLeft)
+            GA_RelWidth,                        - (mri->mri_BorderLeft) 
             - IM(mri->mri_LeftImage)->Width
             - IM(mri->mri_RightImage)->Width
             - IM(mri->mri_SizeImage)->Width
             - 2,
-            GA_BottomBorder, TRUE,
-            GA_ID, id,
-            prevgad ? GA_Previous : TAG_IGNORE, (IPTR) prevgad,
-            PGA_Borderless, TRUE,
-            PGA_NewLook, TRUE,
-            PGA_Freedom, FREEHORIZ,
-            PGA_Top, 0,
-            PGA_Total, 2,
-            PGA_Visible, 1, ICA_TARGET, ICTARGET_IDCMP, TAG_DONE);
+            GA_BottomBorder,                    TRUE,
+            GA_ID,                              id,
+            prevgad ? GA_Previous : TAG_IGNORE, (IPTR)prevgad,
+            PGA_Borderless,                     TRUE,
+            PGA_NewLook,                        TRUE,
+            PGA_Freedom,                        FREEHORIZ,
+            PGA_Top,                            0,
+            PGA_Total,                          2,
+            PGA_Visible,                        1,
+            ICA_TARGET,                         ICTARGET_IDCMP,
+            TAG_DONE
+        );
 
-        if (!firstgad)
-            firstgad = prevgad;
+	if (!firstgad) firstgad = prevgad;
 
         id = DoMethod(obj, MUIM_Window_AllocGadgetID);
         prevgad = data->wd_LeftButton = NewObject
-            (NULL, "buttongclass",
-            GA_Image, (IPTR) mri->mri_LeftImage,
-            GA_RelRight, 1 - IM(mri->mri_LeftImage)->Width
+        (
+            NULL, "buttongclass",
+            
+            GA_Image,        (IPTR)mri->mri_LeftImage,
+            GA_RelRight,     1 - IM(mri->mri_LeftImage)->Width 
             - IM(mri->mri_RightImage)->Width
             - IM(mri->mri_SizeImage)->Width,
-            GA_RelBottom, 1 - IM(mri->mri_LeftImage)->Height,
+            GA_RelBottom,    1 - IM(mri->mri_LeftImage)->Height,
             GA_BottomBorder, TRUE,
-            GA_Previous, (IPTR) prevgad,
-            GA_ID, id, ICA_TARGET, ICTARGET_IDCMP, TAG_DONE);
+            GA_Previous,     (IPTR)prevgad,
+            GA_ID,           id,
+            ICA_TARGET,      ICTARGET_IDCMP,
+            TAG_DONE
+        );
 
         id = DoMethod(obj, MUIM_Window_AllocGadgetID);
         prevgad = data->wd_RightButton = NewObject
-            (NULL, "buttongclass",
-            GA_Image, (IPTR) mri->mri_RightImage,
-            GA_RelRight, 1 - IM(mri->mri_RightImage)->Width
+        (
+            NULL, "buttongclass",
+            
+            GA_Image,        (IPTR)mri->mri_RightImage,
+            GA_RelRight,     1 - IM(mri->mri_RightImage)->Width 
             - IM(mri->mri_SizeImage)->Width,
-            GA_RelBottom, 1 - IM(mri->mri_RightImage)->Height,
+            GA_RelBottom,    1 - IM(mri->mri_RightImage)->Height,
             GA_BottomBorder, TRUE,
-            GA_Previous, (IPTR) prevgad,
-            GA_ID, id, ICA_TARGET, ICTARGET_IDCMP, TAG_DONE);
-    }
+            GA_Previous,     (IPTR)prevgad,
+            GA_ID,           id,
+            ICA_TARGET,      ICTARGET_IDCMP,
+            TAG_DONE);
+    } // if (data->wd_Flags & MUIWF_USEBOTTOMSCROLLER)
 }
 
 /* return FALSE only if no resize (dx=dy=0) occured */
-static BOOL WindowResize(struct MUI_WindowData *data)
+static BOOL WindowResize (struct MUI_WindowData *data)
 {
     struct Window *win = data->wd_RenderInfo.mri_Window;
     int hborders = win->BorderLeft + win->BorderRight;
-    int vborders = win->BorderTop + win->BorderBottom;
-    WORD dx = data->wd_Width - win->Width + hborders;
+    int vborders = win->BorderTop  + win->BorderBottom;
+    WORD dx = data->wd_Width  - win->Width + hborders;
     WORD dy = data->wd_Height - win->Height + vborders;
-
     /* Temporarily disable window limits to let SizeWindow below work
        regardless of the previous limits */
-    WindowLimits(win, 1, 1, -1, -1);
+    WindowLimits
+    (
+        win, 1,
+        1,
+        -1,
+        -1
+    );
 /*      D(bug("_zune_window_resize : dx=%d, dy=%d\n", dx, dy)); */
     SizeWindow(win, dx, dy);
 
-    /* Set new window limits */
+    /* The following WindowLimits() call doesn't really work because SizeWindow() is async */
     WindowLimits
-        (win, data->wd_MinMax.MinWidth + hborders,
+    (
+        win, data->wd_MinMax.MinWidth + hborders,
         data->wd_MinMax.MinHeight + vborders,
         data->wd_MinMax.MaxWidth + hborders,
-        data->wd_MinMax.MaxHeight + vborders);
+        data->wd_MinMax.MaxHeight + vborders
+    );
 
-    return dx || dy;
+    return (BOOL)(dx || dy);
 }
 
-static void KillHelpBubble(struct MUI_WindowData *data, Object *obj,
-    BOOL kill_bubblemode)
+static void KillHelpBubble(struct MUI_WindowData *data, Object *obj, BOOL kill_bubblemode)
 {
     if (data->wd_HelpObject)
     {
-        DoMethod(data->wd_HelpObject, MUIM_DeleteBubble,
-            (IPTR) data->wd_HelpBubble);
+    	DoMethod(data->wd_HelpObject, MUIM_DeleteBubble, (IPTR)data->wd_HelpBubble);
         data->wd_HelpObject = NULL;
         data->wd_HelpBubble = NULL;
     }
 
-    if (kill_bubblemode)
-        data->wd_Flags &= ~MUIWF_BUBBLEMODE;
+    if (kill_bubblemode) data->wd_Flags &= ~MUIWF_BUBBLEMODE;
 
     if (data->wd_Flags & MUIWF_BUBBLEMODE)
     {
@@ -1395,77 +1207,75 @@ static void KillHelpBubble(struct MUI_WindowData *data, Object *obj,
 
 /**************/
 
-typedef BOOL(*UNDERCHECK_FUNC) (Object *obj);
+typedef BOOL (*UNDERCHECK_FUNC)(Object *obj);
 
 static BOOL ShortHelpUnderPointerCheck(Object *obj)
 {
-    return muiAreaData(obj)->mad_ShortHelp ? TRUE : FALSE;
+    return (BOOL)(muiAreaData(obj)->mad_ShortHelp ? TRUE : FALSE);
 }
 
 static Object *ObjectUnderPointer(struct MUI_WindowData *data, Object *obj,
     LONG x, LONG y, UNDERCHECK_FUNC func)
 {
-    Object *cstate;
-    Object *child;
-    struct MinList *ChildList = NULL;
+    Object                *cstate;
+    Object                *child;
+    struct MinList        *ChildList;
 
     if (!(muiAreaData(obj)->mad_Flags & MADF_CANDRAW))
         return NULL;
 
     if (!(x >= _left(obj) && x <= _right(obj)
-            && y >= _top(obj) && y <= _bottom(obj)))
+	  && y >= _top(obj)  && y <= _bottom(obj))) 
     {
         return NULL;
     }
 
-    if ((get(obj, MUIA_Group_ChildList, &(ChildList)))
-        && (ChildList != NULL))
+    if (get(obj, MUIA_Group_ChildList, (IPTR *)&(ChildList)))
     {
-        cstate = (Object *) ChildList->mlh_Head;
+        cstate = (Object *)ChildList->mlh_Head;
         while ((child = NextObject(&cstate)))
         {
             Object *ret;
 
             if ((x >= _left(child) && x <= _right(child)
                     &&
-                    y >= _top(child) && y <= _bottom(child))
-                && (ret = ObjectUnderPointer(data, child, x, y, func)))
+		 y >= _top(child)  && y <= _bottom(child))
+		&&
+		(ret = ObjectUnderPointer(data, child, x, y, func)))
             {
                 return ret;
             }
         }
     }
 
-    if (!(*func) (obj))
-        return NULL;
+    if (!(*func)(obj)) return NULL;
 
     return obj;
 }
 
-static BOOL ContextMenuUnderPointer(struct MUI_WindowData *data,
-    Object *obj, LONG x, LONG y)
+static BOOL ContextMenuUnderPointer(struct MUI_WindowData *data, Object *obj, LONG x, LONG y)
 {
-    Object *cstate;
-    Object *child;
-    struct MinList *ChildList = NULL;
+    Object                *cstate;
+    Object                *child;
+    struct MinList        *ChildList = 0;
 
     if (!(x >= _left(obj) && x <= _right(obj)
-            && y >= _top(obj) && y <= _bottom(obj)))
+	  && y >= _top(obj)  && y <= _bottom(obj))) 
     {
         return FALSE;
     }
 
-    if ((get(obj, MUIA_Group_ChildList, &(ChildList)))
-        && (ChildList != NULL))
+    if (get(obj, MUIA_Group_ChildList, (IPTR *)&(ChildList)) && (ChildList != 0))
     {
 
-        cstate = (Object *) ChildList->mlh_Head;
+        cstate = (Object *)ChildList->mlh_Head;
         while ((child = NextObject(&cstate)))
         {
             if ((x >= _left(child) && x <= _right(child)
                     &&
-                    y >= _top(child) && y <= _bottom(child))
-                && (ContextMenuUnderPointer(data, child, x, y)))
+		 y >= _top(child)  && y <= _bottom(child))
+		&&
+		(ContextMenuUnderPointer(data,child,x,y)))
                 return TRUE;
         }
     }
@@ -1480,93 +1290,94 @@ static BOOL ContextMenuUnderPointer(struct MUI_WindowData *data,
 
 /**************/
 
-static void ActivateObject(struct MUI_WindowData *data)
+static void ActivateObject (struct MUI_WindowData *data)
 {
     //bug("Window::ActivateObject (dummy) %08lx\n", data->wd_ActiveObject);
     //    if (FindObjNode(&data->wd_CycleChain, data->wd_ActiveObject))
-    //        DoMethod(data->wd_ActiveObject, MUIM_GoActive);
+//	DoMethod(data->wd_ActiveObject, MUIM_GoActive);
     //    else
-    //        data->wd_ActiveObject = NULL;
-
+//	data->wd_ActiveObject = NULL;
     //activate better string gadgets.Fix from Georg S On ML List
+	
     if (FindObjNode(&data->wd_CycleChain, data->wd_ActiveObject))
     {
         if (!(data->wd_Flags & MUIWF_OBJECTGOACTIVESENT))
         {
             data->wd_Flags |= MUIWF_OBJECTGOACTIVESENT;
             DoMethod(data->wd_ActiveObject, MUIM_GoActive);
+        //DoMethod(_app(obj), MUIM_Application_PushMethod,data->wd_ActiveObject , 1, MUIM_GoActive, (IPTR)_parent(obj));    
         }
+       
     }
     else
         data->wd_ActiveObject = NULL;
+	
+	//TRAP
+
 }
 
 /**************/
 
+static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
+			     struct IntuiMessage *event);
+
 /* handle intuimessage while an object is being dragged
  * (reply imsg before returning)
- * Returns TRUE if finished dragging.
  */
-static BOOL HandleDragging(Object *oWin, struct MUI_WindowData *data,
+void HandleDragging (Object *oWin, struct MUI_WindowData *data,
     struct IntuiMessage *imsg)
 {
     struct Window *iWin;
-    BOOL finish_drag = FALSE;
+    int finish_drag = 0;
 
     iWin = imsg->IDCMPWindow;
 
     if (imsg->Class == IDCMP_MOUSEMOVE)
     {
         struct Layer *layer;
-
-        LockLayerInfo(&iWin->WScreen->LayerInfo);
-        layer = WhichLayer(&iWin->WScreen->LayerInfo,
-            iWin->LeftEdge + imsg->MouseX, iWin->TopEdge + imsg->MouseY);
-        UnlockLayerInfo(&iWin->WScreen->LayerInfo);
+	layer = WhichLayer(&iWin->WScreen->LayerInfo, iWin->LeftEdge + imsg->MouseX, iWin->TopEdge + imsg->MouseY);
 
         if (data->wd_DropObject)
         {
             struct Window *wnd;
-            WORD mousex =
-                imsg->MouseX + iWin->LeftEdge -
-                data->wd_DropWindow->LeftEdge;
-            WORD mousey =
-                imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge;
+	    WORD mousex = imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge;
+	    WORD mousey = imsg->MouseY + iWin->TopEdge  - data->wd_DropWindow->TopEdge;
 
             wnd = _window(data->wd_DropObject);
-            if (mousex < _left(data->wd_DropObject)
+	    if
+                (
+		    mousex < _left(data->wd_DropObject)
                 || mousex > _right(data->wd_DropObject)
                 || mousey < _top(data->wd_DropObject)
                 || mousey > _bottom(data->wd_DropObject)
-                || layer != wnd->WLayer)
+                    || layer != wnd->WLayer
+		    )
             {
                 /* We have left the object */
                 UndrawDragNDrop(data->wd_dnd);
-                DoMethod(data->wd_DropObject, MUIM_DragFinish,
-                    (IPTR) data->wd_DragObject);
+		DoMethod(data->wd_DropObject, MUIM_DragFinish,(IPTR)data->wd_DragObject);
                 data->wd_DropObject = NULL;
             }
-        }                       /* if (data->wd_DropObject) */
+	} /* if (data->wd_DropObject) */
 
         if (!data->wd_DropObject)
         {
             Object *dest_wnd = NULL;
 
-            /* Find out if app has an open window at this position */
+	    /* Find out if app has an openend window at this position */
             if (layer)
             {
-                Object *cstate;
-                Object *child;
-                struct MinList *ChildList = 0;
+		Object                *cstate;
+		Object                *child;
+		struct MinList        *ChildList;
 
-                get(_app(oWin), MUIA_Application_WindowList, &(ChildList));
-                cstate = (Object *) ChildList->mlh_Head;
+		get(_app(oWin), MUIA_Application_WindowList, (IPTR *)&(ChildList));
+		cstate = (Object *)ChildList->mlh_Head;
                 while ((child = NextObject(&cstate)))
                 {
-                    struct Window *wnd = NULL;
-                    get(child, MUIA_Window_Window, &wnd);
-                    if (!wnd)
-                        continue;
+		    struct Window *wnd;
+		    get(child, MUIA_Window_Window,&wnd);
+		    if (!wnd) continue;
 
                     if (wnd->WLayer == layer)
                     {
@@ -1575,126 +1386,116 @@ static BOOL HandleDragging(Object *oWin, struct MUI_WindowData *data,
                         break;
                     }
                 }
-            }                   /* if (layer) */
+	    } /* if (layer) */
 
             if (dest_wnd)
             {
-                Object *root = NULL;
-                get(dest_wnd, MUIA_Window_RootObject, &root);
+		Object *root;
+		get(dest_wnd, MUIA_Window_RootObject, (IPTR *)&root);
 
                 if (root)
                 {
-                    if ((data->wd_DropObject = (Object *) DoMethod
-                            (root, MUIM_DragQueryExtended,
+		    if
+                        (
+                            (
+                                data->wd_DropObject = (Object*) DoMethod
+                                (
+                                    root, MUIM_DragQueryExtended, 
                                 (IPTR) data->wd_DragObject,
-                                imsg->MouseX + iWin->LeftEdge -
-                                data->wd_DropWindow->LeftEdge,
-                                imsg->MouseY + iWin->TopEdge -
-                                data->wd_DropWindow->TopEdge)))
+                                    imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
+                                    imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge
+				    )
+				)
+			    )
                     {
                         UndrawDragNDrop(data->wd_dnd);
-                        DoMethod(data->wd_DropObject, MUIM_DragBegin,
-                            (IPTR) data->wd_DragObject);
+			DoMethod(data->wd_DropObject, MUIM_DragBegin,(IPTR)data->wd_DragObject);
                     }
                 }
-            }
-        }
+	    } /* if (dest_wnd) */
+	} /* if (!data->wd_DropObject) */
 
         if (data->wd_DropObject)
         {
             LONG update = 0;
             LONG i;
-            for (i = 0; i < 2; i++)
+	    for (i=0;i<2;i++)
             {
-                LONG res = DoMethod(data->wd_DropObject, MUIM_DragReport,
+		LONG res = DoMethod
+                    (
+                        data->wd_DropObject, MUIM_DragReport, 
                     (IPTR) data->wd_DragObject,
-                    imsg->MouseX + iWin->LeftEdge -
-                    data->wd_DropWindow->LeftEdge,
-                    imsg->MouseY + iWin->TopEdge -
-                    data->wd_DropWindow->TopEdge, update);
+                        imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
+                        imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge,update
+			);
                 switch (res)
                 {
                 case MUIV_DragReport_Abort:
                     UndrawDragNDrop(data->wd_dnd);
-                    DoMethod(data->wd_DropObject, MUIM_DragFinish,
-                        (IPTR) data->wd_DragObject);
+			DoMethod(data->wd_DropObject, MUIM_DragFinish,(IPTR)data->wd_DragObject);
                     data->wd_DropObject = NULL;
                     i = 1;
                     break;
 
-                case MUIV_DragReport_Continue:
-                    break;
-                case MUIV_DragReport_Lock:
-                    break;      /* NYI */
+		    case MUIV_DragReport_Continue: break;
+		    case MUIV_DragReport_Lock: break; /* NYI */
                 case MUIV_DragReport_Refresh:
                     UndrawDragNDrop(data->wd_dnd);
                     update = 1;
                     break;
                 }
             }
-        }
-        DrawDragNDrop(data->wd_dnd, imsg->MouseX + iWin->LeftEdge,
-            imsg->MouseY + iWin->TopEdge);
-    }
+	} /* if (data->wd_DropObject) */
+	DrawDragNDrop(data->wd_dnd, imsg->MouseX + iWin->LeftEdge , imsg->MouseY + iWin->TopEdge);
+    } /* if (imsg->Class == IDCMP_MOUSEMOVE) */
 
     if (imsg->Class == IDCMP_MOUSEBUTTONS)
     {
-        if ((imsg->Code == MENUDOWN) || (imsg->Code == SELECTUP))
+                 
+	if ((imsg->Code == MENUDOWN)  || (imsg->Code == SELECTUP))
         {
-            UndrawDragNDrop(data->wd_dnd);
             if (imsg->Code == SELECTUP && data->wd_DropObject)
             {
-                DoMethod(data->wd_DropObject, MUIM_DragDrop,
-                    (IPTR) data->wd_DragObject,
-                    imsg->MouseX + iWin->LeftEdge -
-                    data->wd_DropWindow->LeftEdge,
-                    imsg->MouseY + iWin->TopEdge -
-                    data->wd_DropWindow->TopEdge);
-                DoMethod(data->wd_DropObject, MUIM_DragFinish,
-                    (IPTR) data->wd_DragObject);
+		UndrawDragNDrop(data->wd_dnd);
+		DoMethod(data->wd_DropObject, MUIM_DragFinish, (IPTR)data->wd_DragObject);
+		DoMethod
+                    (
+                        data->wd_DropObject, MUIM_DragDrop, (IPTR)data->wd_DragObject,
+                        imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
+                        imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge
+			);
                 data->wd_DropObject = NULL;
             }
-            else if (imsg->Code == SELECTUP)
-            {
-                DoMethod(data->wd_DragObject, MUIM_UnknownDropDestination,
-                    imsg);
-            }
-            finish_drag = TRUE;
+	    finish_drag = 1;
         }
     }
 
     if (imsg->Class == IDCMP_CLOSEWINDOW)
-        finish_drag = TRUE;
+	finish_drag = 1;
 
     if (finish_drag)
     {
+	UndrawDragNDrop(data->wd_dnd);
         if (data->wd_DropObject)
         {
-            UndrawDragNDrop(data->wd_dnd);
-            DoMethod(data->wd_DropObject, MUIM_DragFinish,
-                (IPTR) data->wd_DragObject);
+	    DoMethod(data->wd_DropObject, MUIM_DragFinish,(IPTR)data->wd_DragObject);
             data->wd_DropObject = NULL;
         }
         DeleteDragNDrop(data->wd_dnd);
-        DoMethod(data->wd_DragObject, MUIM_DeleteDragImage,
-            (IPTR) data->wd_DragImage);
+	DoMethod(data->wd_DragObject,MUIM_DeleteDragImage, (IPTR)data->wd_DragImage);
         muiAreaData(data->wd_DragObject)->mad_Flags &= ~MADF_DRAGGING;
         data->wd_DragImage = NULL;
         data->wd_DragObject = NULL;
         data->wd_DropWindow = NULL;
         data->wd_dnd = NULL;
-
         /* stop listening to IDCMP_MOUSEMOVE */
         ChangeEvents(data, GetDefaultEvents());
     }
-    if (!finish_drag)
-        ReplyMsg((struct Message *)imsg);
-
-    return finish_drag;
+    ReplyMsg((struct Message*)imsg);
 }
 
 /* Reply to imsg if handled */
-BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
+BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
     struct IntuiMessage *imsg)
 {
     struct Window *iWin;
@@ -1706,10 +1507,13 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
     {
     case IDCMP_ACTIVEWINDOW:
         data->wd_Flags |= MUIWF_ACTIVE;
+          
         if (data->wd_OldActive)
+	     {         
             set(oWin, MUIA_Window_ActiveObject, data->wd_OldActive);
+         }
         set(oWin, MUIA_Window_Activate, TRUE);
-        is_handled = FALSE;     /* forwardable to area event handlers */
+	    is_handled = FALSE; /* forwardable to area event handlers */
         break;
 
     case IDCMP_INACTIVEWINDOW:
@@ -1717,12 +1521,11 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
         if (data->wd_ActiveObject)
         {
             data->wd_OldActive = data->wd_ActiveObject;
-            set(oWin, MUIA_Window_ActiveObject,
-                MUIV_Window_ActiveObject_None);
+		//set(oWin, MUIA_Window_ActiveObject, MUIV_Window_ActiveObject_None); //when texteditor class is active and new window is open and close this line make trouble 
         }
         data->wd_Flags &= ~MUIWF_ACTIVE;
         set(oWin, MUIA_Window_Activate, FALSE);
-        is_handled = FALSE;     /* forwardable to area event handlers */
+	    is_handled = FALSE; /* forwardable to area event handlers */
         break;
 
     case IDCMP_NEWSIZE:
@@ -1775,46 +1578,97 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
         break;
 
     case IDCMP_REFRESHWINDOW:
-        ReplyMsg((struct Message *)imsg);
+	    ReplyMsg((struct Message*)imsg);
         replied = TRUE;
-        RefreshWindow(oWin, data);
+
+	    if (data->wd_Flags & MUIWF_RESIZING)
+	    {
+		//LONG left,top,right,bottom;
+		if (MUI_BeginRefresh(&data->wd_RenderInfo, 0))
+		{
+		    MUI_EndRefresh(&data->wd_RenderInfo, 0);
+		}
+		RefreshWindowFrame(data->wd_RenderInfo.mri_Window);
+
+		data->wd_Flags &= ~MUIWF_RESIZING;
+		_width(data->wd_RootObject) = data->wd_Width;
+		_height(data->wd_RootObject) = data->wd_Height;
+		DoMethod(data->wd_RootObject, MUIM_Layout);
+		DoShowMethod(data->wd_RootObject);
+
+		if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(oWin))->mgi_Prefs->window_redraw == WINDOW_REDRAW_WITH_CLEAR)
+		{
+		    LONG left,top,width,height;
+
+		    left = data->wd_RenderInfo.mri_Window->BorderLeft;
+		    top = data->wd_RenderInfo.mri_Window->BorderTop,
+			width = data->wd_RenderInfo.mri_Window->Width - data->wd_RenderInfo.mri_Window->BorderRight - left;
+		    height = data->wd_RenderInfo.mri_Window->Height - data->wd_RenderInfo.mri_Window->BorderBottom - top;
+
+		    if(data->wd_Flags & MUIWF_ERASEAREA)
+		    {
+//			D(bug("%d:zune_imspec_draw(%p) l=%d t=%d w=%d h=%d xo=%d yo=%d\n",
+//			      __LINE__, data->wd_Background, left, top, width,
+//			      height, left, top));
+			zune_imspec_draw(data->wd_Background, &data->wd_RenderInfo,
+					 left, top, width, height, left, top, 0);
+		    }
+		    MUI_Redraw(data->wd_RootObject, MADF_DRAWALL);
+		}
+		else
+		    MUI_Redraw(data->wd_RootObject, MADF_DRAWOBJECT);
+		// but should only draw focus without using MUIM_GoActive !
+		ActivateObject(data);
+	    }
+	    else
+	    {
+		if (MUI_BeginRefresh(&data->wd_RenderInfo, 0))
+		{
+		    MUI_Redraw(data->wd_RootObject, MADF_DRAWALL);
+		    // but should only draw focus without using MUIM_GoActive !
+		    ActivateObject(data);
+		    MUI_EndRefresh(&data->wd_RenderInfo, 0);
+		}
+	    }
+	    
         break;
 
     case IDCMP_CLOSEWINDOW:
-        ReplyMsg((struct Message *)imsg);
+	    ReplyMsg((struct Message*)imsg);
         replied = TRUE;
         set(oWin, MUIA_Window_CloseRequest, TRUE);
         break;
 
     case IDCMP_MENUPICK:
-        ReplyMsg((struct Message *)imsg);
+	    ReplyMsg((struct Message*)imsg);
         replied = TRUE;
+        //new wp
+        DoMethod(oWin,MUIM_Window_Snapshot,0);
 
+        //new end wp 
         if (data->wd_Menu)
         {
-            if (MENUNUM(imsg->Code) != NOMENU
-                && ITEMNUM(imsg->Code) != NOITEM)
+		if (MENUNUM(imsg->Code) != NOMENU && ITEMNUM(imsg->Code) != NOITEM)
             {
-                struct MenuItem *item =
-                    ItemAddress(data->wd_Menu, imsg->Code);
+		    struct MenuItem *item = ItemAddress(data->wd_Menu,imsg->Code);
                 if (item)
                 {
-                    Object *item_obj = (Object *) GTMENUITEM_USERDATA(item);
+			Object *item_obj = (Object*)GTMENUITEM_USERDATA(item);
                     if (item_obj)
                     {
-                        Object *app = NULL;
-                        IPTR udata = 0;
+			    Object *app;
+			    IPTR udata;
 
                         if (item->Flags & CHECKIT)
-                            set(item_obj, MUIA_Menuitem_Checked,
-                                ! !(item->Flags & CHECKED));
+				set(item_obj, MUIA_Menuitem_Checked, !!(item->Flags & CHECKED));
 
-                        set(item_obj, MUIA_Menuitem_Trigger, (IPTR) item);
+			    set(item_obj, MUIA_Menuitem_Trigger, (IPTR)item);
 
                         get(oWin, MUIA_ApplicationObject, &app);
                         get(item_obj, MUIA_UserData, &udata);
 
                         set(app, MUIA_Application_MenuAction, udata);
+			   
                         set(oWin, MUIA_Window_MenuAction, udata);
                         DoMethod(app, MUIM_Application_ReturnID, udata);
                     }
@@ -1824,11 +1678,11 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
         break;
 
     case IDCMP_IDCMPUPDATE:
-        is_handled = FALSE;     /* forwardable to area event handlers */
+	    is_handled = FALSE; /* forwardable to area event handlers */
         if (data->wd_VertProp || data->wd_HorizProp)
         {
             struct TagItem *tag;
-            tag = FindTagItem(GA_ID, (struct TagItem *)imsg->IAddress);
+		tag = FindTagItem(GA_ID,(struct TagItem*)imsg->IAddress);
             if (tag)
             {
                 /* If there's a propclass object connected to the prop
@@ -1842,22 +1696,16 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
 
                     if (tag->ti_Data == GADGETID(data->wd_UpButton))
                     {
-                        Object *prop =
-                            (Object *) ((struct Gadget *)data->
-                            wd_VertProp)->UserData;
+			    Object *prop = (Object *)((struct Gadget *)data->wd_VertProp)->UserData;
                         is_handled = TRUE;
-                        if (prop)
-                            DoMethod(prop, MUIM_Prop_Decrease, 1);
+			    if (prop) DoMethod(prop, MUIM_Prop_Decrease, 1);
                     }
 
                     if (tag->ti_Data == GADGETID(data->wd_DownButton))
                     {
-                        Object *prop =
-                            (Object *) ((struct Gadget *)data->
-                            wd_VertProp)->UserData;
+			    Object *prop = (Object *)((struct Gadget *)data->wd_VertProp)->UserData;
                         is_handled = TRUE;
-                        if (prop)
-                            DoMethod(prop, MUIM_Prop_Increase, 1);
+			    if (prop) DoMethod(prop, MUIM_Prop_Increase, 1);
                     }
 
                 }
@@ -1869,22 +1717,16 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
 
                     if (tag->ti_Data == GADGETID(data->wd_LeftButton))
                     {
-                        Object *prop =
-                            (Object *) ((struct Gadget *)data->
-                            wd_HorizProp)->UserData;
+			    Object *prop = (Object *)((struct Gadget *)data->wd_HorizProp)->UserData;
                         is_handled = TRUE;
-                        if (prop)
-                            DoMethod(prop, MUIM_Prop_Decrease, 1);
+			    if (prop) DoMethod(prop, MUIM_Prop_Decrease, 1);
                     }
 
                     if (tag->ti_Data == GADGETID(data->wd_RightButton))
                     {
-                        Object *prop =
-                            (Object *) ((struct Gadget *)data->
-                            wd_HorizProp)->UserData;
+			    Object *prop = (Object *)((struct Gadget *)data->wd_HorizProp)->UserData;
                         is_handled = TRUE;
-                        if (prop)
-                            DoMethod(prop, MUIM_Prop_Increase, 1);
+			    if (prop) DoMethod(prop, MUIM_Prop_Increase, 1);
                     }
 
                 }
@@ -1899,17 +1741,14 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
 
             if (data->wd_HelpTicker == 0)
             {
-                Object *underobj =
-                    ObjectUnderPointer(data, data->wd_RootObject,
-                    imsg->MouseX, imsg->MouseY,
+	    	    Object *underobj = ObjectUnderPointer(data, data->wd_RootObject, imsg->MouseX, imsg->MouseY,
                     ShortHelpUnderPointerCheck);
 
                 if (underobj != data->wd_HelpObject)
                 {
                     if (data->wd_HelpObject)
                     {
-                        DoMethod(data->wd_HelpObject, MUIM_DeleteBubble,
-                            (IPTR) data->wd_HelpBubble);
+		    	    DoMethod(data->wd_HelpObject, MUIM_DeleteBubble, (IPTR)data->wd_HelpBubble);
 
                         data->wd_HelpObject = NULL;
                         data->wd_HelpBubble = NULL;
@@ -1917,9 +1756,9 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
 
                     if (underobj)
                     {
-                        data->wd_HelpBubble =
-                            (APTR) DoMethod(underobj, MUIM_CreateBubble,
-                            imsg->MouseX, imsg->MouseY, 0, 0);
+			    data->wd_HelpBubble = (APTR)DoMethod(underobj, MUIM_CreateBubble,
+			    	    	    	    		 imsg->MouseX, imsg->MouseY,
+			    	    	    	    		 0, 0);
                         if (data->wd_HelpBubble)
                         {
                             data->wd_HelpObject = underobj;
@@ -1935,15 +1774,20 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
                 else
                 {
                     data->wd_HelpTicker = BUBBLEHELP_TICKER_FIRST;
-                }
-            }
-        }
-
-        is_handled = FALSE;     /* forwardable to area event handlers */
+		    }
+		
+		} /* if (data->wd_HelpTicker == 0) */
+		
+	    } /* if (data->wd_HelpTicker) */
+	    
+	    is_handled = FALSE; /* forwardable to area event handlers */
         break;
 
     case IDCMP_MOUSEBUTTONS:
-        DoMethod(oWin, MUIM_Window_Snapshot, 0);
+        //new wp
+        DoMethod(oWin,MUIM_Window_Snapshot,0);
+        //new end wp 
+
         KillHelpBubble(data, oWin, TRUE);
         is_handled = FALSE;
         break;
@@ -1957,31 +1801,29 @@ BOOL HandleWindowEvent(Object *oWin, struct MUI_WindowData *data,
     default:
         is_handled = FALSE;
         break;
-    }
+    } /* switch (imsg->Class) */
 
     if (is_handled && !replied)
-        ReplyMsg((struct Message *)imsg);
+	ReplyMsg((struct Message*)imsg);
 
     return is_handled;
 }
 
-static ULONG InvokeEventHandler(struct MUI_EventHandlerNode *ehn,
+static ULONG InvokeEventHandler (struct MUI_EventHandlerNode *ehn,
     struct IntuiMessage *event, ULONG muikey)
 {
     ULONG res;
 
-    if (ehn->ehn_Flags & MUI_EHF_GUIMODE)
-    {
-        if (!(_flags(ehn->ehn_Object) & MADF_CANDRAW))
-            return 0;
-        if (!(_flags(ehn->ehn_Object) & MADF_SHOWME))
-            return 0;
-    }
+    if (!(_flags(ehn->ehn_Object) & MADF_CANDRAW)) return 0;
+    if (!(_flags(ehn->ehn_Object) & MADF_SHOWME)) return 0;
 
-    if (event != NULL
+    if
+    (
+	event != NULL
         && event->Class == IDCMP_MOUSEBUTTONS
         && event->Code == SELECTDOWN
-        && (_flags(ehn->ehn_Object) & MADF_INVIRTUALGROUP))
+	&& (_flags(ehn->ehn_Object) & MADF_INVIRTUALGROUP)
+    )
     {
         /*
            Here we filter out SELECTDOWN messages if objects is in a virtual
@@ -1991,18 +1833,19 @@ static ULONG InvokeEventHandler(struct MUI_EventHandlerNode *ehn,
         Object *parent = obj;
         Object *wnd = _win(obj);
 
-        while (get(parent, MUIA_Parent, &parent))
-        {
-            if (!parent)
-                break;
-            if (wnd == parent)
-                break;
+	while (get(parent,MUIA_Parent,(IPTR *)&parent))
+	{
+	    if (!parent) break;
+	    if (wnd == parent) break;
             if (_flags(parent) & MADF_ISVIRTUALGROUP)
             {
-                if (event->MouseX < _mleft(parent)
+		if
+                (
+                       event->MouseX < _mleft(parent) 
                     || event->MouseX > _mright(parent)
                     || event->MouseY < _mtop(parent)
-                    || event->MouseY > _mbottom(parent))
+                    || event->MouseY > _mbottom(parent)
+                )
                 {
                     return 0;
                 }
@@ -2013,61 +1856,53 @@ static ULONG InvokeEventHandler(struct MUI_EventHandlerNode *ehn,
 
     if (ehn->ehn_Flags & MUI_EHF_HANDLEINPUT)
     {
-        DoMethod(ehn->ehn_Object, MUIM_HandleInput, (IPTR) event, muikey);
+    	DoMethod(ehn->ehn_Object, MUIM_HandleInput, (IPTR)event, muikey);
         res = 0;
     }
     else
     {
         if (ehn->ehn_Class)
             res = CoerceMethod
-                (ehn->ehn_Class, ehn->ehn_Object, MUIM_HandleEvent,
-                (IPTR) event, muikey);
-        else
-            res =
-                DoMethod(ehn->ehn_Object, MUIM_HandleEvent, (IPTR) event,
-                muikey);
+            (
+                ehn->ehn_Class, ehn->ehn_Object, MUIM_HandleEvent, 
+                (IPTR)event, muikey
+            );
+	else
+	    res = DoMethod(ehn->ehn_Object, MUIM_HandleEvent, (IPTR)event, muikey);
     }
-
     return res;
 }
 
 static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     struct IntuiMessage *event)
 {
-    struct MinNode *mn;
+    struct MinNode              *mn;
     struct MUI_EventHandlerNode *ehn;
-    struct IntuiMessage imsg_copy;
-    struct InputEvent ie = { 0 };
-    ULONG res;
-    LONG muikey = MUIKEY_NONE;
-    Object *active_object = NULL;
-    IPTR disabled = 0;
-    ULONG key;
-    ULONG deadkey;
-
-    KillHelpBubble(data, win, BUBBLEHELP_TICKER_FIRST);
-
-    ie.ie_NextEvent = NULL;
-    ie.ie_Class = IECLASS_RAWKEY;
-    ie.ie_SubClass = 0;
-    ie.ie_Code = event->Code;
-    ie.ie_Qualifier = event->Qualifier;
-    ie.ie_EventAddress = (APTR) * (IPTR *) event->IAddress;
-#ifdef __AMIGAOS4__
-    ie.ie_TimeStamp.Seconds = event->Seconds;
-    ie.ie_TimeStamp.Microseconds = event->Micros;
-#else
-    ie.ie_TimeStamp.tv_secs = event->Seconds;
-    ie.ie_TimeStamp.tv_micro = event->Micros;
-#endif
-
-    set(win, MUIA_Window_InputEvent, (IPTR) & ie);
+    struct IntuiMessage          imsg_copy;
+    struct InputEvent	    	 ie = {0};
+    ULONG                        res;
+    LONG                         muikey = MUIKEY_NONE;
+    Object                      *active_object = NULL;
+    IPTR                         disabled;
+    ULONG                        key;
+    ULONG                        deadkey;
+    //KillHelpBubble(data, win, BUBBLEHELP_TICKER_FIRST); make problems when scroll with key
+  
+    ie.ie_NextEvent 	    	= NULL;
+    ie.ie_Class     	    	= IECLASS_RAWKEY;
+    ie.ie_SubClass  	    	= 0;
+    ie.ie_Code      	    	= event->Code;
+    ie.ie_Qualifier 	    	= event->Qualifier;
+    ie.ie_EventAddress      	= (APTR)*(ULONG *)event->IAddress;
+    ie.ie_TimeStamp.tv_secs     = event->Seconds;
+    ie.ie_TimeStamp.tv_micro    = event->Micros;
+    
+    set(win, MUIA_Window_InputEvent, (IPTR)&ie);
 
     /* get the vanilla key for control char */
     {
         UWORD msg_code;
-
-        /* Remove the up prefix as convert key does not convert upkey event */
+	/* Remove the up prefix as convert key does not convert a upkey event */
         msg_code = event->Code;
         event->Code &= ~IECODE_UP_PREFIX;
         key = ConvertKey(event);
@@ -2075,25 +1910,25 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     }
 
     imsg_copy = *event;
-    deadkey = *(ULONG *) event->IAddress;
+    deadkey = *(ULONG *)event->IAddress;
     imsg_copy.IAddress = &deadkey;
-    ReplyMsg((struct Message *)event);
+    ReplyMsg((struct Message*)event);
     event = &imsg_copy;
 
     //bug("rawkey: code=%lx, qual=%lx\n", event->Code, event->Qualifier);
 
-    /* check if imsg translates to predefined keystroke */
+    /* check if imsg translate to predefined keystroke */
     {
         struct InputEvent ievent;
         BOOL matched = FALSE;
 
-        ievent.ie_NextEvent = NULL;
-        ievent.ie_Class = IECLASS_RAWKEY;
-        ievent.ie_SubClass = 0;
-        ievent.ie_Code = event->Code;
-        ievent.ie_Qualifier = event->Qualifier;
+	ievent.ie_NextEvent    = NULL;
+	ievent.ie_Class        = IECLASS_RAWKEY;
+	ievent.ie_SubClass     = 0;
+	ievent.ie_Code         = event->Code;
+	ievent.ie_Qualifier    = event->Qualifier;
         /* ie_EventAddress is not used by MatchIX. If needed, it should be
-         * ensured that it is still a valid address because of the shallow
+	 * ensured that it is still a valid adress because of the shallow
          * IntuiMessage copy currently done in _zune_window_message before
          * message is replied.
          */
@@ -2102,9 +1937,8 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
 
         for (muikey = MUIKEY_COUNT - 1; muikey >= MUIKEY_PRESS; muikey--)
         {
-            if (muiGlobalInfo(win)->mgi_Prefs->muikeys[muikey].ix_well != 0
-                && MatchIX(&ievent,
-                    &muiGlobalInfo(win)->mgi_Prefs->muikeys[muikey].ix))
+            if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(win))->mgi_Prefs->muikeys[muikey].ix_well != 0
+		&& MatchIX(&ievent, &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(win))->mgi_Prefs->muikeys[muikey].ix))
             {
                 matched = TRUE;
                 break;
@@ -2120,74 +1954,52 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
         {
             muikey = MUIKEY_NONE;
         }
-    }        /* check if imsg translate to predefined keystroke */
+    } /* check if imsg translate to predefined keystroke */
 
-    if ((muikey != MUIKEY_NONE) && !(data->wd_DisabledKeys & (1 << muikey)))
+    if ((muikey != MUIKEY_NONE)
+	&& !(data->wd_DisabledKeys & (1<<muikey)))
     {
-        D(bug("HandleRawkey: try MUIKEY %ld on window %0x08lx\n", muikey,
-                win));
+	D(bug("HandleRawkey: try MUIKEY %ld on window %0x08lx\n", muikey, win));
         switch (muikey)
         {
-        case MUIKEY_PRESS:
-            break;
-        case MUIKEY_TOGGLE:
-            break;
-        case MUIKEY_UP:
-            break;
-        case MUIKEY_DOWN:
-            break;
-        case MUIKEY_PAGEUP:
-            break;
-        case MUIKEY_PAGEDOWN:
-            break;
-        case MUIKEY_TOP:
-            break;
-        case MUIKEY_BOTTOM:
-            break;
-        case MUIKEY_LEFT:
-            break;
-        case MUIKEY_RIGHT:
-            break;
-        case MUIKEY_WORDLEFT:
-            break;
-        case MUIKEY_WORDRIGHT:
-            break;
-        case MUIKEY_LINESTART:
-            break;
-        case MUIKEY_LINEEND:
-            break;
+	    case MUIKEY_PRESS: break;
+	    case MUIKEY_TOGGLE: break;
+	    case MUIKEY_UP: break;
+	    case MUIKEY_DOWN: break;
+	    case MUIKEY_PAGEUP: break;
+	    case MUIKEY_PAGEDOWN: break;
+	    case MUIKEY_TOP: break;
+	    case MUIKEY_BOTTOM: break;
+	    case MUIKEY_LEFT: break;
+	    case MUIKEY_RIGHT: break;
+	    case MUIKEY_WORDLEFT: break;
+	    case MUIKEY_WORDRIGHT: break;
+	    case MUIKEY_LINESTART: break;
+	    case MUIKEY_LINEEND: break;
         case MUIKEY_GADGET_NEXT:
-            set(win, MUIA_Window_ActiveObject,
-                MUIV_Window_ActiveObject_Next);
+		set(win, MUIA_Window_ActiveObject, MUIV_Window_ActiveObject_Next);
             break;
         case MUIKEY_GADGET_PREV:
-            set(win, MUIA_Window_ActiveObject,
-                MUIV_Window_ActiveObject_Prev);
+		set(win, MUIA_Window_ActiveObject, MUIV_Window_ActiveObject_Prev);
             break;
         case MUIKEY_GADGET_OFF:
-            set(win, MUIA_Window_ActiveObject,
-                MUIV_Window_ActiveObject_None);
+		set(win, MUIA_Window_ActiveObject, MUIV_Window_ActiveObject_None);
             break;
         case MUIKEY_WINDOW_CLOSE:
             set(win, MUIA_Window_CloseRequest, TRUE);
             break;
-        case MUIKEY_WINDOW_NEXT:
-            break;
-        case MUIKEY_WINDOW_PREV:
-            break;
-        case MUIKEY_HELP:
-            break;
-        case MUIKEY_POPUP:
-            break;
-        default:
-            break;
+	    case MUIKEY_WINDOW_NEXT: break;
+	    case MUIKEY_WINDOW_PREV: break;
+	    case MUIKEY_HELP: break;
+	    case MUIKEY_POPUP: break;
+	    default: break;
         }
     }
 
     active_object = NULL;
     if ((data->wd_ActiveObject != NULL)
         && (DoMethod(data->wd_RootObject, MUIM_FindAreaObject,
-                (IPTR) data->wd_ActiveObject) != (IPTR) NULL))
+		     (IPTR)data->wd_ActiveObject) != (IPTR)NULL))
     {
         active_object = data->wd_ActiveObject;
         get(active_object, MUIA_Disabled, &disabled);
@@ -2204,21 +2016,17 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
          ** MUIM_HandleEvent. Also note that there is a flag MUI_EHF_ALWAYSKEYS
          ** which probably means that all keys events are requested??
          ** For now MUIM_HandleEvent is used as this is currently implemented
-         ** in Area class ;) although I guess it should be MUIM_HandleInput as
-         ** this was earlier
+	** in Area class ;) although I guess it should be MUIM_HandleInput as this
+	** was earlier
          */
 
         if (muikey != MUIKEY_NONE)
         {
-            res =
-                DoMethod(active_object, MUIM_HandleEvent, (IPTR) event,
-                muikey);
-            if (res & MUI_EventHandlerRC_Eat)
-                return;
+	    res = DoMethod(active_object, MUIM_HandleEvent, (IPTR)event, muikey);
+	    if (res & MUI_EventHandlerRC_Eat) return;
         }
 #endif
-        D(bug("HandleRawkey: try active object (%08lx) handlers\n",
-                active_object));
+	D(bug("HandleRawkey: try active object (%08lx) handlers\n", active_object));
 
         for (mn = data->wd_EHList.mlh_Head; mn->mln_Succ; mn = mn->mln_Succ)
         {
@@ -2228,8 +2036,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
                 && ((ehn->ehn_Events & IDCMP_RAWKEY)
                     || (ehn->ehn_Flags & MUI_EHF_ALWAYSKEYS)))
             {
-                D(bug("HandleRawkey: (active) invoking on %p (ehn=%p) "
-                    "event=%p muikey=%p\n",
+		D(bug("HandleRawkey: (active) invoking on %p (ehn=%p) event=%p muikey=%p\n",
                     ehn->ehn_Object, ehn, event, muikey));
                 res = InvokeEventHandler(ehn, event, muikey);
                 D(bug("HandleRawkey: (active) got res=%d\n", res));
@@ -2240,7 +2047,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
                 if (active_object != data->wd_ActiveObject)
                     break;
             }
-        }
+	} /* for (mn = data->wd_EHList.mlh_Head; mn->mln_Succ; mn = mn->mln_Succ) */
 
         // event not eaten by active object, try its parents
         // this is to implement popup key in Popstring
@@ -2251,8 +2058,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
             D(bug("HandleRawkey: try active object parents handlers\n"));
             while (current_obj != NULL)
             {
-                for (mn = data->wd_EHList.mlh_Head; mn->mln_Succ;
-                    mn = mn->mln_Succ)
+		for (mn = data->wd_EHList.mlh_Head; mn->mln_Succ; mn = mn->mln_Succ)
                 {
                     ehn = (struct MUI_EventHandlerNode *)mn;
 
@@ -2260,43 +2066,45 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
                         && ((ehn->ehn_Events & IDCMP_RAWKEY)
                             || (ehn->ehn_Flags & MUI_EHF_ALWAYSKEYS)))
                     {
-                        //D(bug("HandleRawkey: (active parents) invoking on "
-                        //    "%p (ehn=%p) event=%p muikey=%p\n",
-                        //    ehn->ehn_Object, ehn, event, muikey));
+			//D(bug("HandleRawkey: (active parents) invoking on %p (ehn=%p) "
+			//"event=%p muikey=%p\n",
+			//ehn->ehn_Object, ehn, event, muikey));
                         res = InvokeEventHandler(ehn, event, muikey);
-                        //D(bug("HandleRawkey: (active parents) got res=%d\n",
-                        //    res));
+			//D(bug("HandleRawkey: (active parents) got res=%d\n", res));
                         if (res & MUI_EventHandlerRC_Eat)
                             return;
 
-                        /* Leave the loop if a different object has been
-                         * activated */
+			/* Leave the loop if a different object has been activated */
                         if (active_object != data->wd_ActiveObject)
                             break;
                     }
                 }
-                current_obj = (Object *) XGET(current_obj, MUIA_Parent);
-            }
-        }
+		current_obj = (Object *)XGET(current_obj, MUIA_Parent);
+	    } // while (current_obj != NULL)
     }
+
+
+    } /* if (active_object && !disabled) */
 
     D(bug("HandleRawkey: try default object handlers\n"));
 
     /* try DefaultObject */
+    
     if (data->wd_DefaultObject != NULL)
         get(data->wd_DefaultObject, MUIA_Disabled, &disabled);
 
     if ((data->wd_DefaultObject != NULL) && !disabled
         && (active_object != data->wd_DefaultObject))
     {
-        /* No, we only should do this if the object actually has requested
-         * this via RequestIDCMP()! */
-//     if (muikey != MUIKEY_NONE
-//         && (_flags(data->wd_DefaultObject) & MADF_CANDRAW))
-//     {
-//         DoMethod(data->wd_DefaultObject, MUIM_HandleInput, event, muikey);
-//         return;
-//     }
+    	/* No, we only should do this if the object actually has requested this via RequestIDCMP()! */
+    	if (muikey != MUIKEY_NONE && (_flags(data->wd_DefaultObject) & MADF_CANDRAW))
+    	{
+        DoMethod(data->wd_ActiveObject, MUIM_GoInactive);     //new start       
+        data->wd_ActiveObject = NULL;
+        data->wd_Flags &= ~MUIWF_OBJECTGOACTIVESENT;         // new end
+	    DoMethod(data->wd_DefaultObject, MUIM_HandleInput, event, muikey);
+	    //return;
+    	}
 
         for (mn = data->wd_EHList.mlh_Head; mn->mln_Succ; mn = mn->mln_Succ)
         {
@@ -2306,8 +2114,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
                 && ((ehn->ehn_Events & IDCMP_RAWKEY)
                     || (ehn->ehn_Flags & MUI_EHF_ALWAYSKEYS)))
             {
-                //D(bug("HandleRawkey: (default) invoking on %p (ehn=%p) "
-                //"event=%p muikey=%p\n",
+		//D(bug("HandleRawkey: (default) invoking on %p (ehn=%p) event=%p muikey=%p\n",
                 //ehn->ehn_Object, ehn, event, muikey));
                 res = InvokeEventHandler(ehn, event, muikey);
                 //D(bug("HandleRawkey: (default) got res=%d\n", res));
@@ -2316,7 +2123,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
             }
         }
 
-    }
+    } /* if ... default object */
 
     D(bug("HandleRawkey: try other handlers\n"));
 
@@ -2333,29 +2140,30 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
 
         if (ehn->ehn_Events & IDCMP_RAWKEY)
         {
-            //D(bug("HandleRawkey: (others) invoking on %p (ehn=%p) "
-            //"event=%p muikey=%p\n",
+	    //D(bug("HandleRawkey: (others) invoking on %p (ehn=%p) event=%p muikey=%p\n",
             //ehn->ehn_Object, ehn, event, muikey));
             res = InvokeEventHandler(ehn, event, MUIKEY_NONE);
             //D(bug("HandleRawkey: (others) got res=%d\n", res));
             if (res & MUI_EventHandlerRC_Eat)
                 return;
         }
-    }
+    } /* for (mn = data->wd_EHList.mlh_Head; mn->mln_Succ; mn = mn->mln_Succ) */
 
     D(bug("HandleRawkey: try control chars handlers\n"));
 
     /* try Control Chars */
     //bug("ctrlchar, key='%c' code=0x%08lx\n", key, event->Code);
+    
     if (key)
     {
+    
         for (mn = data->wd_CCList.mlh_Head; mn->mln_Succ; mn = mn->mln_Succ)
         {
             ehn = (struct MUI_EventHandlerNode *)mn;
 
             if (ehn->ehn_Events == key)
             {
-                IPTR disabled = 0;
+		IPTR disabled;
                 LONG muikey2 = ehn->ehn_Flags;
 
                 get(ehn->ehn_Object, MUIA_Disabled, &disabled);
@@ -2377,31 +2185,34 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
                     && (_flags(ehn->ehn_Object) & MADF_SHOWME))
                 {
                     res = CoerceMethod
-                        (ehn->ehn_Class, ehn->ehn_Object, MUIM_HandleEvent,
-                        (IPTR) NULL, muikey2);
+		    (
+		        ehn->ehn_Class, ehn->ehn_Object, MUIM_HandleEvent, 
+		        (IPTR)NULL, muikey2
+		    );
                     if (res & MUI_EventHandlerRC_Eat)
                         return;
                 }
             }
         }
-    }
+    } /* try control chars */
+    KillHelpBubble(data, win, BUBBLEHELP_TICKER_FIRST);
 }
 
 /* forward non-keystroke events to event handlers */
 static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
     struct IntuiMessage *event)
 {
-    struct MinNode *mn;
+    struct MinNode              *mn;
     struct MUI_EventHandlerNode *ehn;
-    struct IntuiMessage imsg_copy;
-    ULONG res;
-    ULONG mask = event->Class;
+    struct IntuiMessage          imsg_copy;
+    ULONG                        res;
+    ULONG                        mask = event->Class;
 
     if (mask != IDCMP_IDCMPUPDATE)
     {
         imsg_copy = *event;
-        imsg_copy.IAddress = NULL;      /* be sure to trap access to that */
-        ReplyMsg((struct Message *)event);
+	imsg_copy.IAddress = NULL; /* be sure to trap access to that */
+	ReplyMsg((struct Message*)event);
         event = &imsg_copy;
     }
 
@@ -2410,7 +2221,7 @@ static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
         struct Window *iWin;
         iWin = event->IDCMPWindow;
 
-        if (ContextMenuUnderPointer(data, data->wd_RootObject,
+	if (ContextMenuUnderPointer (data, data->wd_RootObject,
                 event->MouseX, event->MouseY))
         {
             iWin->Flags |= WFLG_RMBTRAP;
@@ -2427,7 +2238,7 @@ static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
 
         if (ehn->ehn_Events & mask)
         {
-            IPTR disabled = 0;
+	    IPTR disabled;
 
             get(ehn->ehn_Object, MUIA_Disabled, &disabled);
             if (disabled)
@@ -2441,21 +2252,21 @@ static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
     }
 
     if (mask == IDCMP_IDCMPUPDATE)
-        ReplyMsg((struct Message *)event);
+	ReplyMsg((struct Message*)event);
 }
 
 
-/* process window message; this does a ReplyMsg() to the message */
+/* process window message, this does a ReplyMsg() to the message */
 /* Called from application.c */
 void _zune_window_message(struct IntuiMessage *imsg)
 {
     struct Window *iWin;
-    Object *oWin;
+    Object        *oWin;
     struct MUI_WindowData *data;
     BOOL handled;
 
     iWin = imsg->IDCMPWindow;
-    oWin = (Object *) iWin->UserData;
+    oWin = (Object *)iWin->UserData;
     data = muiWindowData(oWin);
 
     if (data->wd_SleepCount > 0)
@@ -2469,19 +2280,16 @@ void _zune_window_message(struct IntuiMessage *imsg)
          */
         if (imsg->Class == IDCMP_REFRESHWINDOW)
         {
+            RefreshWindow(oWin, data);
             refresh=TRUE;
         }
         ReplyMsg((struct Message *)imsg);
-        if (refresh)
-        {
-            RefreshWindow(oWin, data);
-        }
         return;
     }
 
     if (data->wd_DragObject)
     {
-        if (!HandleDragging(oWin, data, imsg))
+	HandleDragging(oWin, data, imsg);
             return;
     }
 
@@ -2490,31 +2298,16 @@ void _zune_window_message(struct IntuiMessage *imsg)
     {
         if (IDCMP_RAWKEY == imsg->Class)
             HandleRawkey(oWin, data, imsg);
-        else if (IDCMP_GADGETUP == imsg->Class)
-        {
-#ifdef __AROS__
-            if (ETI_MUI == ((struct Gadget *)imsg->IAddress)->GadgetID)
-            {
-                DoMethod(_app(oWin), MUIM_Application_OpenConfigWindow);
-            }
-#endif
-            if (ETI_Iconify == ((struct Gadget *)imsg->IAddress)->GadgetID)
-            {
-                set(_app(oWin), MUIA_Application_Iconified, TRUE);
-            }
-        }
-        else
-        {
+	else
             HandleInputEvent(oWin, data, imsg);
-        }
     }
 }
 
-/**************************************************************************/
-/**************************************************************************/
+/******************************************************************************/
+/******************************************************************************/
 
 /* code for setting MUIA_Window_RootObject */
-static void ChangeRootObject(struct MUI_WindowData *data, Object *obj,
+static void ChangeRootObject (struct MUI_WindowData *data, Object *obj,
     Object *newRoot)
 {
     Object *oldRoot;
@@ -2528,8 +2321,7 @@ static void ChangeRootObject(struct MUI_WindowData *data, Object *obj,
         if (oldRoot)
         {
             if (data->wd_ActiveObject == oldRoot)
-                set(obj, MUIA_Window_ActiveObject,
-                    MUIV_Window_ActiveObject_None);
+		set(obj, MUIA_Window_ActiveObject, MUIV_Window_ActiveObject_None);
             DoMethod(oldRoot, MUIM_DisconnectParent);
         }
 
@@ -2538,7 +2330,7 @@ static void ChangeRootObject(struct MUI_WindowData *data, Object *obj,
         {
             /* if window is in App tree, inform child */
             if (muiNotifyData(obj)->mnd_GlobalInfo)
-                DoMethod(newRoot, MUIM_ConnectParent, (IPTR) obj);
+		DoMethod(newRoot, MUIM_ConnectParent, (IPTR)obj);
         }
     }
 }
@@ -2556,8 +2348,9 @@ static struct ObjNode *FindObjNode(struct MinList *list, Object *obj)
 
     ASSERT_VALID_PTR(obj);
 
-    for (node = (struct ObjNode *)list->mlh_Head;
-        node->node.mln_Succ; node = (struct ObjNode *)node->node.mln_Succ)
+    for (node = (struct ObjNode*)list->mlh_Head;
+	 node->node.mln_Succ;
+	 node = (struct ObjNode*)node->node.mln_Succ)
     {
         if (node->obj == obj)
         {
@@ -2567,22 +2360,22 @@ static struct ObjNode *FindObjNode(struct MinList *list, Object *obj)
     return NULL;
 }
 
-static Object *GetFirstActiveObject(struct MUI_WindowData *data)
+static Object *GetFirstActiveObject (struct MUI_WindowData *data)
 {
     ASSERT_VALID_PTR(data);
 
-    if (!IsListEmpty(&data->wd_CycleChain))
-        return ((struct ObjNode *)data->wd_CycleChain.mlh_Head)->obj;
+    if (!IsListEmpty((struct List*)&data->wd_CycleChain))
+	return ((struct ObjNode*)data->wd_CycleChain.mlh_Head)->obj;
     else
         return NULL;
 }
 
-static Object *GetLastActiveObject(struct MUI_WindowData *data)
+static Object *GetLastActiveObject (struct MUI_WindowData *data)
 {
     ASSERT_VALID_PTR(data);
 
-    if (!IsListEmpty(&data->wd_CycleChain))
-        return ((struct ObjNode *)data->wd_CycleChain.mlh_TailPred)->obj;
+    if (!IsListEmpty((struct List*)&data->wd_CycleChain))
+	return ((struct ObjNode*)data->wd_CycleChain.mlh_TailPred)->obj;
     else
         return NULL;
 }
@@ -2592,24 +2385,23 @@ typedef struct ObjNode *objnode_iterator_t(struct ObjNode *curr_node);
 static objnode_iterator_t NextObjNodeIterator;
 static objnode_iterator_t PrevObjNodeIterator;
 
-static struct ObjNode *NextObjNodeIterator(struct ObjNode *curr_node)
+static struct ObjNode *NextObjNodeIterator (struct ObjNode *curr_node)
 {
     if (curr_node->node.mln_Succ->mln_Succ)
-        return (struct ObjNode *)curr_node->node.mln_Succ;
+	return (struct ObjNode*)curr_node->node.mln_Succ;
     else
         return NULL;
 }
 
-static struct ObjNode *PrevObjNodeIterator(struct ObjNode *curr_node)
+static struct ObjNode *PrevObjNodeIterator (struct ObjNode *curr_node)
 {
     if (curr_node->node.mln_Pred->mln_Pred)
-        return (struct ObjNode *)curr_node->node.mln_Pred;
+	return (struct ObjNode*)curr_node->node.mln_Pred;
     else
         return NULL;
 }
 
-static Object *GetPrevNextActiveObject(struct ObjNode *old_activenode,
-    objnode_iterator_t node_iterator)
+static Object *GetPrevNextActiveObject (struct ObjNode *old_activenode, objnode_iterator_t node_iterator)
 {
     struct ObjNode *curr_node;
     struct ObjNode *node;
@@ -2628,11 +2420,10 @@ static Object *GetPrevNextActiveObject(struct ObjNode *old_activenode,
         if (node)
             obj = node->obj;
 
-        /* let's see if this object meets cycle requirements
-         * (enabled & visible) */
+	/* let's see if this obj meets cycle requirements (enabled & visible) */
         if (obj)
         {
-            IPTR is_disabled = 0;
+	    IPTR is_disabled;
 
             get(obj, MUIA_Disabled, &is_disabled);
 
@@ -2658,8 +2449,7 @@ Basically, it will:
 - set data->wd_ActiveObject to the new object
 - draw focus around the new active object
 **************************************************************************/
-static void SetActiveObject(struct MUI_WindowData *data, Object *obj,
-    IPTR newval)
+static void SetActiveObject (struct MUI_WindowData *data, Object *obj, IPTR newval)
 {
     struct ObjNode *old_activenode = NULL;
 
@@ -2669,31 +2459,19 @@ static void SetActiveObject(struct MUI_WindowData *data, Object *obj,
     D(bug("MUIC_Window:SetActiveObject(data, obj, %08lx) Active=%p\n",
             newval, data->wd_ActiveObject));
 
-    /* If the window is closed, we just store the object for later activation
-     * when the window is (re)opened */
-    if (!(data->wd_Flags & MUIWF_OPENED))
-    {
-        data->wd_OldActive = (Object *)newval;
-        return;
-    }
-
     if ((data->wd_ActiveObject != NULL)
         && (DoMethod(data->wd_RootObject, MUIM_FindAreaObject,
-                (IPTR) data->wd_ActiveObject) != (IPTR) NULL))
+		     (IPTR)data->wd_ActiveObject) != (IPTR)NULL))
     {
-        if ((IPTR) data->wd_ActiveObject != newval)
-        {
-            old_activenode =
-                FindObjNode(&data->wd_CycleChain, data->wd_ActiveObject);
-            if ((data->wd_Flags & MUIWF_OBJECTGOACTIVESENT)
-                && (_flags(data->wd_ActiveObject) & MADF_SETUP))
-            {
-                D(bug("Deactivate=%p\n", data->wd_ActiveObject));
+	if ((IPTR)data->wd_ActiveObject == newval)
+	    return;
+	old_activenode = FindObjNode(&data->wd_CycleChain, data->wd_ActiveObject);
+	//if (_flags(data->wd_ActiveObject) & MADF_CANDRAW)
+	if (data->wd_Flags & MUIWF_OBJECTGOACTIVESENT)
+	{
                 DoMethod(data->wd_ActiveObject, MUIM_GoInactive);
+	 
             }
-        }
-        else
-            return; /* Don't activate an active object second time */
     }
 
     data->wd_ActiveObject = NULL;
@@ -2721,57 +2499,18 @@ static void SetActiveObject(struct MUI_WindowData *data, Object *obj,
         break;
 
     default:
-        data->wd_ActiveObject = (Object *) newval;
+	    data->wd_ActiveObject = (Object*)newval;
         break;
     }
 
-
     if (data->wd_ActiveObject != NULL
         && DoMethod(data->wd_RootObject, MUIM_FindAreaObject,
-            (IPTR) data->wd_ActiveObject)
+		    (IPTR)data->wd_ActiveObject)
         && (_flags(data->wd_ActiveObject) & MADF_CANDRAW))
     {
-        D(bug("Activate=%p\n", data->wd_ActiveObject));
+    //DoMethod(_app(obj), MUIM_Application_PushMethod, data->wd_ActiveObject, 1, MUIM_GoActive);
         DoMethod(data->wd_ActiveObject, MUIM_GoActive);
         data->wd_Flags |= MUIWF_OBJECTGOACTIVESENT;
-    }
-}
-
-
-static BOOL InBox(struct IBox *box, WORD x, WORD y)
-{
-    return x >= box->Left && x < box->Left + box->Width
-        && y >= box->Top && y < box->Top + box->Height;
-}
-
-
-/*
- * Pass on an AppMessage to all objects that it landed on.
- */
-static void ForwardAppMessage(struct MUI_WindowData *data, Object *child,
-    struct AppMessage *appmsg)
-{
-    WORD x = appmsg->am_MouseX, y = appmsg->am_MouseY;
-    Object *cstate;
-    struct List *children = NULL;
-
-    ASSERT_VALID_PTR(data);
-    ASSERT_VALID_PTR(child);
-
-    set(child, MUIA_AppMessage, appmsg);
-
-    children = (struct List *)XGET(child, MUIA_Group_ChildList);
-
-    if (children != NULL)
-    {
-        cstate = (Object *) children->lh_Head;
-        while ((child = NextObject(&cstate)))
-        {
-            if (InBox(&muiAreaData(child)->mad_Box, x, y))
-            {
-                ForwardAppMessage(data, child, appmsg);
-            }
-        }
     }
 }
 
@@ -2783,61 +2522,71 @@ static void ForwardAppMessage(struct MUI_WindowData *data, Object *child,
 /* MUIV_Window_Height_Screen and MUIV_Window_Height_Visible
  * are not handled yet, as their Width couterparts.
  */
-static void WindowSelectDimensions(struct MUI_WindowData *data)
+static void WindowSelectDimensions (struct MUI_WindowData *data)
 {
     if (!data->wd_Width)
     {
-        struct Screen *scr = data->wd_RenderInfo.mri_Screen;
-
-        if (data->wd_ReqWidth > 0)
-            data->wd_Width = data->wd_ReqWidth;
+	if (data->wd_ReqWidth > 0) data->wd_Width = data->wd_ReqWidth;
         else if (data->wd_ReqWidth == MUIV_Window_Width_Default)
             data->wd_Width = data->wd_MinMax.DefWidth;
         else if (_between(MUIV_Window_Width_MinMax(100),
-                data->wd_ReqWidth, MUIV_Window_Width_MinMax(0)))
+			  data->wd_ReqWidth,
+			  MUIV_Window_Width_MinMax(0)))
         {
             data->wd_Width = data->wd_MinMax.MinWidth
-                - (data->wd_ReqWidth
-                * (data->wd_MinMax.MaxWidth - data->wd_MinMax.MinWidth)) / 100;
+		- data->wd_ReqWidth
+		* (data->wd_MinMax.MaxWidth - data->wd_MinMax.MinWidth);
         }
         else if (_between(MUIV_Window_Width_Screen(100),
-                data->wd_ReqWidth, MUIV_Window_Width_Screen(0)))
+			  data->wd_ReqWidth,
+			  MUIV_Window_Width_Screen(0)))
         {
-            data->wd_Width = scr->Width
-                * (-(data->wd_ReqWidth + 200)) / 100;
+	    data->wd_Width = data->wd_RenderInfo.mri_Screen->Width
+		* (- (data->wd_ReqWidth + 200)) / 100;
         }
         else if (_between(MUIV_Window_Width_Visible(100),
-                data->wd_ReqWidth, MUIV_Window_Width_Visible(0)))
+			  data->wd_ReqWidth,
+			  MUIV_Window_Width_Visible(0)))
         {
-            data->wd_Width = scr->Width
-                * (-(data->wd_ReqWidth + 100)) / 100;
+	    data->wd_Width = data->wd_RenderInfo.mri_Screen->Width
+		* (- (data->wd_ReqWidth + 100)) / 100;
         }
 
-        if (data->wd_ReqHeight > 0)
-            data->wd_Height = data->wd_ReqHeight;
+	if (data->wd_ReqHeight > 0) data->wd_Height = data->wd_ReqHeight;
         else if (data->wd_ReqHeight == MUIV_Window_Height_Default)
             data->wd_Height = data->wd_MinMax.DefHeight;
         else if (_between(MUIV_Window_Height_MinMax(100),
-                data->wd_ReqHeight, MUIV_Window_Height_MinMax(0)))
+			  data->wd_ReqHeight,
+			  MUIV_Window_Height_MinMax(0)))
         {
             data->wd_Height = data->wd_MinMax.MinHeight
                 - data->wd_ReqHeight
                 * (data->wd_MinMax.MaxHeight - data->wd_MinMax.MinHeight);
         }
         else if (_between(MUIV_Window_Height_Screen(100),
-                data->wd_ReqHeight, MUIV_Window_Height_Screen(0)))
-        {
-            int height =
-                scr->Height - data->wd_RenderInfo.mri_BorderTop -
-                data->wd_RenderInfo.mri_BorderBottom;
+			  data->wd_ReqHeight,
+			  MUIV_Window_Height_Screen(0)))
+	{
+	    struct Screen *scr;
+	    int height;
 
-            data->wd_Height = height * (-(data->wd_ReqHeight + 200)) / 100;
+	    scr = data->wd_RenderInfo.mri_Screen;
+
+	    height = scr->Height - data->wd_RenderInfo.mri_BorderTop - data->wd_RenderInfo.mri_BorderBottom;
+
+	    /* This is new to Zune: If TopEdge Delta is requested
+	     * the screenheight doesn't cover the barlayer */
+	    if (data->wd_Y <= MUIV_Window_TopEdge_Delta(0))
+		height -= scr->BarHeight + 1;
+
+	    data->wd_Height = height * (- (data->wd_ReqHeight + 200)) / 100;
         }
         else if (_between(MUIV_Window_Height_Visible(100),
-                data->wd_ReqHeight, MUIV_Window_Height_Visible(0)))
+			  data->wd_ReqHeight,
+			  MUIV_Window_Height_Visible(0)))
         {
-            data->wd_Height = scr->Height
-                * (-(data->wd_ReqHeight + 100)) / 100;
+	    data->wd_Height = data->wd_RenderInfo.mri_Screen->Height
+		* (- (data->wd_ReqHeight + 100)) / 100;
         }
 
         /* scaled */
@@ -2861,30 +2610,28 @@ static void WindowSelectDimensions(struct MUI_WindowData *data)
 IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {
     struct MUI_WindowData *data;
-    struct TagItem *tags;
-    struct TagItem *tag;
+    struct TagItem *tags,*tag;
 
-    obj = (Object *) DoSuperMethodA(cl, obj, (Msg) msg);
+    obj = (Object *)DoSuperMethodA(cl, obj, (Msg)msg);
     if (!obj)
         return FALSE;
 
     /* Initial local instance data */
     data = INST_DATA(cl, obj);
 
-    data->wd_Class = cl;
-    data->wd_MemoryPool = CreatePool(0, 4096, 2048);
+    data->wd_MemoryPool = CreatePool(0, 2048, 2048);
     if (NULL == data->wd_MemoryPool)
     {
         CoerceMethod(cl, obj, OM_DISPOSE);
-        return (IPTR) NULL;
+	return (IPTR)NULL;
     }
 
     data->wd_RenderInfo.mri_WindowObject = obj;
 
-    NewList((struct List *)&(data->wd_EHList));
-    NewList((struct List *)&(data->wd_CCList));
-    NewList((struct List *)&(data->wd_CycleChain));
-    NewList((struct List *)&(data->wd_IDList));
+    NewList((struct List*)&(data->wd_EHList));
+    NewList((struct List*)&(data->wd_CCList));
+    NewList((struct List*)&(data->wd_CycleChain));
+    NewList((struct List*)&(data->wd_IDList));
 
     data->wd_CrtFlags = WFLG_SIZEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET
         | WFLG_CLOSEGADGET | WFLG_SIMPLE_REFRESH
@@ -2897,19 +2644,22 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     data->wd_ReqWidth = MUIV_Window_Width_Default;
     data->wd_RootObject = NULL;
     data->wd_DefaultObject = NULL;
-
+    data->wd_ScreenTitle = StrDup("Zune Screen");
+/* alternate dimensions */
+/* no change in coordinates */
     data->wd_AltDim.Top = MUIV_Window_AltTopEdge_NoChange;
     data->wd_AltDim.Left = MUIV_Window_AltLeftEdge_NoChange;
+/* default to min size */
     data->wd_AltDim.Width = MUIV_Window_AltWidth_MinMax(0);
     data->wd_AltDim.Height = MUIV_Window_AltHeight_MinMax(0);
-    data->wd_ReqX = MUIV_Window_LeftEdge_Centered;
-    data->wd_ReqY = MUIV_Window_TopEdge_Centered;
+    data->wd_X = MUIV_Window_LeftEdge_Centered;
+    data->wd_Y = MUIV_Window_TopEdge_Centered;
     data->wd_DisabledKeys = 0L;
     data->wd_HelpTicker = BUBBLEHELP_TICKER_FIRST;
 
     /* parse initial taglist */
 
-    for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)
+    for (tags = msg->ops_AttrList; (tag = NextTagItem((const struct TagItem **)&tags)); )
     {
         switch (tag->ti_Tag)
         {
@@ -2917,18 +2667,12 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             _handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_ERASEAREA);
             break;
 
-        case MUIA_Window_ToolBox:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_TOOLBOX);
-            break;
-
         case MUIA_Window_CloseGadget:
-            _handle_bool_tag(data->wd_CrtFlags, tag->ti_Data,
-                WFLG_CLOSEGADGET);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_CLOSEGADGET);
             break;
 
         case MUIA_Window_SizeGadget:
-            _handle_bool_tag(data->wd_CrtFlags, tag->ti_Data,
-                WFLG_SIZEGADGET);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_SIZEGADGET);
             break;
 
         case MUIA_Window_ZoomGadget:
@@ -2936,18 +2680,15 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_Backdrop:
-            _handle_bool_tag(data->wd_CrtFlags, tag->ti_Data,
-                WFLG_BACKDROP);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_BACKDROP);
             break;
 
         case MUIA_Window_Borderless:
-            _handle_bool_tag(data->wd_CrtFlags, tag->ti_Data,
-                WFLG_BORDERLESS);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_BORDERLESS);
             break;
 
         case MUIA_Window_DepthGadget:
-            _handle_bool_tag(data->wd_CrtFlags, tag->ti_Data,
-                WFLG_DEPTHGADGET);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_DEPTHGADGET);
             break;
 
         case MUIA_Window_DragBar:
@@ -2955,16 +2696,15 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_SizeRight:
-            _handle_bool_tag(data->wd_CrtFlags, tag->ti_Data,
-                WFLG_SIZEBRIGHT);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_SIZEBRIGHT);
             break;
 
-        case MUIA_Window_Height:
-            data->wd_ReqHeight = (LONG) tag->ti_Data;
+	    case  MUIA_Window_Height:
+		data->wd_ReqHeight = (LONG)tag->ti_Data;
             break;
 
         case MUIA_Window_Width:
-            data->wd_ReqWidth = (LONG) tag->ti_Data;
+		data->wd_ReqWidth = (LONG)tag->ti_Data;
             break;
 
         case MUIA_Window_ID:
@@ -2972,8 +2712,7 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_IsSubWindow:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_ISSUBWINDOW);
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_ISSUBWINDOW);
             break;
 
         case MUIA_Window_Title:
@@ -2985,8 +2724,7 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_Activate:
-            _handle_bool_tag(data->wd_Flags, !tag->ti_Data,
-                MUIWF_DONTACTIVATE);
+		_handle_bool_tag(data->wd_Flags, !tag->ti_Data, MUIWF_DONTACTIVATE);
             break;
 
         case MUIA_Window_DefaultObject:
@@ -2994,7 +2732,8 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_Menustrip:
-            data->wd_ChildMenustrip = (Object *) tag->ti_Data;
+            
+		data->wd_ChildMenustrip = (Object*)tag->ti_Data;
             break;
 
         case MUIA_Window_NoMenus:
@@ -3011,42 +2750,39 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_AltHeight:
-            data->wd_AltDim.Height = (WORD) tag->ti_Data;
+		data->wd_AltDim.Height = (WORD)tag->ti_Data;
             break;
 
         case MUIA_Window_AltWidth:
-            data->wd_AltDim.Width = (WORD) tag->ti_Data;
+		data->wd_AltDim.Width = (WORD)tag->ti_Data;
             break;
 
         case MUIA_Window_AltLeftEdge:
-            data->wd_AltDim.Left = (WORD) tag->ti_Data;
+		data->wd_AltDim.Left = (WORD)tag->ti_Data;
             break;
 
         case MUIA_Window_AltTopEdge:
-            data->wd_AltDim.Top = (WORD) tag->ti_Data;
+		data->wd_AltDim.Top = (WORD)tag->ti_Data;
             break;
 
         case MUIA_Window_AppWindow:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_ISAPPWINDOW);
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_ISAPPWINDOW);
             break;
 
         case MUIA_Window_LeftEdge:
-            data->wd_ReqX = tag->ti_Data;
+		data->wd_X = tag->ti_Data;
             break;
 
         case MUIA_Window_TopEdge:
-            data->wd_ReqY = tag->ti_Data;
+		data->wd_Y = tag->ti_Data;
             break;
 
         case MUIA_Window_UseBottomBorderScroller:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_USEBOTTOMSCROLLER);
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_USEBOTTOMSCROLLER);
             break;
 
         case MUIA_Window_UseRightBorderScroller:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_USERIGHTSCROLLER);
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_USERIGHTSCROLLER);
             break;
 
         case MUIA_Window_DisableKeys:
@@ -3054,7 +2790,7 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_RefWindow:
-            data->wd_RefWindow = (Object *) tag->ti_Data;
+		data->wd_RefWindow = (Object *)tag->ti_Data;
             break;
 
         case MUIA_Window_Screen:
@@ -3062,229 +2798,7 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Window_PublicScreen:
-            data->wd_UserPublicScreen = (STRPTR) tag->ti_Data;
-            break;
-        }
-    }
-
-/*      D(bug("muimaster.library/window.c: Window Object created at " */
-/*          "0x%p back=%lx\n", */
-/*          obj,data->wd_Background)); */
-
-    return (IPTR) obj;
-}
-
-/**************************************************************************
- OM_DISPOSE
-**************************************************************************/
-IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
-{
-    struct MUI_WindowData *data = INST_DATA(cl, obj);
-
-/*      D(bug("Window_Dispose(%p)\n", obj)); */
-
-#if 0
-    /* We no longer clear muiGlobalInfo() during disconnections, so
-       this can cause problems (remove object which is already removed).
-       Furthermore AFAIK it is not legal to dispose a window object
-       which is still ocnnected to the application object, anyway. */
-
-    if (muiGlobalInfo(obj) && _app(obj))
-    {
-/*      D(bug(" Window_Dispose(%p) : calling app->OM_REMMEMBER\n", obj)); */
-        DoMethod(_app(obj), OM_REMMEMBER, (IPTR) obj);
-    }
-#endif
-
-    if (data->wd_RootObject)
-        MUI_DisposeObject(data->wd_RootObject);
-
-    if (data->wd_ChildMenustrip)
-        MUI_DisposeObject(data->wd_ChildMenustrip);
-
-    DeletePool(data->wd_MemoryPool);
-
-/*      D(bug(" Window_Dispose(%p) : calling supermethod\n", obj)); */
-    return DoSuperMethodA(cl, obj, msg);
-}
-
-static ULONG WindowOpen(struct IClass *cl, Object *obj);
-static ULONG WindowClose(struct IClass *cl, Object *obj);
-
-/**************************************************************************
- OM_SET
-**************************************************************************/
-IPTR Window__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
-{
-    struct MUI_WindowData *data = INST_DATA(cl, obj);
-    struct TagItem *tags = msg->ops_AttrList;
-    struct TagItem *tag;
-
-    while ((tag = NextTagItem(&tags)) != NULL)
-    {
-        switch (tag->ti_Tag)
-        {
-        case MUIA_AppMessage:
-            ForwardAppMessage(data, data->wd_RootObject,
-                (struct AppMessage *)tag->ti_Data);
-            break;
-
-        case MUIA_Window_Activate:
-            if (data->wd_RenderInfo.mri_Window)
-            {
-                if (tag->ti_Data && !(data->wd_Flags & MUIWF_ACTIVE))
-                {
-                    ActivateWindow(data->wd_RenderInfo.mri_Window);
-                    _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                        MUIWF_ACTIVE);
-                }
-            }
-            else
-                _handle_bool_tag(data->wd_Flags, !tag->ti_Data,
-                    MUIWF_DONTACTIVATE);
-            break;
-
-        case MUIA_Window_ActiveObject:
-/*              D(bug("MUIA_Window_ActiveObject %ld (%p)\n", */
-/*                  tag->ti_Data, tag->ti_Data)); */
-            SetActiveObject(data, obj, tag->ti_Data);
-            break;
-
-        case MUIA_Window_DefaultObject:
-            data->wd_DefaultObject = (APTR) tag->ti_Data;
-            break;
-
-        case MUIA_Window_ID:
-            data->wd_ID = tag->ti_Data;
-            break;
-
-        case MUIA_Window_IsSubWindow:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_ISSUBWINDOW);
-            break;
-
-        case MUIA_Window_Open:
-            if (tag->ti_Data)
-            {
-                if (data->wd_Flags & MUIWF_HIDDEN)
-                    data->wd_Flags |= MUIWF_OPENONUNHIDE;
-                else if (!(data->wd_Flags & MUIWF_OPENED))
-                    WindowOpen(cl, obj);
-                else
-                {
-                    DoMethod(obj, MUIM_Window_ToFront);
-                    set(obj, MUIA_Window_Activate, TRUE);
-                }
-            }
-            else if (data->wd_Flags & MUIWF_HIDDEN)
-                data->wd_Flags &= ~MUIWF_OPENONUNHIDE;
-            else if (data->wd_Flags & MUIWF_OPENED)
-                WindowClose(cl, obj);
-            break;
-
-        case MUIA_ShowMe:      /* PRIVATE *abuse* of the Area's ShowMe attr */
-            if (tag->ti_Data)
-            {
-                /* Deiconify */
-
-                if (data->wd_Flags & MUIWF_HIDDEN)
-                {
-                    data->wd_Flags &= ~MUIWF_HIDDEN;
-
-                    if (data->wd_Flags & MUIWF_OPENONUNHIDE)
-                    {
-                        data->wd_Flags &= ~MUIWF_OPENONUNHIDE;
-                        set(obj, MUIA_Window_Open, TRUE);
-                    }
-                }
-            }
-            else
-            {
-                /* Iconify */
-
-                if (data->wd_Flags & MUIWF_OPENED)
-                {
-                    data->wd_Flags |= MUIWF_OPENONUNHIDE;
-
-                    set(obj, MUIA_Window_Open, FALSE);
-                }
-
-                data->wd_Flags |= MUIWF_HIDDEN;
-            }
-            break;
-
-        case MUIA_Window_RootObject:
-            ChangeRootObject(data, obj, (Object *) tag->ti_Data);
-            break;
-
-        case MUIA_Window_Title:
-            data->wd_Title = (STRPTR) tag->ti_Data;
-            if (data->wd_RenderInfo.mri_Window)
-                SetWindowTitles(data->wd_RenderInfo.mri_Window,
-                    data->wd_Title, (CONST_STRPTR) ~ 0);
-            break;
-
-        case MUIA_Window_ScreenTitle:
-            data->wd_ScreenTitle = (STRPTR) tag->ti_Data;
-            if (data->wd_RenderInfo.mri_Window)
-                SetWindowTitles(data->wd_RenderInfo.mri_Window,
-                    (CONST_STRPTR) ~ 0, data->wd_ScreenTitle);
-            break;
-
-        case MUIA_Window_NoMenus:
-            data->wd_NoMenus = (BOOL) tag->ti_Data;
-            if (data->wd_RenderInfo.mri_Window)
-            {
-                if (data->wd_NoMenus)
-                    data->wd_RenderInfo.mri_Window->Flags |= WFLG_RMBTRAP;
-                else
-                    data->wd_RenderInfo.mri_Window->Flags &= ~WFLG_RMBTRAP;
-            }
-            break;
-
-        case MUIA_Window_UseBottomBorderScroller:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_USEBOTTOMSCROLLER);
-            break;
-
-        case MUIA_Window_UseRightBorderScroller:
-            _handle_bool_tag(data->wd_Flags, tag->ti_Data,
-                MUIWF_USERIGHTSCROLLER);
-            break;
-
-        case MUIA_Window_DisableKeys:
-            data->wd_DisabledKeys = tag->ti_Data;
-            break;
-
-        case MUIA_Window_RefWindow:
-            data->wd_RefWindow = (Object *) tag->ti_Data;
-            break;
-
-        case MUIA_Window_LeftEdge:
-            data->wd_ReqX = tag->ti_Data;
-            break;
-
-        case MUIA_Window_TopEdge:
-            data->wd_ReqY = tag->ti_Data;
-            break;
-
-        case MUIA_Window_Width:
-            data->wd_ReqWidth = (LONG) tag->ti_Data;
-            data->wd_Width = 0; /* otherwise windowselectdimensions()
-                                 * ignores ReqWidth */
-            break;
-
-        case MUIA_Window_Height:
-            data->wd_ReqHeight = (LONG) tag->ti_Data;
-            data->wd_Height = 0;
-            break;
-
-        case MUIA_Window_Screen:
-            data->wd_UserScreen = (struct Screen *)tag->ti_Data;
-            break;
-
-        case MUIA_Window_PublicScreen:
-            data->wd_UserPublicScreen = (STRPTR) tag->ti_Data;
+	    	data->wd_UserPublicScreen = (STRPTR)tag->ti_Data;
             break;
 
         case MUIA_Window_Sleep:
@@ -3307,12 +2821,11 @@ IPTR Window__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                     data->wd_SleepMaxHeight=data->wd_RenderInfo.mri_Window->MaxHeight;
                     data->wd_SleepMinHeight=data->wd_RenderInfo.mri_Window->MinHeight;
                     data->wd_SleepMaxWidth=data->wd_RenderInfo.mri_Window->MaxWidth;
-                    data->wd_SleepMinWidth=data->wd_RenderInfo.mri_Window->MaxWidth;
-                    /* According to MUI autodocs, sleeping windows can't be resized.
-                     * MUI 3.8/AmigaOS also changes min/max values with WindowLimits */
+                    data->wd_SleepMinWidth=data->wd_RenderInfo.mri_Window->MinWidth;
+
                     WindowLimits(data->wd_RenderInfo.mri_Window,
-                        data->wd_RenderInfo.mri_Window->Width,
-                        data->wd_RenderInfo.mri_Window->Height,
+                        data->wd_RenderInfo.mri_Window->MinWidth,
+                        data->wd_RenderInfo.mri_Window->MinHeight,
                         data->wd_RenderInfo.mri_Window->Width,
                         data->wd_RenderInfo.mri_Window->Height);
                 }
@@ -3345,11 +2858,341 @@ IPTR Window__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                 }
             }
             break;
-
         }
     }
 
-    return DoSuperMethodA(cl, obj, (Msg) msg);
+/*      D(bug("muimaster.library/window.c: Window Object created at 0x%lx back=%lx\n", */
+/*  	  obj,data->wd_Background)); */
+
+    return (IPTR)obj;
+}
+
+struct MUI_ApplicationData
+{
+    struct MUI_GlobalInfo   app_GlobalInfo;
+    APTR            	    app_WindowFamily; /* delegates window list */
+    struct MinList  	    app_IHList;
+    struct MinList  	    app_MethodQueue;
+    struct SignalSemaphore  app_MethodSemaphore;
+    struct MinList  	    app_ReturnIDQueue;
+    struct Hook     	    *app_BrokerHook;
+    struct MsgPort  	    *app_BrokerPort;
+    struct MsgPort  	    *app_TimerPort;
+    struct timerequest      *app_TimerReq;
+    struct Task     	    *app_Task;
+    CxObj   	    	    *app_Broker;
+    Object          	    *app_Menustrip;
+    Object                  *app_AboutWin;
+    APTR            	    app_RIDMemChunk;
+    STRPTR          	    app_Author;
+    STRPTR          	    app_Base;
+    STRPTR          	    app_Copyright;
+    STRPTR          	    app_Description;
+    STRPTR          	    app_HelpFile;
+    STRPTR          	    app_Title;
+    STRPTR          	    app_Version;
+    BOOL                    app_VersionAllocated;
+    STRPTR                  app_Version_Number;
+    STRPTR                  app_Version_Date;
+    STRPTR                  app_Version_Extra;
+    ULONG           	    app_SleepCount;
+    ULONG	    	        app_TimerOutstanding;
+    ULONG           	    app_MenuAction; /* Remember last action */
+    BOOL            	    app_ForceQuit;
+    BOOL            	    app_Iconified;
+    BOOL            	    app_SingleTask;
+    BOOL    	    	    app_Active;
+    BYTE    	    	    app_BrokerPri;
+   
+
+};
+struct MQNode {
+    struct MinNode    mq_Node;
+    Object           *mq_Dest;
+    LONG              mq_Count;
+    ULONG            *mq_Msg;
+};
+
+//static BOOL application_do_pushed_method (struct MUI_ApplicationData *data)
+//{
+//    struct MQNode  *mq;
+//     ULONG *addr;
+//    ObtainSemaphore(&data->app_MethodSemaphore);
+//
+//    if ((mq = (struct MQNode *)RemHead((struct List *)&data->app_MethodQueue)))
+//    {
+//
+//    ReleaseSemaphore(&data->app_MethodSemaphore);
+//	DoMethodA(mq->mq_Dest, (Msg)mq->mq_Msg);
+//	mui_free(mq);
+//	return TRUE;
+//    }
+//    ReleaseSemaphore(&data->app_MethodSemaphore);
+//    return FALSE;
+//}
+
+/**************************************************************************
+ OM_DISPOSE
+**************************************************************************/
+IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
+{
+    struct MUI_WindowData *data = INST_DATA(cl, obj);
+
+/*      D(bug("Window_Dispose(%p)\n", obj)); */
+     //while (application_do_pushed_method(data));
+#if 0 /* We no longer clear muiGlobalInfo() during disconnections, so
+       this can cause problems (remove object which is already removed).
+       Furthermore AFAIK it is not legal to dispose a window object
+       which is still ocnnected to the application object, anyway. */
+
+    if (muiGlobalInfo(obj) && _app(obj))
+    {
+/*  	D(bug(" Window_Dispose(%p) : calling app->OM_REMMEMBER\n", obj)); */
+	DoMethod(_app(obj), OM_REMMEMBER, (IPTR)obj);
+    }
+#endif
+
+    if (data->wd_RootObject)
+        MUI_DisposeObject(data->wd_RootObject);
+
+    if (data->wd_ChildMenustrip)
+        MUI_DisposeObject(data->wd_ChildMenustrip);
+
+    DeletePool(data->wd_MemoryPool);
+
+/*      D(bug(" Window_Dispose(%p) : calling supermethod\n", obj)); */
+    return DoSuperMethodA(cl, obj, msg);
+}
+
+static ULONG WindowOpen(struct IClass *cl, Object *obj);
+static ULONG WindowClose(struct IClass *cl, Object *obj);
+
+/**************************************************************************
+ OM_SET
+**************************************************************************/
+IPTR Window__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
+{
+    struct MUI_WindowData *data = INST_DATA(cl, obj);
+    struct TagItem        *tags = msg->ops_AttrList;
+    struct TagItem        *tag;
+
+    while ((tag = NextTagItem((const struct TagItem **)&tags)) != NULL)
+    {
+        switch (tag->ti_Tag)
+        {
+           //new m
+       case MUIA_Window_RecreateMenus:
+         {
+             APTR visinfo = NULL;
+             APTR newmenu = NULL;
+             APTR menu = NULL;
+            if ((visinfo = GetVisualInfoA(data->wd_RenderInfo.mri_Screen,NULL)))
+            {
+        	if (data->wd_Menustrip)
+        	{
+        	    get(data->wd_Menustrip,MUIA_Menuitem_NewMenu,&newmenu);
+        	    if (newmenu)
+        	    {
+                if (data->wd_Menu)FreeMenus(data->wd_Menu);                  
+        		if ((menu = CreateMenusA(newmenu,NULL)))
+        		{
+        		    struct TagItem tags[] =
+                            {
+                                { GTMN_NewLookMenus, TRUE       },
+                                { TAG_DONE,          (IPTR)NULL }
+                            };
+                            LayoutMenusA(menu, visinfo, tags);
+	                        data->wd_Menu = menu;
+	                        if (data->wd_RenderInfo.mri_Window)SetMenuStrip(data->wd_RenderInfo.mri_Window,menu);
+                            } 
+        	    }
+        	}
+        	FreeVisualInfo(visinfo);
+            }   
+         }   //new end m
+        case MUIA_Window_Activate:
+            if (data->wd_RenderInfo.mri_Window)
+            {
+                if (tag->ti_Data && !(data->wd_Flags & MUIWF_ACTIVE))
+                {
+                    ActivateWindow(data->wd_RenderInfo.mri_Window);
+			_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_ACTIVE);
+                }
+            }
+            else
+		    _handle_bool_tag(data->wd_Flags, !tag->ti_Data, MUIWF_DONTACTIVATE);
+            break;
+
+        case MUIA_Window_ActiveObject:
+/*  		D(bug("MUIA_Window_ActiveObject %ld (%p)\n", tag->ti_Data, tag->ti_Data)); */
+        if (data->wd_Flags & MUIWF_OPENED)
+            SetActiveObject(data, obj, tag->ti_Data);
+		else
+		data->wd_OldActive =  tag->ti_Data;      // YAM activate this before window is open  
+            break;
+
+        case MUIA_Window_DefaultObject:
+		data->wd_DefaultObject = (APTR)tag->ti_Data;
+		
+            break;
+
+        case MUIA_Window_ID:
+            data->wd_ID = tag->ti_Data;
+            break;
+
+        case MUIA_Window_IsSubWindow:
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_ISSUBWINDOW);
+            break;
+
+        case MUIA_Window_Open:
+            if (tag->ti_Data)
+            {
+                if (data->wd_Flags & MUIWF_HIDDEN)
+                    data->wd_Flags |= MUIWF_OPENONUNHIDE;
+		    else
+		    if (!(data->wd_Flags & MUIWF_OPENED))
+                    WindowOpen(cl, obj);
+                else
+                {
+                    DoMethod(obj, MUIM_Window_ToFront);
+                    set(obj, MUIA_Window_Activate, TRUE);
+                }
+            }
+		else
+  	        if (data->wd_Flags & MUIWF_HIDDEN)
+                data->wd_Flags &= ~MUIWF_OPENONUNHIDE;
+		else
+		if (data->wd_Flags & MUIWF_OPENED)
+                WindowClose(cl, obj);
+            break;
+
+	    case MUIA_ShowMe:  /* PRIVATE *abuse* of the Area's ShowMe attr */
+            if (tag->ti_Data)
+            {
+                /* Deiconify */
+
+                if (data->wd_Flags & MUIWF_HIDDEN)
+                {
+                    data->wd_Flags &= ~MUIWF_HIDDEN;
+
+                    if (data->wd_Flags & MUIWF_OPENONUNHIDE)
+                    {
+			    data->wd_Flags &=  ~MUIWF_OPENONUNHIDE;
+                        set(obj, MUIA_Window_Open, TRUE);
+                    }
+                }
+            }
+            else
+            {
+                /* Iconify */
+
+                if (data->wd_Flags & MUIWF_OPENED)
+                {
+                    data->wd_Flags |= MUIWF_OPENONUNHIDE;
+
+                    set(obj, MUIA_Window_Open, FALSE);
+                }
+
+                data->wd_Flags |= MUIWF_HIDDEN;
+            }
+            break;
+
+        case MUIA_Window_RootObject:
+		ChangeRootObject(data, obj, (Object *)tag->ti_Data);
+            break;
+
+        case MUIA_Window_Title:
+		data->wd_Title = (STRPTR)tag->ti_Data;
+            if (data->wd_RenderInfo.mri_Window)
+		    SetWindowTitles(data->wd_RenderInfo.mri_Window,data->wd_Title, (CONST_STRPTR)~0);
+            break;
+
+        case MUIA_Window_ScreenTitle:
+		data->wd_ScreenTitle = (STRPTR)tag->ti_Data;
+            if (data->wd_RenderInfo.mri_Window)
+                SetWindowTitles(data->wd_RenderInfo.mri_Window,
+				    (CONST_STRPTR)~0, data->wd_ScreenTitle);
+            break;
+
+        case MUIA_Window_NoMenus:
+            data->wd_NoMenus = (BOOL) tag->ti_Data;
+            if (data->wd_RenderInfo.mri_Window)
+            {
+                if (data->wd_NoMenus)
+                    data->wd_RenderInfo.mri_Window->Flags |= WFLG_RMBTRAP;
+                else
+                    data->wd_RenderInfo.mri_Window->Flags &= ~WFLG_RMBTRAP;
+            }
+
+            break;
+
+        case MUIA_Window_UseBottomBorderScroller:
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_USEBOTTOMSCROLLER);
+            break;
+
+        case MUIA_Window_UseRightBorderScroller:
+		_handle_bool_tag(data->wd_Flags, tag->ti_Data, MUIWF_USERIGHTSCROLLER);
+            break;
+
+        case MUIA_Window_DisableKeys:
+            data->wd_DisabledKeys = tag->ti_Data;
+            break;
+
+        case MUIA_Window_RefWindow:
+		data->wd_RefWindow = (Object *)tag->ti_Data;
+		break;
+
+	    case MUIA_Window_WandererBackdrop:
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_BACKDROP);
+		_handle_bool_tag(data->wd_CrtFlags, !tag->ti_Data, WFLG_DRAGBAR);
+		_handle_bool_tag(data->wd_CrtFlags, !tag->ti_Data, WFLG_SIZEGADGET);
+		_handle_bool_tag(data->wd_CrtFlags, !tag->ti_Data, WFLG_CLOSEGADGET);
+		_handle_bool_tag(data->wd_CrtFlags, !tag->ti_Data, WFLG_DEPTHGADGET);
+		_handle_bool_tag(data->wd_CrtFlags, tag->ti_Data, WFLG_BORDERLESS);
+		if (tag->ti_Data)
+		{
+		    data->wd_ReqWidth = (LONG)MUIV_Window_Width_Screen(100);
+		    /* won't take the barlayer into account */
+		    data->wd_ReqHeight = (LONG)MUIV_Window_Height_Screen(100);
+		    data->wd_Width = 0;
+		    data->wd_Height = 0;
+		    data->wd_X = (LONG)0;
+		    /* place the window below the bar layer */
+		    data->wd_Y = (LONG)MUIV_Window_TopEdge_Delta(0);
+		}
+            break;
+
+        case MUIA_Window_LeftEdge:
+		data->wd_X = tag->ti_Data;
+            break;
+
+        case MUIA_Window_TopEdge:
+		data->wd_Y = tag->ti_Data;
+            break;
+
+        case MUIA_Window_Width:
+		data->wd_ReqWidth = (LONG)tag->ti_Data;
+		data->wd_Width = 0; /* otherwise windowselectdimensions() ignores ReqWidth */
+            break;
+
+        case MUIA_Window_Height:
+		data->wd_ReqHeight = (LONG)tag->ti_Data;
+            data->wd_Height = 0;
+            break;
+
+        case MUIA_Window_Screen:
+            data->wd_UserScreen = (struct Screen *)tag->ti_Data;
+            break;
+
+        case MUIA_Window_PublicScreen:
+		data->wd_UserPublicScreen = (STRPTR)tag->ti_Data;
+            break;
+
+
+	}
+    }
+
+    return DoSuperMethodA(cl, obj, (Msg)msg);
 }
 
 /**************************************************************************
@@ -3361,35 +3204,42 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
 
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
-    STORE = (IPTR) 0;
+    STORE = (IPTR)0;
 
-    switch (msg->opg_AttrID)
+    switch(msg->opg_AttrID)
     {
+     //new m 
+    case MUIA_Window_Menustrip:                   
+         STORE = (data->wd_Menustrip);
+         return TRUE ;              
+     //new end m        
     case MUIA_Window_Activate:
-        STORE =
-            (data->wd_Flags & (MUIWF_ACTIVE | MUIWF_OPENED)) ==
-            (MUIWF_ACTIVE | MUIWF_OPENED);
-        return TRUE;
+	    STORE = (data->wd_Flags & (MUIWF_ACTIVE | MUIWF_OPENED)) == (MUIWF_ACTIVE | MUIWF_OPENED);
+	    return TRUE ;
 
     case MUIA_Window_Window:
-        STORE = (IPTR) data->wd_RenderInfo.mri_Window;
+            STORE = (IPTR)data->wd_RenderInfo.mri_Window;
         return TRUE;
 
     case MUIA_Window_Screen:
-        STORE = (IPTR) data->wd_RenderInfo.mri_Screen;
+	    STORE = (IPTR)data->wd_RenderInfo.mri_Screen;
         return TRUE;
 
     case MUIA_Window_PublicScreen:
-        STORE = (IPTR) data->wd_UserPublicScreen;
+	    STORE = (IPTR)data->wd_UserPublicScreen;
+        return TRUE;
+
+    case MUIA_Window_Sleep:
+        STORE = data->wd_SleepCount ? TRUE : FALSE;
         return TRUE;
 
     case MUIA_Window_ActiveObject:
         if ((data->wd_ActiveObject != NULL)
             && (DoMethod(data->wd_RootObject, MUIM_FindAreaObject,
-                    (IPTR) data->wd_ActiveObject) != (IPTR) NULL))
-            STORE = (IPTR) data->wd_ActiveObject;
+			     (IPTR)data->wd_ActiveObject) != (IPTR)NULL))
+		STORE = (IPTR)data->wd_ActiveObject;
         else
-            STORE = (IPTR) NULL;
+		STORE = (IPTR)NULL;
         return TRUE;
 
     case MUIA_Window_CloseRequest:
@@ -3397,7 +3247,7 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
         return TRUE;
 
     case MUIA_Window_DefaultObject:
-        STORE = (IPTR) data->wd_DefaultObject;
+	    STORE = (IPTR)data->wd_DefaultObject;
         return TRUE;
 
     case MUIA_Window_DisableKeys:
@@ -3405,10 +3255,7 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
         return TRUE;
 
     case MUIA_Window_Height:
-        if (data->wd_RenderInfo.mri_Window != NULL)
-            STORE = (IPTR) data->wd_RenderInfo.mri_Window->GZZHeight;
-        else
-            STORE = 0;
+	    STORE = (IPTR)data->wd_Height;
         return TRUE;
 
     case MUIA_Window_ID:
@@ -3421,9 +3268,9 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
 
     case MUIA_Window_LeftEdge:
         if (data->wd_RenderInfo.mri_Window)
-            STORE = (IPTR) data->wd_RenderInfo.mri_Window->LeftEdge;
+		STORE = (IPTR)data->wd_RenderInfo.mri_Window->LeftEdge;
         else
-            STORE = 0;
+		STORE = (IPTR)0;
         return TRUE;
 
     case MUIA_Window_Open:
@@ -3431,37 +3278,26 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
         return TRUE;
 
     case MUIA_Window_RootObject:
-        STORE = (IPTR) data->wd_RootObject;
+	    STORE = (IPTR)data->wd_RootObject;
         return TRUE;
 
     case MUIA_Window_ScreenTitle:
-        STORE = (IPTR) data->wd_ScreenTitle;
+	    STORE = (IPTR)data->wd_ScreenTitle;
         return TRUE;
 
     case MUIA_Window_Title:
-        STORE = (IPTR) data->wd_Title;
+	    STORE = (IPTR)data->wd_Title;
         return TRUE;
 
     case MUIA_Window_TopEdge:
         if (data->wd_RenderInfo.mri_Window)
-            STORE = (IPTR) data->wd_RenderInfo.mri_Window->TopEdge;
+		STORE = (IPTR)data->wd_RenderInfo.mri_Window->TopEdge;
         else
-            STORE = (IPTR) 0;
-        return (TRUE);
+		STORE = (IPTR)0;
+	    return(TRUE);
 
     case MUIA_Window_Width:
-        if (data->wd_RenderInfo.mri_Window != NULL)
-            STORE = (IPTR) data->wd_RenderInfo.mri_Window->GZZWidth;
-        else
-            STORE = 0;
-        return TRUE;
-
-    case MUIA_Window_Menustrip:
-        STORE = (IPTR) data->wd_ChildMenustrip;
-        return TRUE;
-
-    case MUIA_Window_Sleep:
-        STORE = data->wd_SleepCount ? TRUE : FALSE;
+	    STORE = (IPTR)data->wd_Width;
         return TRUE;
 
     case MUIA_Version:
@@ -3470,22 +3306,6 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
 
     case MUIA_Revision:
         STORE = __revision;
-        return TRUE;
-
-    case MUIA_Window_AltLeftEdge:
-        STORE = (IPTR) data->wd_AltDim.Left;
-        return TRUE;
-
-    case MUIA_Window_AltTopEdge:
-        STORE = (IPTR) data->wd_AltDim.Top;
-        return TRUE;
-
-    case MUIA_Window_AltWidth:
-        STORE = (IPTR) data->wd_AltDim.Width;
-        return TRUE;
-
-    case MUIA_Window_AltHeight:
-        STORE = (IPTR) data->wd_AltDim.Height;
         return TRUE;
     }
 
@@ -3497,16 +3317,15 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
  * MUIM_FindUData : tests if the MUIA_UserData of the object
  * contains the given <udata> and returns the object pointer in this case.
  */
-IPTR Window__MUIM_FindUData(struct IClass *cl, Object *obj,
-    struct MUIP_FindUData *msg)
+IPTR Window__MUIM_FindUData(struct IClass *cl, Object *obj, struct MUIP_FindUData *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
     if (muiNotifyData(obj)->mnd_UserData == msg->udata)
-        return (IPTR) obj;
+	return (IPTR)obj;
 
     if (data->wd_RootObject)
-        return DoMethodA(data->wd_RootObject, (Msg) msg);
+    	return DoMethodA(data->wd_RootObject, (Msg)msg);
 
     return 0;
 }
@@ -3517,8 +3336,7 @@ IPTR Window__MUIM_FindUData(struct IClass *cl, Object *obj,
  * contains the given <udata> and gets <attr> to <storage> for itself
  * in this case.
  */
-IPTR Window__MUIM_GetUData(struct IClass *cl, Object *obj,
-    struct MUIP_GetUData *msg)
+IPTR Window__MUIM_GetUData(struct IClass *cl, Object *obj, struct MUIP_GetUData *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
@@ -3529,7 +3347,7 @@ IPTR Window__MUIM_GetUData(struct IClass *cl, Object *obj,
     }
 
     if (data->wd_RootObject)
-        return DoMethodA(data->wd_RootObject, (Msg) msg);
+    	return DoMethodA(data->wd_RootObject, (Msg)msg);
 
     return FALSE;
 }
@@ -3539,8 +3357,7 @@ IPTR Window__MUIM_GetUData(struct IClass *cl, Object *obj,
  * MUIM_SetUData : This method tests if the MUIA_UserData of the object
  * contains the given <udata> and sets <attr> to <val> for itself in this case.
  */
-IPTR Window__MUIM_SetUData(struct IClass *cl, Object *obj,
-    struct MUIP_SetUData *msg)
+IPTR Window__MUIM_SetUData(struct IClass *cl, Object *obj, struct MUIP_SetUData *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
@@ -3548,7 +3365,7 @@ IPTR Window__MUIM_SetUData(struct IClass *cl, Object *obj,
         set(obj, msg->attr, msg->val);
 
     if (data->wd_RootObject)
-        DoMethodA(data->wd_RootObject, (Msg) msg);
+    	DoMethodA(data->wd_RootObject, (Msg)msg);
 
     return TRUE;
 }
@@ -3558,8 +3375,7 @@ IPTR Window__MUIM_SetUData(struct IClass *cl, Object *obj,
  * MUIM_SetUDataOnce : This method tests if the MUIA_UserData of the object
  * contains the given <udata> and sets <attr> to <val> for itself in this case.
  */
-IPTR Window__MUIM_SetUDataOnce(struct IClass *cl, Object *obj,
-    struct MUIP_SetUDataOnce *msg)
+IPTR Window__MUIM_SetUDataOnce(struct IClass *cl, Object *obj, struct MUIP_SetUDataOnce *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
@@ -3570,7 +3386,7 @@ IPTR Window__MUIM_SetUDataOnce(struct IClass *cl, Object *obj,
     }
 
     if (data->wd_RootObject)
-        return DoMethodA(data->wd_RootObject, (Msg) msg);
+    	return DoMethodA(data->wd_RootObject, (Msg)msg);
 
     return FALSE;
 }
@@ -3584,14 +3400,13 @@ IPTR Window__MUIM_ConnectParent(struct IClass *cl, Object *obj,
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
-    if (!DoSuperMethodA(cl, obj, (Msg) msg))
-        return 0;
+    if (!DoSuperMethodA(cl,obj,(Msg)msg)) return 0;
 
     if (data->wd_RootObject)
-        DoMethod(data->wd_RootObject, MUIM_ConnectParent, (IPTR) obj);
+	DoMethod(data->wd_RootObject, MUIM_ConnectParent, (IPTR)obj);
 
     if (data->wd_ChildMenustrip)
-        DoMethod(data->wd_ChildMenustrip, MUIM_ConnectParent, (IPTR) obj);
+	DoMethod(data->wd_ChildMenustrip, MUIM_ConnectParent, (IPTR)obj);
 
     return TRUE;
 }
@@ -3600,32 +3415,27 @@ IPTR Window__MUIM_ConnectParent(struct IClass *cl, Object *obj,
 /**************************************************************************
  called by parent object
 **************************************************************************/
-IPTR Window__MUIM_DisconnectParent(struct IClass *cl, Object *obj,
-    struct MUIP_DisconnectParent *msg)
+IPTR Window__MUIM_DisconnectParent(struct IClass *cl, Object *obj, struct MUIP_DisconnectParent *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
-/*      D(bug("Window_DisconnectParent(%p) : muiGlobalInfo=%p\n", */
-/*          muiGlobalInfo(obj))); */
+/*      D(bug("Window_DisconnectParent(%p) : muiGlobalInfo=%p\n", muiGlobalInfo(obj))); */
     if (muiGlobalInfo(obj))
     {
         /* Close the window before disconnecting all the childs */
         if ((data->wd_Flags & MUIWF_OPENED))
         {
-/*            D(bug(" Window_DisconnectParent(%p) : closing window\n", */
-/*                muiGlobalInfo(obj))); */
+/*  	    D(bug(" Window_DisconnectParent(%p) : closing window\n", muiGlobalInfo(obj))); */
             set(obj, MUIA_Window_Open, FALSE);
         }
         if (data->wd_ChildMenustrip)
-            DoMethod(data->wd_ChildMenustrip, MUIM_DisconnectParent,
-                (IPTR) obj);
+	    DoMethod(data->wd_ChildMenustrip, MUIM_DisconnectParent, (IPTR)obj);
 
         if (data->wd_RootObject)
-            DoMethodA(data->wd_RootObject, (Msg) msg);
+	    DoMethodA(data->wd_RootObject, (Msg)msg);
 
-/*        D(bug(" Window_DisconnectParent(%p) : calling supermethod\n", */
-/*            muiGlobalInfo(obj))); */
-        return DoSuperMethodA(cl, obj, (Msg) msg);
+/*  	D(bug(" Window_DisconnectParent(%p) : calling supermethod\n", muiGlobalInfo(obj))); */
+	return DoSuperMethodA(cl,obj,(Msg)msg);
     }
     else
     {
@@ -3633,24 +3443,23 @@ IPTR Window__MUIM_DisconnectParent(struct IClass *cl, Object *obj,
     }
 }
 
-static void SetRootObjInnerSpacing(Object *obj,
-    struct MUI_WindowData *data)
+static void SetRootObjInnerSpacing(Object *obj, struct MUI_WindowData *data)
 {
     UWORD wd_innerLeft, wd_innerRight, wd_innerTop, wd_innerBottom;
 
     if (data->wd_CrtFlags & WFLG_BORDERLESS)
     {
-        wd_innerLeft = 0;
-        wd_innerRight = 0;
-        wd_innerTop = 0;
+	wd_innerLeft   = 0;
+	wd_innerRight  = 0;
+	wd_innerTop    = 0;
         wd_innerBottom = 0;
     }
     else
     {
-        wd_innerLeft = muiGlobalInfo(obj)->mgi_Prefs->window_inner_left;
-        wd_innerRight = muiGlobalInfo(obj)->mgi_Prefs->window_inner_right;
-        wd_innerTop = muiGlobalInfo(obj)->mgi_Prefs->window_inner_top;
-        wd_innerBottom = muiGlobalInfo(obj)->mgi_Prefs->window_inner_bottom;
+	wd_innerLeft   = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_inner_left;
+	wd_innerRight  = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_inner_right;
+	wd_innerTop    = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_inner_top;
+        wd_innerBottom = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_inner_bottom;
     }
 
     if (!(muiAreaData(data->wd_RootObject)->mad_Flags & MADF_INNERLEFT))
@@ -3682,29 +3491,18 @@ static void WindowMinMax(Object *obj, struct MUI_WindowData *data)
 {
     SetRootObjInnerSpacing(obj, data);
     /* inquire about sizes */
-    DoMethod(data->wd_RootObject, MUIM_AskMinMax, (IPTR) & data->wd_MinMax);
-/*      D(bug("*** root minmax = %ld,%ld => %ld,%ld\n", */
-/*            data->wd_MinMax.MinWidth, */
-/*            data->wd_MinMax.MinHeight, */
-/*            data->wd_MinMax.MaxWidth, data->wd_MinMax.MaxHeight)); */
+    DoMethod(data->wd_RootObject, MUIM_AskMinMax, (IPTR)&data->wd_MinMax);
+/*      D(bug("*** root minmax = %ld,%ld => %ld,%ld\n", data->wd_MinMax.MinWidth, */
+/*  	  data->wd_MinMax.MinHeight, */
+/*  	  data->wd_MinMax.MaxWidth, data->wd_MinMax.MaxHeight)); */
     __area_finish_minmax(data->wd_RootObject, &data->wd_MinMax);
-/*      D(bug("*** root minmax2 = %ld,%ld => %ld,%ld\n", */
-/*            data->wd_MinMax.MinWidth, */
-/*            data->wd_MinMax.MinHeight, */
-/*            data->wd_MinMax.MaxWidth, data->wd_MinMax.MaxHeight)); */
-
-    if(data->wd_MinMax.MaxWidth > data->wd_RenderInfo.mri_Screen->Width)
-    {
-        data->wd_MinMax.MaxWidth = data->wd_RenderInfo.mri_Screen->Width;
-    }
-    if(data->wd_MinMax.MaxHeight > data->wd_RenderInfo.mri_Screen->Height)
-    {
-        data->wd_MinMax.MaxHeight = data->wd_RenderInfo.mri_Screen->Height;
-    }
+/*      D(bug("*** root minmax2 = %ld,%ld => %ld,%ld\n", data->wd_MinMax.MinWidth, */
+/*  	  data->wd_MinMax.MinHeight, */
+/*  	  data->wd_MinMax.MaxWidth, data->wd_MinMax.MaxHeight)); */
 }
 
 
-static void InstallBackbuffer(struct IClass *cl, Object *obj)
+static void InstallBackbuffer (struct IClass *cl, Object *obj)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 #if 0
@@ -3716,17 +3514,14 @@ static void InstallBackbuffer(struct IClass *cl, Object *obj)
 #endif
     if (data->wd_RenderInfo.mri_BufferBM)
     {
-/*        D(bug("install_backbuffer : allocated bitmap %dx%dx%d " */
-/*            "with friend %p\n", */
-/*            win->Width, win->Height, win->RPort->BitMap->Depth, */
-/*            win->RPort->BitMap)); */
+/*  	D(bug("install_backbuffer : allocated bitmap %dx%dx%d with friend %p\n", */
+/*  	      win->Width, win->Height, win->RPort->BitMap->Depth, win->RPort->BitMap)); */
         InitRastPort(&data->wd_RenderInfo.mri_BufferRP);
-        data->wd_RenderInfo.mri_BufferRP.BitMap =
-            data->wd_RenderInfo.mri_BufferBM;
+	data->wd_RenderInfo.mri_BufferRP.BitMap = data->wd_RenderInfo.mri_BufferBM;
     }
 }
 
-static void DeinstallBackbuffer(struct IClass *cl, Object *obj)
+static void DeinstallBackbuffer (struct IClass *cl, Object *obj)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
@@ -3743,14 +3538,14 @@ static void DeinstallBackbuffer(struct IClass *cl, Object *obj)
  * An expose event is already queued, it will trigger
  * MUIM_Draw for us when going back to main loop.
  */
-static void WindowShow(struct IClass *cl, Object *obj)
+static void WindowShow (struct IClass *cl, Object *obj)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     struct Window *win = data->wd_RenderInfo.mri_Window;
-/*      D(bug("WindowShow %s %d\n", __FILE__, __LINE__)); */
+/*      D(bug("window_show %s %d\n", __FILE__, __LINE__)); */
 
     _left(data->wd_RootObject) = win->BorderLeft;
-    _top(data->wd_RootObject) = win->BorderTop;
+    _top(data->wd_RootObject)  = win->BorderTop;
     _width(data->wd_RootObject) = data->wd_Width;
     _height(data->wd_RootObject) = data->wd_Height;
 
@@ -3780,17 +3575,17 @@ static ULONG WindowOpen(struct IClass *cl, Object *obj)
     }
 
     /* inquire about sizes */
-    WindowMinMax(obj, data);
+    WindowMinMax(obj,data);
     WindowSelectDimensions(data);
 
     /* Decide which menustrip should be used */
     if (!data->wd_ChildMenustrip)
-        get(_app(obj), MUIA_Application_Menustrip, &data->wd_Menustrip);
+	get(_app(obj), MUIA_Application_Menustrip, (IPTR *)&data->wd_Menustrip);
     else
         data->wd_Menustrip = data->wd_ChildMenustrip;
 
     /* open window here ... */
-    if (!DisplayWindow(obj, data))
+    if (!DisplayWindow(obj,data))
     {
         /* free display dependant data */
         data->wd_Menustrip = NULL;
@@ -3806,7 +3601,7 @@ static ULONG WindowOpen(struct IClass *cl, Object *obj)
     WindowShow(cl, obj);
 
     {
-        LONG left, top, width, height;
+	LONG left,top,width,height;
 
         left = data->wd_RenderInfo.mri_Window->BorderLeft;
         top = data->wd_RenderInfo.mri_Window->BorderTop,
@@ -3815,39 +3610,43 @@ static ULONG WindowOpen(struct IClass *cl, Object *obj)
         height = data->wd_RenderInfo.mri_Window->Height
             - data->wd_RenderInfo.mri_Window->BorderBottom - top;
 
-/*          D(bug("zune_imspec_draw %s %d\n", __FILE__, __LINE__)); */
-//        D(bug("%d:zune_imspec_draw(%p) l=%d t=%d w=%d h=%d xo=%d yo=%d\n",
-//              __LINE__, data->wd_Background, left, top, width,
-//              height, left, top));
+/*  	D(bug("zune_imspec_draw %s %d\n", __FILE__, __LINE__)); */
+//	D(bug("%d:zune_imspec_draw(%p) l=%d t=%d w=%d h=%d xo=%d yo=%d\n",
+//	      __LINE__, data->wd_Background, left, top, width,
+//	      height, left, top));
 
         zune_imspec_draw(data->wd_Background, &data->wd_RenderInfo,
             left, top, width, height, left, top, 0);
     }
 
-    if (data->wd_RenderInfo.mri_Screen
-        && muiGlobalInfo(obj)->mgi_Prefs->publicscreen_pop_to_front)
-    {
-        ScreenToFront(data->wd_RenderInfo.mri_Screen);
-    }
-
     MUI_Redraw(data->wd_RootObject, MADF_DRAWOBJECT);
 
-    D(bug("MUIC_Window:windowOpen() ActiveObject=%p\n",
-            data->wd_ActiveObject));
+    D(bug("MUIC_Window:windowOpen() ActiveObject=%p\n", data->wd_ActiveObject));
+    //if (data->wd_ActiveObject)
+//    {
+//        data->wd_Flags | MUIWF_OBJECTGOACTIVESENT;
+//	    DoMethod(data->wd_ActiveObject, MUIM_GoInactive);
+//	    data->wd_OldActive = data->wd_ActiveObject;   
+//    }
+//    data->wd_ActiveObject = NULL;
+//    data->wd_Flags &= ~MUIWF_OBJECTGOACTIVESENT;
+                                     
     if (data->wd_OldActive != NULL)
     {
+              
         set(obj, MUIA_Window_ActiveObject, data->wd_OldActive);
     }
 
     return TRUE;
 }
 
-/**************************************************************************/
-/**************************************************************************/
+/******************************************************************************/
+/******************************************************************************/
 
 static ULONG WindowClose(struct IClass *cl, Object *obj)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
+    //if (muiGlobalInfo(obj) && _app(obj))DoMethod(_app(obj), MUIM_Application_InputBuffered);
 
     if (data->wd_ActiveObject != NULL)
     {
@@ -3858,6 +3657,7 @@ static ULONG WindowClose(struct IClass *cl, Object *obj)
     KillHelpBubble(data, obj, BUBBLEHELP_TICKER_FIRST);
 
     /* remove from window */
+    
     DoHideMethod(data->wd_RootObject);
     zune_imspec_hide(data->wd_Background);
 
@@ -3866,7 +3666,7 @@ static ULONG WindowClose(struct IClass *cl, Object *obj)
     HideRenderInfo(&data->wd_RenderInfo);
 
     /* close here ... */
-    UndisplayWindow(obj, data);
+    UndisplayWindow(obj,data);
 
     data->wd_Flags &= ~MUIWF_OPENED;
     data->wd_Menustrip = NULL;
@@ -3883,12 +3683,11 @@ static ULONG WindowClose(struct IClass *cl, Object *obj)
  * see Group_Columns
  * see Group_Rows
  */
-IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj,
-    struct MUIP_Window_RecalcDisplay *msg)
+IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Window_RecalcDisplay *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    LONG left, top, width, height;
-    BOOL resized, reshow = FALSE;
+    LONG left,top,width,height;
+    BOOL resized;
     Object *current_obj;
 
     if (!(data->wd_Flags & MUIWF_OPENED))
@@ -3907,21 +3706,15 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj,
     D(bug("RecalcDisplay on %p\n", current_obj));
     while (current_obj != NULL)
     {
-        DoMethod(current_obj, MUIM_AskMinMax,
-            (IPTR) & muiAreaData(current_obj)->mad_MinMax);
-        __area_finish_minmax(current_obj,
-            &muiAreaData(current_obj)->mad_MinMax);
+	DoMethod(current_obj, MUIM_AskMinMax, (IPTR)&muiAreaData(current_obj)->mad_MinMax);
+	__area_finish_minmax(current_obj, &muiAreaData(current_obj)->mad_MinMax);
 
-        D(bug("size w = %d, h = %d\n", _width(current_obj),
-                _height(current_obj)));
-        D(bug("new w = %d-%d, h = %d-%d\n", _minwidth(current_obj),
-                _maxwidth(current_obj), _minheight(current_obj),
-                _maxheight(current_obj)));
+	D(bug("size w = %d, h = %d\n", _width(current_obj), _height(current_obj)));
+	D(bug("new w = %d-%d, h = %d-%d\n", _minwidth(current_obj), _maxwidth(current_obj),
+	      _minheight(current_obj), _maxheight(current_obj)));
 
-        if (!_between(_minwidth(current_obj), _width(current_obj),
-                _maxwidth(current_obj))
-            || !_between(_minheight(current_obj), _height(current_obj),
-                _maxheight(current_obj)))
+	if (!_between(_minwidth(current_obj), _width(current_obj), _maxwidth(current_obj))
+	    || !_between(_minheight(current_obj), _height(current_obj), _maxheight(current_obj)))
         {
             current_obj = _parent(current_obj);
             D(bug("RecalcDisplay, try parent %p\n", current_obj));
@@ -3933,62 +3726,46 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj,
         }
     }
 
+
+
     if (!current_obj)
         current_obj = data->wd_RootObject;
 
     WindowMinMax(obj, data);
-
-    /* Important: current_obj could be hidden, like in an inactive page! */
-    if (_flags(current_obj) & MADF_CANDRAW)
-    {
-        reshow = TRUE;
-    }
-
-    if (reshow)
         DoHideMethod(current_obj);
-
     /* resize window ? */
     WindowSelectDimensions(data);
     resized = WindowResize(data);
 
-    if (!resized)
-    {
-        /* FIXME: Should we short circuit the following
-         *        if the window size didn't change?
-         */
-    }
-
     {
         struct Window *win = data->wd_RenderInfo.mri_Window;
         _left(data->wd_RootObject) = win->BorderLeft;
-        _top(data->wd_RootObject) = win->BorderTop;
+	_top(data->wd_RootObject)  = win->BorderTop;
         _width(data->wd_RootObject) = data->wd_Width;
         _height(data->wd_RootObject) = data->wd_Height;
     }
     DoMethod(current_obj, MUIM_Layout);
-
-    if (reshow)
         DoShowMethod(current_obj);
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->window_redraw ==
-        WINDOW_REDRAW_WITHOUT_CLEAR)
-    {
-        if (reshow)
             MUI_Redraw(current_obj, MADF_DRAWOBJECT);
-    }
-    else
-    {
-        left = data->wd_RenderInfo.mri_Window->BorderLeft;
-        top = data->wd_RenderInfo.mri_Window->BorderTop;
-        width = data->wd_RenderInfo.mri_Window->Width
-            - data->wd_RenderInfo.mri_Window->BorderRight - left;
-        height = data->wd_RenderInfo.mri_Window->Height
-            - data->wd_RenderInfo.mri_Window->BorderBottom - top;
+    //if (muiGlobalInfo(obj)->mgi_Prefs->window_redraw == WINDOW_REDRAW_WITHOUT_CLEAR)
+//    {
+//	MUI_Redraw(current_obj, MADF_DRAWOBJECT);
+//}
+//    else
+//    {
+//	left = data->wd_RenderInfo.mri_Window->BorderLeft;
+//	top = data->wd_RenderInfo.mri_Window->BorderTop;
+//	width = data->wd_RenderInfo.mri_Window->Width
+//	    - data->wd_RenderInfo.mri_Window->BorderRight - left;
+//	height = data->wd_RenderInfo.mri_Window->Height
+//	    - data->wd_RenderInfo.mri_Window->BorderBottom - top;
+//
+//	zune_imspec_draw(data->wd_Background, &data->wd_RenderInfo,
+//			 left, top, width, height, left, top, 0);
+//	MUI_Redraw(data->wd_RootObject, MADF_DRAWALL);
+//    }
 
-        zune_imspec_draw(data->wd_Background, &data->wd_RenderInfo,
-            left, top, width, height, left, top, 0);
-        MUI_Redraw(data->wd_RootObject, MADF_DRAWALL);
-    }
 
     ActivateObject(data);
 
@@ -4006,9 +3783,14 @@ IPTR Window__MUIM_AddEventHandler(struct IClass *cl, Object *obj,
 
     //D(bug("muimaster.library/window.c: Add Eventhandler %p\n", msg->ehnode));
 
+#ifdef __AROS__
+#if !(AROS_FLAVOUR & AROS_FLAVOUR_BINCOMPAT)
+    msg->ehnode->ehn_Node.ln_Pri = msg->ehnode->ehn_Priority;
+#else
     msg->ehnode->ehn_Priority = msg->ehnode->ehn_Priority;
-    EnqueueByPriAndAddress((struct List *)&data->wd_EHList,
-        (struct Node *)msg->ehnode);
+#endif
+#endif
+    EnqueueByPriAndAddress((struct List *)&data->wd_EHList, (struct Node *)msg->ehnode);
     ChangeEvents(data, GetDefaultEvents());
     return TRUE;
 }
@@ -4038,11 +3820,9 @@ IPTR Window__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
     if (!SetupRenderInfo(obj, data, &data->wd_RenderInfo))
         return FALSE;
 
-    data->wd_Background =
-        zune_imspec_setup(MUII_WindowBack, &data->wd_RenderInfo);
+    data->wd_Background = zune_imspec_setup(MUII_WindowBack, &data->wd_RenderInfo);
 
-    if (muiGlobalInfo(obj)->mgi_Prefs->window_redraw ==
-        WINDOW_REDRAW_WITH_CLEAR)
+    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_redraw == WINDOW_REDRAW_WITH_CLEAR)
         data->wd_Flags |= MUIWF_ERASEAREA;
 
     return TRUE;
@@ -4054,7 +3834,7 @@ IPTR Window__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
 IPTR Window__MUIM_Cleanup(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-
+    //if (muiGlobalInfo(obj) && _app(obj))DoMethod(_app(obj), MUIM_Application_DoPushedMethods);
     zune_imspec_cleanup(data->wd_Background);
 
     if (data->wd_dnd)
@@ -4063,14 +3843,15 @@ IPTR Window__MUIM_Cleanup(struct IClass *cl, Object *obj, Msg msg)
         data->wd_dnd = NULL;
     }
 
-    CleanupRenderInfo(obj, data, &data->wd_RenderInfo);
+    CleanupRenderInfo(data, &data->wd_RenderInfo);
+
     return TRUE;
 }
 
 
 /**************************************************************************
- This adds the the control char handler and also does the MUIA_CycleChain
- stuff. Orginal MUI does this another way.
+ This adds the the control char handler and also do the MUIA_CycleChain
+ stuff. Orginal MUI does this in an other way.
 **************************************************************************/
 IPTR Window__MUIM_AddControlCharHandler(struct IClass *cl, Object *obj,
     struct MUIP_Window_AddControlCharHandler *msg)
@@ -4080,9 +3861,14 @@ IPTR Window__MUIM_AddControlCharHandler(struct IClass *cl, Object *obj,
 
     if (msg->ccnode->ehn_Events)
     {
-        ((struct Node *)msg->ccnode)->ln_Pri = msg->ccnode->ehn_Priority;
-        Enqueue((struct List *)&data->wd_CCList,
-            (struct Node *)msg->ccnode);
+#ifdef __AROS__
+    #if !(AROS_FLAVOUR & AROS_FLAVOUR_BINCOMPAT)
+        msg->ccnode->ehn_Node.ln_Pri = msg->ccnode->ehn_Priority;
+    #else
+        msg->ccnode->ehn_Priority = msg->ccnode->ehn_Priority;
+    #endif
+#endif
+	Enqueue((struct List *)&data->wd_CCList, (struct Node *)msg->ccnode);
     }
     /* Due to the lack of a better idea ... */
     if (muiAreaData(msg->ccnode->ehn_Object)->mad_Flags & MADF_CYCLECHAIN)
@@ -4091,8 +3877,7 @@ IPTR Window__MUIM_AddControlCharHandler(struct IClass *cl, Object *obj,
         if (node)
         {
             node->obj = msg->ccnode->ehn_Object;
-            AddTail((struct List *)&data->wd_CycleChain,
-                (struct Node *)node);
+	    AddTail((struct List *)&data->wd_CycleChain,(struct Node*)node);
         }
     }
     return TRUE;
@@ -4105,16 +3890,15 @@ IPTR Window__MUIM_RemControlCharHandler(struct IClass *cl, Object *obj,
     struct MUIP_Window_RemControlCharHandler *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    struct ObjNode *node =
-        FindObjNode(&data->wd_CycleChain, msg->ccnode->ehn_Object);
+    struct ObjNode     *node = FindObjNode(&data->wd_CycleChain,msg->ccnode->ehn_Object);
 
-    if (msg->ccnode->ehn_Events)
-        Remove((struct Node *)msg->ccnode);
+    if (msg->ccnode->ehn_Events) Remove((struct Node *)msg->ccnode);
 
     if (node)
     {
         /* Remove from the chain list */
         Remove((struct Node *)node);
+
         FreePooled(data->wd_MemoryPool, node, sizeof(struct ObjNode));
     }
 
@@ -4124,8 +3908,7 @@ IPTR Window__MUIM_RemControlCharHandler(struct IClass *cl, Object *obj,
 /**************************************************************************
  MUIM_DragObject
 **************************************************************************/
-IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj,
-    struct MUIP_Window_DragObject *msg)
+IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj, struct MUIP_Window_DragObject *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     if (msg->obj)
@@ -4134,42 +3917,37 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj,
         struct MUI_DragImage *di;
         struct BitMapNode *bmn;
 
-        if (!(dnd = CreateDragNDropA(NULL)))
-            return 0;
-
-        if (!(di =
-                (struct MUI_DragImage *)DoMethod(msg->obj,
-                    MUIM_CreateDragImage, msg->touchx, msg->touchy,
-                    msg->flags)))
+	if (!(dnd = CreateDragNDropA(NULL))) return 0;
+	if (!(di = (struct MUI_DragImage*)DoMethod(msg->obj,MUIM_CreateDragImage,msg->touchx,msg->touchy,msg->flags)))
         {
             DeleteDragNDrop(dnd);
             return 0;
         }
         if (!di->bm)
         {
-            DoMethod(msg->obj, MUIM_DeleteDragImage, (IPTR) di);
+	    DoMethod(msg->obj,MUIM_DeleteDragImage, (IPTR)di);
             DeleteDragNDrop(dnd);
             return 0;
         }
 
-        if (!(bmn = CreateBitMapNodeA(TAGLIST(
-            GUI_BitMap, (IPTR)di->bm,
+	if (!(bmn = CreateBitMapNode(NULL, /* dummy */
+		GUI_BitMap, di->bm,
             GUI_LeftOffset, di->touchx,
             GUI_TopOffset, di->touchy,
             GUI_Width, di->width,
             GUI_Height, di->height,
-            GUI_SourceAlpha, !!(di->flags & MUIF_DRAGIMAGE_SOURCEALPHA)))))
+		TAG_DONE)))
         {
-            DoMethod(msg->obj, MUIM_DeleteDragImage, (IPTR) di);
+	    DoMethod(msg->obj, MUIM_DeleteDragImage, (IPTR)di);
             DeleteDragNDrop(dnd);
             return 0;
         }
 
-        AttachBitMapNode(dnd, bmn);
+	AttachBitMapNode(dnd,bmn);
 
         if (!PrepareDragNDrop(dnd, data->wd_RenderInfo.mri_Screen))
         {
-            DoMethod(msg->obj, MUIM_DeleteDragImage, (IPTR) di);
+	    DoMethod(msg->obj,MUIM_DeleteDragImage, (IPTR)di);
             DeleteDragNDrop(dnd);
             return 0;
         }
@@ -4187,8 +3965,7 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj,
 /**************************************************************************
  MUIM_AllocGadgetID
 **************************************************************************/
-IPTR Window__MUIM_AllocGadgetID(struct IClass *cl, Object *obj,
-    struct MUIP_Window_AllocGadgetID *msg)
+IPTR Window__MUIM_AllocGadgetID(struct IClass *cl, Object *obj, struct MUIP_Window_AllocGadgetID *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     struct IDNode *newnode;
@@ -4199,12 +3976,11 @@ IPTR Window__MUIM_AllocGadgetID(struct IClass *cl, Object *obj,
         int id;
         struct MinNode *mn;
 
-        if (IsListEmpty(&data->wd_IDList))
+       if (IsListEmpty((struct List*)&data->wd_IDList))
         {
             newnode->id = 1;
-            AddHead((struct List *)&data->wd_IDList,
-                (struct Node *)&newnode->node);
-            return (IPTR) 1;
+           AddHead((struct List*)&data->wd_IDList, (struct Node*)&newnode->node);
+           return (IPTR)1;
         }
 
         id = 1;
@@ -4217,9 +3993,8 @@ IPTR Window__MUIM_AllocGadgetID(struct IClass *cl, Object *obj,
             id++;
         }
         newnode->id = id;
-        Insert((struct List *)&data->wd_IDList,
-            (struct Node *)&newnode->node, (struct Node *)mn);
-        return (IPTR) id;
+       Insert((struct List*)&data->wd_IDList, (struct Node*)&newnode->node, (struct Node*)mn);
+       return (IPTR)id;
     }
 
     return 0;
@@ -4228,8 +4003,7 @@ IPTR Window__MUIM_AllocGadgetID(struct IClass *cl, Object *obj,
 /**************************************************************************
  MUIM_FreeGadgetID
 **************************************************************************/
-IPTR Window__MUIM_FreeGadgetID(struct IClass *cl, Object *obj,
-    struct MUIP_Window_FreeGadgetID *msg)
+IPTR Window__MUIM_FreeGadgetID(struct IClass *cl, Object *obj, struct MUIP_Window_FreeGadgetID *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     struct MinNode *mn;
@@ -4239,7 +4013,7 @@ IPTR Window__MUIM_FreeGadgetID(struct IClass *cl, Object *obj,
         struct IDNode *idn = (struct IDNode *)mn;
         if (msg->gadgetid == idn->id)
         {
-            Remove((struct Node *)idn);
+           Remove((struct Node*)idn);
             FreePooled(data->wd_MemoryPool, idn, sizeof(struct IDNode));
             return 0;
         }
@@ -4252,94 +4026,91 @@ IPTR Window__MUIM_FreeGadgetID(struct IClass *cl, Object *obj,
 /**************************************************************************
  MUIM_Window_GetMenuCheck
 **************************************************************************/
-IPTR Window__MUIM_GetMenuCheck(struct IClass *cl, Object *obj,
-    struct MUIP_Window_GetMenuCheck *msg)
+IPTR Window__MUIM_GetMenuCheck(struct IClass *cl, Object *obj, APTR msg)
 {
-    IPTR stat = 0;
+    IPTR stat;
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     Object *item;
     Object *strip = data->wd_ChildMenustrip;
-    if (!strip)
-        strip = data->wd_Menustrip;
-    if (!strip)
-        return 0;
-    if (!(item = (Object *) DoMethod(strip, MUIM_FindUData, msg->MenuID)))
-        return 0;
-    get(item, MUIA_Menuitem_Checked, &stat);
+    ULONG *params = (ULONG *)msg;
+    ULONG MenuID = params[1]; /* Skip MethodID at params[0] */
+    
+    if (!strip) strip = data->wd_Menustrip;
+    if (!strip) return 0;
+    if (!(item = (Object*)DoMethod(strip, MUIM_FindUData, MenuID))) return 0;
+    get(item,MUIA_Menuitem_Checked, &stat);
     return stat;
 }
 
 /**************************************************************************
  MUIM_Window_SetMenuCheck
 **************************************************************************/
-IPTR Window__MUIM_SetMenuCheck(struct IClass *cl, Object *obj,
-    struct MUIP_Window_SetMenuCheck *msg)
+IPTR Window__MUIM_SetMenuCheck(struct IClass *cl, Object *obj, APTR msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     Object *item;
     Object *strip = data->wd_ChildMenustrip;
-    if (!strip)
-        strip = data->wd_Menustrip;
-    if (!strip)
-        return 0;
-    if (!(item = (Object *) DoMethod(strip, MUIM_FindUData, msg->MenuID)))
-        return 0;
-    set(item, MUIA_Menuitem_Checked, msg->stat);
+    ULONG *params = (ULONG *)msg;
+    ULONG MenuID = params[1]; /* Skip MethodID at params[0] */
+    LONG stat = (LONG)params[2];
+    
+    if (!strip) strip = data->wd_Menustrip;
+    if (!strip) return 0;
+    if (!(item = (Object*)DoMethod(strip, MUIM_FindUData, MenuID))) return 0;
+    set(item,MUIA_Menuitem_Checked,stat);
     return 0;
 }
 
 /**************************************************************************
  MUIM_Window_GetMenuState
 **************************************************************************/
-IPTR Window__MUIM_GetMenuState(struct IClass *cl, Object *obj,
-    struct MUIP_Window_GetMenuState *msg)
+IPTR Window__MUIM_GetMenuState(struct IClass *cl, Object *obj, APTR msg)
 {
-    IPTR stat = 0;
+    IPTR stat;
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     Object *item;
     Object *strip = data->wd_ChildMenustrip;
-    if (!strip)
-        strip = data->wd_Menustrip;
-    if (!strip)
-        return 0;
-    if (!(item = (Object *) DoMethod(strip, MUIM_FindUData, msg->MenuID)))
-        return 0;
-    get(item, MUIA_Menuitem_Enabled, &stat);
+    ULONG *params = (ULONG *)msg;
+    ULONG MenuID = params[1]; /* Skip MethodID at params[0] */
+    
+    if (!strip) strip = data->wd_Menustrip;
+    if (!strip) return 0;
+    if (!(item = (Object*)DoMethod(strip, MUIM_FindUData, MenuID))) return 0;
+    get(item,MUIA_Menuitem_Enabled, &stat);
     return stat;
 }
 
 /**************************************************************************
  MUIM_Window_SetMenuState
 **************************************************************************/
-IPTR Window__MUIM_SetMenuState(struct IClass *cl, Object *obj,
-    struct MUIP_Window_SetMenuState *msg)
+IPTR Window__MUIM_SetMenuState(struct IClass *cl, Object *obj, APTR msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     Object *item;
     Object *strip = data->wd_ChildMenustrip;
-    if (!strip)
-        strip = data->wd_Menustrip;
-    if (!strip)
-        return 0;
-    if (!(item = (Object *) DoMethod(strip, MUIM_FindUData, msg->MenuID)))
-        return 0;
-    set(item, MUIA_Menuitem_Enabled, msg->stat);
+    ULONG *params = (ULONG *)msg;
+    ULONG MenuID = params[1]; /* Skip MethodID at params[0] */
+    LONG stat = (LONG)params[2];
+    
+    if (!strip) strip = data->wd_Menustrip;
+    if (!strip) return 0;
+    if (!(item = (Object*)DoMethod(strip, MUIM_FindUData, MenuID))) return 0;
+    set(item,MUIA_Menuitem_Enabled,stat);
     return 0;
 }
 
 /**************************************************************************
  MUIM_Window_DrawBackground
 **************************************************************************/
-IPTR Window__MUIM_DrawBackground(struct IClass *cl, Object *obj,
-    struct MUIP_Window_DrawBackground *msg)
+IPTR Window__MUIM_DrawBackground(struct IClass *cl, Object *obj, struct MUIP_Window_DrawBackground *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    if (!(data->wd_RenderInfo.mri_Window))      /* not between show/hide */
+    if (!(data->wd_RenderInfo.mri_Window)) /* not between show/hide */
         return FALSE;
 
 //    D(bug("%d:zune_imspec_draw(%p) l=%d t=%d w=%d h=%d xo=%d yo=%d\n",
-//          __LINE__, data->wd_Background, msg->left, msg->top, msg->width,
-//          msg->height, msg->xoffset, msg->yoffset));
+//	  __LINE__, data->wd_Background, msg->left, msg->top, msg->width,
+//	  msg->height, msg->xoffset, msg->yoffset));
     zune_imspec_draw(data->wd_Background, &data->wd_RenderInfo,
         msg->left, msg->top, msg->width, msg->height,
         msg->xoffset, msg->yoffset, 0);
@@ -4352,7 +4123,7 @@ IPTR Window__MUIM_DrawBackground(struct IClass *cl, Object *obj,
 IPTR Window__MUIM_ToFront(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    if (!(data->wd_RenderInfo.mri_Window))      /* not between show/hide */
+    if (!(data->wd_RenderInfo.mri_Window)) /* not between show/hide */
         return 0;
 
     WindowToFront(data->wd_RenderInfo.mri_Window);
@@ -4365,7 +4136,7 @@ IPTR Window__MUIM_ToFront(struct IClass *cl, Object *obj, Msg msg)
 IPTR Window__MUIM_ToBack(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    if (!(data->wd_RenderInfo.mri_Window))      /* not between show/hide */
+    if (!(data->wd_RenderInfo.mri_Window)) /* not between show/hide */
         return 0;
 
     WindowToBack(data->wd_RenderInfo.mri_Window);
@@ -4378,7 +4149,7 @@ IPTR Window__MUIM_ToBack(struct IClass *cl, Object *obj, Msg msg)
 IPTR Window__MUIM_ScreenToBack(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    if (!(data->wd_RenderInfo.mri_Window))      /* not between show/hide */
+    if (!(data->wd_RenderInfo.mri_Window)) /* not between show/hide */
         return 0;
 
     ScreenToBack(data->wd_RenderInfo.mri_Screen);
@@ -4391,7 +4162,7 @@ IPTR Window__MUIM_ScreenToBack(struct IClass *cl, Object *obj, Msg msg)
 IPTR Window__MUIM_ScreenToFront(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    if (!(data->wd_RenderInfo.mri_Window))      /* not between show/hide */
+    if (!(data->wd_RenderInfo.mri_Window)) /* not between show/hide */
         return 0;
 
     ScreenToFront(data->wd_RenderInfo.mri_Screen);
@@ -4434,10 +4205,9 @@ static void RememberWindowPosition(Object *winobj, ULONG id)
         return;
 }
 
-/* Loads ENV: prefs, remove our Window_ID chunk from the MUIW chunk,
- * save prefs.
+/* Loads ENV: prefs, remove our Window_ID chunk from the MUIW chunk, save prefs.
  * Do the same for ENVARC:
- * This function shouldn't really be in window.c, but rather in a file dealing
+ * This function shouldnt really be in window.c, but rather in a file dealing
  * with prefs file stuff.
  */
 static void ForgetWindowPosition(Object *winobj, ULONG id)
@@ -4448,39 +4218,6 @@ static void ForgetWindowPosition(Object *winobj, ULONG id)
 
 /**************************************************************************
  MUIM_Window_Snapshot
-**************************************************************************/
-IPTR Window__MUIM_Snapshot(struct IClass *cl, Object *obj,
-    struct MUIP_Window_Snapshot *msg)
-{
-    struct MUI_WindowData *data = INST_DATA(cl, obj);
-    struct windowpos winp;
-    struct Window *w;
-
-    winp.id = data->wd_ID;
-    w = data->wd_RenderInfo.mri_Window;
-    if (w)
-    {
-        winp.x1 = w->LeftEdge;
-        winp.y1 = w->TopEdge;
-        winp.w1 = w->GZZWidth;
-        winp.h1 = w->GZZHeight;
-        winp.x2 = 0;
-        winp.x2 = 0;
-        winp.w2 = 0;
-        winp.h2 = 0;            //to do save alt dims
-
-        set(_app(obj), MUIA_Application_SetWinPos, &winp);
-    }
-
-    if (msg->flags)
-        RememberWindowPosition(obj, data->wd_ID);
-    else
-        ForgetWindowPosition(obj, data->wd_ID);
-    return 1;
-}
-
-/**************************************************************************
- MUIM_Window_UpdateMenu
 **************************************************************************/
 IPTR Window__MUIM_UpdateMenu(struct IClass *cl, Object *obj, Msg msg)
 {
@@ -4493,41 +4230,38 @@ IPTR Window__MUIM_UpdateMenu(struct IClass *cl, Object *obj, Msg msg)
 
     if (data->wd_Menustrip)     // only open windows can have a menustrip
     {
-        if ((visinfo =
-                GetVisualInfoA(data->wd_RenderInfo.mri_Screen, NULL)))
+        win = data->wd_RenderInfo.mri_Window;
+        if (win)
         {
-            win = data->wd_RenderInfo.mri_Window;
-            ClearMenuStrip(win);
-            if (data->wd_Menu)
+            if ((visinfo = GetVisualInfoA(data->wd_RenderInfo.mri_Screen,NULL)))
             {
-                FreeMenus(data->wd_Menu);
-                data->wd_Menu = NULL;
-            }
-
-            get(data->wd_Menustrip, MUIA_Menuitem_NewMenu, &newmenu);
-            if (newmenu)
-            {
-                if ((menu = CreateMenusA(newmenu, NULL)))
+                if (data->wd_Menustrip)
                 {
-                    struct TagItem tags[] = {
-                        {GTMN_NewLookMenus, TRUE},
-                        {TAG_DONE, 0}
-                    };
-                    LayoutMenusA(menu, visinfo, tags);
-                    data->wd_Menu = menu;
-                    SetMenuStrip(win, menu);
+                    get(data->wd_Menustrip,MUIA_Menuitem_NewMenu,&newmenu);
+                    if (newmenu)
+                    {
+                        if (data->wd_Menu)FreeMenus(data->wd_Menu);                  
+                        if ((menu = CreateMenusA(newmenu,NULL)))
+                        {
+                            struct TagItem tags[] =
+                            {
+                                { GTMN_NewLookMenus, TRUE       },
+                                { TAG_DONE,          (IPTR)NULL }
+                            };
+                            LayoutMenusA(menu, visinfo, tags);
+                            data->wd_Menu = menu;
+                            if (data->wd_RenderInfo.mri_Window)SetMenuStrip(data->wd_RenderInfo.mri_Window,menu);
+                        } 
+                    }
                 }
+                FreeVisualInfo(visinfo);
             }
-            FreeVisualInfo(visinfo);
         }
     }
 
-    return 1;
+    return 0;
 }
 
-/**************************************************************************
- MUIM_Window_Refresh
-**************************************************************************/
 IPTR Window__MUIM_Refresh(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
@@ -4537,118 +4271,85 @@ IPTR Window__MUIM_Refresh(struct IClass *cl, Object *obj, Msg msg)
     return 1;
 }
 
-/**************************************************************************
-MUIM_Export : to export an object's "contents" to a dataspace object.
-**************************************************************************/
-static IPTR Window__MUIM_Export(struct IClass *cl, Object *obj,
-    struct MUIP_Export *msg)
+IPTR Window__MUIM_Snapshot(struct IClass *cl, Object *obj, struct MUIP_Window_Snapshot *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    DoMethodA(data->wd_RootObject, (Msg) msg);
-    return 0;
+        	//new 
+struct windowpos  winp;
+    struct Window *w;
+    winp.id = data->wd_ID;
+w=data->wd_RenderInfo.mri_Window;
+    if (w)
+    {
+winp.x1 = w->LeftEdge; winp.y1 = w->TopEdge;
+winp.w1 = w->GZZWidth; winp.h1 = w->GZZHeight;
+winp.x2 =0; winp.x2=0; winp.w2=0; winp.h2=0;         //to do save alt dims
+
+set(_app(obj),MUIA_Application_SetWinPos,&winp);
+}
+//new end
+
+    if (msg->flags)
+        RememberWindowPosition(obj, data->wd_ID);
+    else
+        ForgetWindowPosition(obj, data->wd_ID);
+    return 1;
 }
 
 
-/**************************************************************************
-MUIM_Import : to import an object's "contents" from a dataspace object.
-**************************************************************************/
-static IPTR Window__MUIM_Import(struct IClass *cl, Object *obj,
-    struct MUIP_Import *msg)
-{
-    struct MUI_WindowData *data = INST_DATA(cl, obj);
-    DoMethodA(data->wd_RootObject, (Msg) msg);
-    return 0;
-}
 
 BOOPSI_DISPATCHER(IPTR, Window_Dispatcher, cl, obj, msg)
 {
     switch (msg->MethodID)
     {
-    case OM_NEW:
-        return Window__OM_NEW(cl, obj, (struct opSet *)msg);
-    case OM_DISPOSE:
-        return Window__OM_DISPOSE(cl, obj, msg);
-    case OM_SET:
-        return Window__OM_SET(cl, obj, (struct opSet *)msg);
-    case OM_GET:
-        return Window__OM_GET(cl, obj, (struct opGet *)msg);
-    case MUIM_FindUData:
-        return Window__MUIM_FindUData(cl, obj,
-            (struct MUIP_FindUData *)msg);
-    case MUIM_GetUData:
-        return Window__MUIM_GetUData(cl, obj, (struct MUIP_GetUData *)msg);
-    case MUIM_SetUData:
-        return Window__MUIM_SetUData(cl, obj, (struct MUIP_SetUData *)msg);
-    case MUIM_SetUDataOnce:
-        return Window__MUIM_SetUDataOnce(cl, obj,
-            (struct MUIP_SetUDataOnce *)msg);
-    case MUIM_Window_AddEventHandler:
-        return Window__MUIM_AddEventHandler(cl, obj, (APTR) msg);
-    case MUIM_Window_RemEventHandler:
-        return Window__MUIM_RemEventHandler(cl, obj, (APTR) msg);
-    case MUIM_ConnectParent:
-        return Window__MUIM_ConnectParent(cl, obj, (APTR) msg);
-    case MUIM_DisconnectParent:
-        return Window__MUIM_DisconnectParent(cl, obj, (APTR) msg);
-    case MUIM_Window_RecalcDisplay:
-        return Window__MUIM_RecalcDisplay(cl, obj, (APTR) msg);
-    case MUIM_Window_Setup:
-        return Window__MUIM_Setup(cl, obj, (APTR) msg);
-    case MUIM_Window_Cleanup:
-        return Window__MUIM_Cleanup(cl, obj, (APTR) msg);
-    case MUIM_Window_AddControlCharHandler:
-        return Window__MUIM_AddControlCharHandler(cl, obj, (APTR) msg);
-    case MUIM_Window_RemControlCharHandler:
-        return Window__MUIM_RemControlCharHandler(cl, obj, (APTR) msg);
-    case MUIM_Window_DragObject:
-        return Window__MUIM_DragObject(cl, obj, (APTR) msg);
-    case MUIM_Window_AllocGadgetID:
-        return Window__MUIM_AllocGadgetID(cl, obj, (APTR) msg);
-    case MUIM_Window_FreeGadgetID:
-        return Window__MUIM_FreeGadgetID(cl, obj, (APTR) msg);
-    case MUIM_Window_GetMenuCheck:
-        return Window__MUIM_GetMenuCheck(cl, obj, (APTR) msg);
-    case MUIM_Window_SetMenuCheck:
-        return Window__MUIM_SetMenuCheck(cl, obj, (APTR) msg);
-    case MUIM_Window_GetMenuState:
-        return Window__MUIM_GetMenuState(cl, obj, (APTR) msg);
-    case MUIM_Window_SetMenuState:
-        return Window__MUIM_SetMenuState(cl, obj, (APTR) msg);
-    case MUIM_Window_DrawBackground:
-        return Window__MUIM_DrawBackground(cl, obj, (APTR) msg);
-    case MUIM_Window_ToFront:
-        return Window__MUIM_ToFront(cl, obj, (APTR) msg);
-    case MUIM_Window_ToBack:
-        return Window__MUIM_ToBack(cl, obj, (APTR) msg);
-    case MUIM_Window_ScreenToFront:
-        return Window__MUIM_ScreenToFront(cl, obj, (APTR) msg);
-    case MUIM_Window_ScreenToBack:
-        return Window__MUIM_ScreenToBack(cl, obj, (APTR) msg);
-    case MUIM_Window_ActionIconify:
-        return Window__MUIM_ActionIconify(cl, obj, (APTR) msg);
-    case MUIM_Window_Snapshot:
-        return Window__MUIM_Snapshot(cl, obj, (APTR) msg);
-    case MUIM_Window_UpdateMenu:
-        return Window__MUIM_UpdateMenu(cl, obj, (APTR) msg);
-    case MUIM_Window_Refresh:
-        return Window__MUIM_Refresh(cl, obj, (APTR) msg);
-    case MUIM_Export:
-        return Window__MUIM_Export(cl, obj, (APTR) msg);
-    case MUIM_Import:
-        return Window__MUIM_Import(cl, obj, (APTR) msg);
+	case OM_NEW:                            return Window__OM_NEW(cl, obj, (struct opSet *) msg);
+	case OM_DISPOSE:                        return Window__OM_DISPOSE(cl, obj, msg);
+	case OM_SET:                            return Window__OM_SET(cl, obj, (struct opSet *)msg);
+	case OM_GET:                            return Window__OM_GET(cl, obj, (struct opGet *)msg);
+
+    case MUIM_FindUData:                    return Window__MUIM_FindUData(cl, obj, (struct MUIP_FindUData *)msg);
+	case MUIM_GetUData:                     return Window__MUIM_GetUData(cl, obj, (struct MUIP_GetUData *)msg);
+	case MUIM_SetUData:                     return Window__MUIM_SetUData(cl, obj, (struct MUIP_SetUData *)msg);
+	case MUIM_SetUDataOnce:                 return Window__MUIM_SetUDataOnce(cl, obj, (struct MUIP_SetUDataOnce *)msg);	
+	case MUIM_Window_AddEventHandler:       return Window__MUIM_AddEventHandler(cl, obj, (APTR)msg);
+	case MUIM_Window_RemEventHandler:       return Window__MUIM_RemEventHandler(cl, obj, (APTR)msg);
+	case MUIM_ConnectParent:                return Window__MUIM_ConnectParent(cl, obj, (APTR)msg);
+	case MUIM_DisconnectParent:             return Window__MUIM_DisconnectParent(cl, obj, (APTR)msg);
+	case MUIM_Window_RecalcDisplay:         return Window__MUIM_RecalcDisplay(cl, obj, (APTR)msg);
+	case MUIM_Window_Setup:                 return Window__MUIM_Setup(cl, obj, (APTR)msg);
+	case MUIM_Window_Cleanup:               return Window__MUIM_Cleanup(cl, obj, (APTR)msg);
+	case MUIM_Window_AddControlCharHandler: return Window__MUIM_AddControlCharHandler(cl, obj, (APTR)msg);
+	case MUIM_Window_RemControlCharHandler: return Window__MUIM_RemControlCharHandler(cl, obj, (APTR)msg);
+	case MUIM_Window_DragObject:            return Window__MUIM_DragObject(cl, obj, (APTR)msg);
+	case MUIM_Window_AllocGadgetID:         return Window__MUIM_AllocGadgetID(cl, obj, (APTR)msg);
+	case MUIM_Window_FreeGadgetID:          return Window__MUIM_FreeGadgetID(cl, obj, (APTR)msg);
+	case MUIM_Window_GetMenuCheck:          return Window__MUIM_GetMenuCheck(cl, obj, (APTR)msg);
+	case MUIM_Window_SetMenuCheck:          return Window__MUIM_SetMenuCheck(cl, obj, (APTR)msg);
+	case MUIM_Window_GetMenuState:          return Window__MUIM_GetMenuState(cl, obj, (APTR)msg);
+	case MUIM_Window_SetMenuState:          return Window__MUIM_SetMenuState(cl, obj, (APTR)msg);
+	case MUIM_Window_DrawBackground:        return Window__MUIM_DrawBackground(cl, obj, (APTR)msg);
+	case MUIM_Window_ToFront:               return Window__MUIM_ToFront(cl, obj, (APTR)msg);
+	case MUIM_Window_ToBack:                return Window__MUIM_ToBack(cl, obj, (APTR)msg);
+	case MUIM_Window_ScreenToFront:         return Window__MUIM_ScreenToFront(cl, obj, (APTR)msg);
+	case MUIM_Window_ScreenToBack:          return Window__MUIM_ScreenToBack(cl, obj, (APTR)msg);
+	case MUIM_Window_ActionIconify:         return Window__MUIM_ActionIconify(cl, obj, (APTR)msg);
+    case MUIM_Window_UpdateMenu:            return Window__MUIM_UpdateMenu(cl, obj, (APTR)msg);
+    case MUIM_Window_Refresh:               return Window__MUIM_Refresh(cl, obj, (APTR)msg);
+    case MUIM_Window_Snapshot:              return Window__MUIM_Snapshot(cl, obj, (APTR)msg);
     }
 
     return DoSuperMethodA(cl, obj, msg);
 }
 BOOPSI_DISPATCHER_END
 
+
 /*
  * Class descriptor.
  */
-const struct __MUIBuiltinClass _MUI_Window_desc =
-{
+const struct __MUIBuiltinClass _MUI_Window_desc = {
     MUIC_Window,
     MUIC_Notify,
     sizeof(struct MUI_WindowData),
-    (void *) Window_Dispatcher
+    (void*)Window_Dispatcher
 };
+

@@ -25,18 +25,39 @@
 #include <cybergraphx/cybergraphics.h>
 #include <graphics/rpattr.h>
 
-#include "../datatypescache.h"
-#include "../imspec_intern.h"
+#include "/datatypescache.h"
+#include "/imspec_intern.h"
 
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
 #include "prefs.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing attribute definitions */
+#ifndef MUIA_Prop_OnlyTrigger
+#define MUIA_Prop_OnlyTrigger (MUIB_Prop | 0x00000001)
+#endif
+
+#ifndef MUIA_Prop_Release
+#define MUIA_Prop_Release (MUIB_Prop | 0x00000002)
+#endif
+
+/* Missing constants */
+#ifndef IST_BITMAP
+#define IST_BITMAP 1
+#endif
+
+#ifndef MODE_PROP
+#define MODE_PROP 1
+#endif
+
+/* Structs are defined in their respective header files */
 
 #define SCALE16_METHOD 2        /* 1 or 2 */
 
@@ -856,21 +877,23 @@ IPTR Prop__MUIM_Show(struct IClass *cl, Object *obj, struct MUIP_Show *msg)
 
         if (completely_visible)
         {
-            if (muiGlobalInfo(obj)->mgi_Prefs->scrollbar_type ==
+            ULONG width, height;
+            
+            if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type ==
                 SCROLLBAR_TYPE_NEWLOOK)
                 isnewlook = TRUE;
             else
                 isnewlook = FALSE;
 
-            ULONG width = _mwidth(obj);
-            ULONG height = _mheight(obj);
+            width = _mwidth(obj);
+            height = _mheight(obj);
 #ifdef __AROS__
             struct Hook *dhook = NULL;
 
             ULONG depth =
                 (ULONG) GetBitMapAttr(_window(obj)->RPort->BitMap,
                 BMA_DEPTH);
-            if (muiGlobalInfo(obj)->mgi_Prefs->scrollbar_type ==
+            if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type ==
                 SCROLLBAR_TYPE_CUSTOM)
             {
                 if (spec)

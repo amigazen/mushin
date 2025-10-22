@@ -28,6 +28,21 @@
 #include "imspec_intern.h"
 #include "mui.h"
 #include "muimaster_intern.h"
+#include "area_macros.h"
+#include "penadjust.h"
+#include "popimage.h"
+
+#ifndef MUIA_Penadjust_Spec
+#define MUIA_Penadjust_Spec (MUIB_Penadjust | 0x00000001)
+#endif
+
+#ifndef MUIM_Imageadjust_ReadExternal
+#define MUIM_Imageadjust_ReadExternal (MUIB_Imageadjust | 0x00000001)
+#endif
+
+#ifndef MUIM_Popimage_CloseWindow
+#define MUIM_Popimage_CloseWindow (MUIB_Popimage | 0x00000001)
+#endif
 #include "support.h"
 #include "support_classes.h"
 #include "imageadjust_private.h"
@@ -495,39 +510,11 @@ IPTR Imageadjust__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     struct Imageadjust_DATA *data;
     struct TagItem *tag;
     struct TagItem *tags;
-    
     static const char *labels_all[7];
-    labels_all[0] = _(MSG_IMAGEADJUST_PATTERN);
-    labels_all[1] = _(MSG_IMAGEADJUST_VECTOR);
-    labels_all[2] = _(MSG_IMAGEADJUST_COLOR);
-    labels_all[3] = _(MSG_IMAGEADJUST_EXTERNAL);
-    labels_all[4] = _(MSG_IMAGEADJUST_BITMAP);
-    labels_all[5] = _(MSG_IMAGEADJUST_GRADIENT);
-    labels_all[6] = NULL;
-
     static const char *labels_image[5];
-    labels_image[0] = _(MSG_IMAGEADJUST_PATTERN);
-    labels_image[1] = _(MSG_IMAGEADJUST_VECTOR);
-    labels_image[2] = _(MSG_IMAGEADJUST_COLOR);
-    labels_image[3] = _(MSG_IMAGEADJUST_EXTERNAL);
-    labels_image[4] = NULL;
-
     static const char *labels_bg[5];
-    labels_bg[0] = _(MSG_IMAGEADJUST_PATTERN);
-    labels_bg[1] = _(MSG_IMAGEADJUST_COLOR);
-    labels_bg[2] = _(MSG_IMAGEADJUST_BITMAP);
-    labels_bg[3] = _(MSG_IMAGEADJUST_GRADIENT);
-    labels_bg[4] = NULL;
-
     static const char *labels_color[2];
-    labels_color[0] = _(MSG_IMAGEADJUST_COLOR);
-    labels_color[1] = NULL;
-
     static const char *gradient_type_entries[3];
-    gradient_type_entries[0] = _(MSG_IMAGEADJUST_SCALED);
-    gradient_type_entries[1] = _(MSG_IMAGEADJUST_TILED);
-    gradient_type_entries[2] = NULL;
-
     Object *pattern_group = NULL;
     Object *vector_group = NULL;
     Object *external_list = NULL;
@@ -549,6 +536,33 @@ IPTR Imageadjust__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     Object *external_group = NULL;
     Object *bitmap_group = NULL;
     Object *gradient_group = NULL;
+    
+    labels_all[0] = _(MSG_IMAGEADJUST_PATTERN);
+    labels_all[1] = _(MSG_IMAGEADJUST_VECTOR);
+    labels_all[2] = _(MSG_IMAGEADJUST_COLOR);
+    labels_all[3] = _(MSG_IMAGEADJUST_EXTERNAL);
+    labels_all[4] = _(MSG_IMAGEADJUST_BITMAP);
+    labels_all[5] = _(MSG_IMAGEADJUST_GRADIENT);
+    labels_all[6] = NULL;
+
+    labels_image[0] = _(MSG_IMAGEADJUST_PATTERN);
+    labels_image[1] = _(MSG_IMAGEADJUST_VECTOR);
+    labels_image[2] = _(MSG_IMAGEADJUST_COLOR);
+    labels_image[3] = _(MSG_IMAGEADJUST_EXTERNAL);
+    labels_image[4] = NULL;
+
+    labels_bg[0] = _(MSG_IMAGEADJUST_PATTERN);
+    labels_bg[1] = _(MSG_IMAGEADJUST_COLOR);
+    labels_bg[2] = _(MSG_IMAGEADJUST_BITMAP);
+    labels_bg[3] = _(MSG_IMAGEADJUST_GRADIENT);
+    labels_bg[4] = NULL;
+
+    labels_color[0] = _(MSG_IMAGEADJUST_COLOR);
+    labels_color[1] = NULL;
+
+    gradient_type_entries[0] = _(MSG_IMAGEADJUST_SCALED);
+    gradient_type_entries[1] = _(MSG_IMAGEADJUST_TILED);
+    gradient_type_entries[2] = NULL;
 
     adjust_type =
         GetTagData(MUIA_Imageadjust_Type, MUIV_Imageadjust_Type_All,

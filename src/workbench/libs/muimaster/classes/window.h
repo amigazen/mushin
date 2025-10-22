@@ -113,6 +113,7 @@ struct MUIP_Window_ToFront
 #define MUIM_Window_Refresh      /* PRIV */ \
     (MUIB_Window | 0x00000008)   /* Zune: V1, PRIV don't use it! */
 
+
 struct MUIP_Window_AddControlCharHandler
 {
     STACKED ULONG MethodID;
@@ -168,43 +169,45 @@ struct MUIP_Window_UpdateMenu
     STACKED ULONG MethodID;
 };
 
-#ifdef MUI_OBSOLETE
+/* Move menu methods outside MUI_OBSOLETE since they're used in the code */
 #define MUIM_Window_GetMenuCheck    (MUIB_MUI | 0x00420414)     /* MUI: V4  */
-#define MUIM_Window_GetMenuState    (MUIB_MUI | 0x00420d2f)     /* MUI: V4  */
-#define MUIM_Window_SetCycleChain   (MUIB_MUI | 0x00426510)     /* MUI: V4  */
 #define MUIM_Window_SetMenuCheck    (MUIB_MUI | 0x00422243)     /* MUI: V4  */
+#define MUIM_Window_GetMenuState    (MUIB_MUI | 0x00420d2f)     /* MUI: V4  */
 #define MUIM_Window_SetMenuState    (MUIB_MUI | 0x00422b5e)     /* MUI: V4  */
 
 struct MUIP_Window_GetMenuCheck
 {
-    STACKULONG MethodID;
+    STACKED ULONG MethodID;
     STACKED ULONG MenuID;
-};
-
-struct MUIP_Window_GetMenuState
-{
-    STACKULONG MethodID;
-    STACKED ULONG MenuID;
-};
-
-struct MUIP_Window_SetCycleChain
-{
-    STACKULONG MethodID;
-    STACKED Object *obj[1];
 };
 
 struct MUIP_Window_SetMenuCheck
 {
-    STACKULONG MethodID;
+    STACKED ULONG MethodID;
     STACKED ULONG MenuID;
     STACKED LONG stat;
 };
 
+struct MUIP_Window_GetMenuState
+{
+    STACKED ULONG MethodID;
+    STACKED ULONG MenuID;
+};
+
 struct MUIP_Window_SetMenuState
 {
-    STACKULONG MethodID;
+    STACKED ULONG MethodID;
     STACKED ULONG MenuID;
     STACKED LONG stat;
+};
+
+#ifdef MUI_OBSOLETE
+#define MUIM_Window_SetCycleChain   (MUIB_MUI | 0x00426510)     /* MUI: V4  */
+
+struct MUIP_Window_SetCycleChain
+{
+    STACKED ULONG MethodID;
+    STACKED Object *obj[1];
 };
 #endif /* MUI_OBSOLETE */
 

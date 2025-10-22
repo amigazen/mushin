@@ -17,8 +17,30 @@
 #include "support_classes.h"
 #include "poppen_private.h"
 #include "locale.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
+
+/* Missing method definitions */
+#ifndef MUIM_Poppen_OpenWindow
+#define MUIM_Poppen_OpenWindow (MUIB_Poppen | 0x00000001)
+#endif
+
+#ifndef MUIM_Poppen_CloseWindow
+#define MUIM_Poppen_CloseWindow (MUIB_Poppen | 0x00000002)
+#endif
+
+/* Missing attribute definition */
+#ifndef MUIA_Penadjust_Spec
+#define MUIA_Penadjust_Spec (MUIB_Penadjust | 0x00000001)
+#endif
+
+/* Missing struct definition */
+struct MUIP_Poppen_CloseWindow
+{
+    ULONG MethodID;
+    BOOL ok;
+};
 
 
 IPTR Poppen__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)

@@ -24,6 +24,7 @@
 #include "muimaster_intern.h"
 #include "prefs.h"
 #include "imspec.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 
@@ -76,7 +77,7 @@ static void CalcKnobDimensions(struct IClass *cl, Object *obj)
 
     knob_frame =
         zune_zframe_get(obj,
-        &muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob]);
+        (struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob]);
 
     InitRastPort(&rp);
     SetFont(&rp, _font(obj));
@@ -107,14 +108,14 @@ static void CalcKnobDimensions(struct IClass *cl, Object *obj)
     data->knob_width = width +
         knob_frame->ileft +
         knob_frame->iright +
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].innerLeft +
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].innerRight;
+        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerLeft +
+        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerRight;
 
     data->knob_height = _font(obj)->tf_YSize +
         knob_frame->itop +
         knob_frame->ibottom +
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].innerTop +
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].innerBottom;
+        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerTop +
+        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerBottom;
 
     if (data->flags & SLIDER_HORIZ)
         data->knob_length = data->knob_width;
@@ -388,11 +389,11 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
         data->knob_height, 0, 0, 0);
 
     knob_frame_state =
-        muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].state;
+        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->state;
     if (XGET(obj, MUIA_Pressed))
         knob_frame_state ^= 1;
     knob_frame = zune_zframe_get_with_state(obj,
-        &muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob],
+        (struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob],
         knob_frame_state);
     knob_frame->draw(knob_frame->customframe, muiRenderInfo(obj),
         data->knob_left, data->knob_top, data->knob_width,
@@ -418,10 +419,10 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
 
         Move(_rp(obj),
             data->knob_left + knob_frame->ileft +
-            muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].innerLeft +
+            ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerLeft +
             (data->max_text_width - data->text_width) / 2,
             data->knob_top + _font(obj)->tf_Baseline + knob_frame->itop +
-            muiGlobalInfo(obj)->mgi_Prefs->frames[MUIV_Frame_Knob].innerTop);
+            ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerTop);
         Text(_rp(obj), data->text_buffer, data->text_length);
     }
 
@@ -512,6 +513,7 @@ IPTR Slider__MUIM_HandleEvent(struct IClass *cl, Object *obj,
             IPTR oldval = 0;
             LONG newval;
             LONG old_offset = data->knob_offset;
+            struct opSet superSet;
 
             if (data->flags & SLIDER_HORIZ)
                 data->knob_offset =
@@ -536,17 +538,15 @@ IPTR Slider__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                 {
                     /* Bypass our own set method so that knob position is not
                      * reset */
-                    struct TagItem superSetTags[] =
-                    {
-                        { MUIA_Numeric_Value,   newval  },
-                        { TAG_DONE,             0       }
-                    };
-                    struct opSet superSet =
-                    {
-                        .MethodID = OM_SET,
-                        .ops_AttrList = superSetTags,
-                        .ops_GInfo = NULL
-                    };
+                    struct TagItem superSetTags[2];
+                    superSetTags[0].ti_Tag = MUIA_Numeric_Value;
+                    superSetTags[0].ti_Data = newval;
+                    superSetTags[1].ti_Tag = TAG_DONE;
+                    superSetTags[1].ti_Data = 0;
+                    
+                    superSet.MethodID = OM_SET;
+                    superSet.ops_AttrList = superSetTags;
+                    superSet.ops_GInfo = NULL;
                     data->flags &= ~SLIDER_VALIDSTRING;
                     DoSuperMethodA(cl, obj, (Msg)&superSet);
                 }

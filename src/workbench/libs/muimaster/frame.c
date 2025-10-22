@@ -19,6 +19,7 @@
 #include "frame.h"
 #include "mui.h"
 #include "muimaster_intern.h"
+#include "area_macros.h"
 
 //#define MYDEBUG 1
 #include "debug.h"
@@ -1353,7 +1354,7 @@ zune_zframe_get(Object *obj, const struct MUI_FrameSpec_intern *frameSpec)
     struct dt_frame_image *fi = NULL;
 
     if (frameSpec->type >= FST_CUSTOM1) {
-        struct MUI_RenderInfo *mri = muiRenderInfo(obj);
+        struct MUI_RenderInfo *mri = ((struct __dummyAreaData__ *)obj)->mad.mad_RenderInfo;
         if (!(fi = mri->mri_FrameImage[frameSpec->type - FST_CUSTOM1]))
             return &__builtinFrameGfx[2 * FST_RECT];
     }
@@ -1386,7 +1387,7 @@ const struct ZuneFrameGfx *zune_zframe_get_with_state(
     struct dt_frame_image *fi = NULL;
 
     if (frameSpec->type >= FST_CUSTOM1) {
-        struct MUI_RenderInfo *mri = muiRenderInfo(obj);
+        struct MUI_RenderInfo *mri = ((struct __dummyAreaData__ *)obj)->mad.mad_RenderInfo;
         if (!(fi = mri->mri_FrameImage[frameSpec->type - FST_CUSTOM1]))
             return &__builtinFrameGfx[2 * FST_RECT];
     }
@@ -1591,7 +1592,6 @@ struct Region *zune_frame_create_clip_region(int left, int top, int width,
     struct Rectangle rect;
     int radius;
     int x, y;
-    int cx, cy;
 
     if (width <= 0 || height <= 0)
         return NULL;

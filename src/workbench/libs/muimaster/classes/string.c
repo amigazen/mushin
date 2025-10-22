@@ -36,6 +36,7 @@
 #include "imspec.h"
 #include "clipboard.h"
 #include "string.h"
+#include "area_macros.h"
 
 //#define MYDEBUG 1
 #include "debug.h"
@@ -208,13 +209,13 @@ static BOOL Buffer_Alloc(struct MUI_StringData *data)
     return TRUE;
 }
 
-static inline VOID PrepareVisualBuffer(struct MUI_StringData *data)
+static VOID PrepareVisualBuffer(struct MUI_StringData *data)
 {
     if (data->msd_useSecret)
         data->VisualBuffer[data->NumChars] = '\0';
 }
 
-static inline VOID CleanVisualBuffer(struct MUI_StringData *data)
+static VOID CleanVisualBuffer(struct MUI_StringData *data)
 {
     if (data->msd_useSecret)
         data->VisualBuffer[data->NumChars] = SECRET_CHAR;
@@ -810,31 +811,26 @@ IPTR String__MUIM_Setup(struct IClass *cl, Object *obj,
 
     data->is_active = FALSE;
     set(obj, MUIA_Background,
-        (IPTR) muiGlobalInfo(obj)->mgi_Prefs->string_bg_inactive);
+        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
 
     zune_pen_spec_to_intern(
-        (const struct MUI_PenSpec *)muiGlobalInfo(obj)->mgi_Prefs->
-        string_text_inactive, &data->inactive_text);
+        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive, &data->inactive_text);
     zune_penspec_setup(&data->inactive_text, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        (const struct MUI_PenSpec *)muiGlobalInfo(obj)->mgi_Prefs->
-        string_text_active, &data->active_text);
+        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_text_active, &data->active_text);
     zune_penspec_setup(&data->active_text, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        (const struct MUI_PenSpec *)muiGlobalInfo(obj)->mgi_Prefs->
-        string_text_marked, &data->marked_text);
+        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_text_marked, &data->marked_text);
     zune_penspec_setup(&data->marked_text, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        (const struct MUI_PenSpec *)muiGlobalInfo(obj)->mgi_Prefs->
-        string_bg_marked, &data->marked_bg);
+        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
     zune_penspec_setup(&data->marked_bg, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        (const struct MUI_PenSpec *)muiGlobalInfo(obj)->mgi_Prefs->
-        string_cursor, &data->cursor);
+        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
     zune_penspec_setup(&data->cursor, muiRenderInfo(obj));
 
     DoMethod(_win(obj), MUIM_Window_AddEventHandler, (IPTR) & data->ehn);
@@ -1755,7 +1751,7 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
         case MUIKEY_WINDOW_CLOSE:
             data->is_active = FALSE;
             set(obj, MUIA_Background,
-                (IPTR) muiGlobalInfo(obj)->mgi_Prefs->string_bg_inactive);
+                (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
             DoMethod(obj, MUIM_GoInactive);
             retval = 0;
             break;
@@ -1812,7 +1808,7 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                         data->msd_RedrawReason = WENT_ACTIVE;
                         // redraw
                         set(obj, MUIA_Background,
-                            (IPTR) muiGlobalInfo(obj)->mgi_Prefs->
+                            (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->
                             string_bg_active);
 
                         //DoMethod(obj, MUIM_GoActive);
@@ -1902,7 +1898,7 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                 {
                     data->is_active = FALSE;
                     set(obj, MUIA_Background,
-                        (IPTR) muiGlobalInfo(obj)->mgi_Prefs->
+                        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->
                         string_bg_inactive);
                     //DoMethod(obj, MUIM_GoInactive);
                     // let other objects a chance to get activated
@@ -2119,7 +2115,7 @@ IPTR String__MUIM_GoActive(struct IClass *cl, Object *obj, Msg msg)
     data->msd_RedrawReason = WENT_ACTIVE;
     // redraw
     set(obj, MUIA_Background,
-        (IPTR) muiGlobalInfo(obj)->mgi_Prefs->string_bg_active);
+        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_active);
 
     return 0;
 }
@@ -2143,7 +2139,7 @@ IPTR String__MUIM_GoInactive(struct IClass *cl, Object *obj, Msg msg)
 
     // redraw
     set(obj, MUIA_Background,
-        (IPTR) muiGlobalInfo(obj)->mgi_Prefs->string_bg_inactive);
+        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
 
     return 0;
 }

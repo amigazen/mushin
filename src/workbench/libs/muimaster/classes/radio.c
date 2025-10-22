@@ -19,6 +19,7 @@
 #include "support.h"
 #include "support_classes.h"
 #include "radio_private.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 
@@ -190,9 +191,9 @@ IPTR Radio__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
         return FALSE;
 
     set(obj, MUIA_Group_HorizSpacing,
-        muiGlobalInfo(obj)->mgi_Prefs->radiobutton_hspacing);
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->radiobutton_hspacing);
     set(obj, MUIA_Group_VertSpacing,
-        muiGlobalInfo(obj)->mgi_Prefs->radiobutton_vspacing);
+        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->radiobutton_vspacing);
 
     return TRUE;
 }

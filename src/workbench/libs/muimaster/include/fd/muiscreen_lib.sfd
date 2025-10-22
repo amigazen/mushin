@@ -19,3 +19,5 @@ BOOL MUIS_WritePubFile(APTR pf, struct MUI_PubScreenDesc * desc) (a0, a1)
 VOID MUIS_AddInfoClient(struct MUIS_InfoClient * sic) (a0)
 VOID MUIS_RemInfoClient(struct MUIS_InfoClient * sic) (a0)
 ==end
+
+

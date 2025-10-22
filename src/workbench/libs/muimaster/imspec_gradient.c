@@ -18,6 +18,7 @@
 #include "mui.h"
 #include "imspec_intern.h"
 #include "support.h"
+#include "support_amigaos.h"
 #define MYDEBUG 1
 #include "debug.h"
 
