@@ -50,21 +50,12 @@
 #include "support.h"
 #include "application.h"
 #include "window.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
-/* Private structure definition for MUI_GlobalInfo */
-struct MUI_GlobalInfo_Private
-{
-    ULONG priv0;
-    Object *mgi_ApplicationObject;
-    struct MsgPort *mgi_WindowsPort;
-    struct MsgPort *mgi_AppPort;
-    Object *mgi_Configdata;
-    struct ZunePrefsNew *mgi_Prefs;
-    struct Screen *mgi_CustomScreen;
-};
+/* Private structure definition for MUI_GlobalInfo - already declared in muimaster_intern.h */
 
 /* Define missing constants */
 #ifndef MUIA_Configdata_ZunePrefs

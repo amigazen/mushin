@@ -43,14 +43,14 @@ Z
 *****************************************************************************/
 {
     static const struct MUIP_Layout method = { MUIM_Layout };
-    Object *parent = _parent(obj);
+    Object *parent = ((struct __dummyAreaData__ *)(obj))->mnd.mnd_ParentObject;
 
 /*
  * Called only by groups, never by windows
  */
 //    ASSERT(parent != NULL);
 
-    if (_flags(parent) & MADF_ISVIRTUALGROUP)
+    if (((struct __dummyAreaData__ *)(parent))->mad.mad_Flags & MADF_ISVIRTUALGROUP)
     {
         /* I'm not yet sure what to do by virtual groups in virtual groups,
          * eighter add their offsets too or not, will be tested soon */
@@ -61,12 +61,12 @@ Z
         top -= val;
     }
 
-    _left(obj) = left + _mleft(parent);
-    _top(obj) = top + _mtop(parent);
-    _width(obj) = width;
-    _height(obj) = height;
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left = left + (((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft);
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top = top + (((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop);
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width = width;
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height = height;
 
-    D(bug("muimaster.library/mui_layout.c: 0x%p %ldx%ldx%ldx%ld\n",obj,_left(obj),_top(obj),_right(obj),_bottom(obj)));
+    D(bug("muimaster.library/mui_layout.c: 0x%p %ldx%ldx%ldx%ld\n",obj,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1));
 
     DoMethodA(obj, (Msg)&method);
     return TRUE;

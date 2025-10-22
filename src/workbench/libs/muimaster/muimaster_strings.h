@@ -13,6 +13,8 @@
 #include <exec/types.h>
 #endif
 
+#include "SDI_compiler.h"
+
 
 #ifdef CATCOMP_ARRAY
 #ifndef CATCOMPARRAY

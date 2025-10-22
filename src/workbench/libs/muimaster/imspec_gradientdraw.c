@@ -18,11 +18,14 @@
 #include "mui.h"
 #include "imspec_intern.h"
 #include "support.h"
+
+/* CyberGfxBase is already declared in muimaster_init.c */
 #include "area_macros.h"
 #define MYDEBUG 1
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
+extern struct Library *CyberGfxBase;
 
 /*
    sizeof(LONG)*8 gives the size in bits of the LONG type,
@@ -514,8 +517,8 @@ VOID zune_gradient_drawfast(struct MUI_ImageSpec_intern *spec,
     {
     case 0:
         {
-            LONG oy1 = _top(spec->u.gradient.obj), oy2 =
-                _bottom(spec->u.gradient.obj);
+            LONG oy1 = ((struct __dummyAreaData__ *)(spec->u.gradient.obj))->mad.mad_Box.Top, oy2 =
+                ((struct __dummyAreaData__ *)(spec->u.gradient.obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(spec->u.gradient.obj))->mad.mad_Box.Height - 1;
             LONG delta_oy = (oy2 - oy1 > 0) ? oy2 - oy1 : 1;
             LONG hh = (delta_oy + 1) * 2;
             LONG mid_y;
@@ -563,8 +566,8 @@ VOID zune_gradient_drawfast(struct MUI_ImageSpec_intern *spec,
         }
     case 90:
         {
-            LONG ox1 = _left(spec->u.gradient.obj), ox2 =
-                _right(spec->u.gradient.obj);
+            LONG ox1 = ((struct __dummyAreaData__ *)(spec->u.gradient.obj))->mad.mad_Box.Left, ox2 =
+                ((struct __dummyAreaData__ *)(spec->u.gradient.obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(spec->u.gradient.obj))->mad.mad_Box.Width - 1;
             LONG delta_ox = (ox2 - ox1 > 0) ? ox2 - ox1 : 1;
             LONG ww = (delta_ox + 1) * 2;
             LONG mid_x;

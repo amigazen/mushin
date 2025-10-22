@@ -12,6 +12,7 @@
 #include <proto/cybergraphics.h>
 
 #include "muimaster_intern.h"
+#include "mui.h"
 #include "classes/area.h"
 #include "area_macros.h"
 
@@ -51,9 +52,9 @@
     APTR clip = (APTR)-1;
     IPTR disabled = 0;
 
-    if (!(_flags(obj) & MADF_CANDRAW)) return;
+    if (!(((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_CANDRAW)) return;
 
-    if (_flags(obj) & MADF_INVIRTUALGROUP)
+    if (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_INVIRTUALGROUP)
     {
         Object *wnd = NULL;
         Object *parent;
@@ -67,14 +68,14 @@
             if (!parent) break;
             if (parent == wnd) break;
 
-            if (_flags(parent) & MADF_ISVIRTUALGROUP)
+            if (((struct __dummyAreaData__ *)(parent))->mad.mad_Flags & MADF_ISVIRTUALGROUP)
             {
                 struct Rectangle rect;
 
-                rect.MinX = _mleft(parent);
-                rect.MinY = _mtop(parent);
-                rect.MaxX = _mright(parent);
-                rect.MaxY = _mbottom(parent);
+                rect.MinX = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft;
+                rect.MinY = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop;
+                rect.MaxX = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Width + ((struct __dummyAreaData__ *)(parent))->mad.mad_subwidth - 1;
+                rect.MaxY = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Height + ((struct __dummyAreaData__ *)(parent))->mad.mad_subheight - 1;
 
                 if (!region)
                 {
@@ -91,7 +92,7 @@
 
             if (region)
         {
-            clip = MUI_AddClipRegion(muiRenderInfo(obj),region);
+            clip = MUI_AddClipRegion(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo,region);
         }
         
     } /* if object is in a virtual group */
@@ -102,35 +103,35 @@
         struct Rectangle *clip_rect;
         struct Layer *l;
         
-        clip_rect = &muiRenderInfo(obj)->mri_ClipRect;
+        clip_rect = &((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_ClipRect;
 
-            if (muiRenderInfo(obj)->mri_Window)
+            if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_Window)
         {
-            l = muiRenderInfo(obj)->mri_Window->WLayer;
+            l = ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_Window->WLayer;
         }
         else
         {
-            l = muiRenderInfo(obj)->mri_RastPort->Layer;
+            l = ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort->Layer;
         }
         
         if (l && (region = l->ClipRegion))
         {
             /* Maybe this should went to MUI_AddClipRegion() */
-            clip_rect->MinX = MAX(_left(obj),region->bounds.MinX);
-            clip_rect->MinY = MAX(_top(obj),region->bounds.MinY);
-            clip_rect->MaxX = MIN(_right(obj),region->bounds.MaxX);
-            clip_rect->MaxY = MIN(_bottom(obj),region->bounds.MaxY);
+            clip_rect->MinX = MAX(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left,region->bounds.MinX);
+            clip_rect->MinY = MAX(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,region->bounds.MinY);
+            clip_rect->MaxX = MIN(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1,region->bounds.MaxX);
+            clip_rect->MaxY = MIN(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1,region->bounds.MaxY);
 
         } else
         {
-            clip_rect->MinX = _left(obj);
-            clip_rect->MinY = _top(obj);
-            clip_rect->MaxX = _right(obj);
-            clip_rect->MaxY = _bottom(obj);
+            clip_rect->MinX = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left;
+            clip_rect->MinY = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top;
+            clip_rect->MaxX = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1;
+            clip_rect->MaxY = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1;
         }
     }
     
-    _flags(obj) = (_flags(obj) & ~MADF_DRAWFLAGS) | (flags & MADF_DRAWFLAGS);
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags = (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & ~MADF_DRAWFLAGS) | (flags & MADF_DRAWFLAGS);
 
     DoMethod(obj, MUIM_Draw, 0);
 
@@ -174,26 +175,26 @@
             
             memset(buffer, 0xAA, width * height * sizeof(LONG));
             
-            for (y = 0; y < _height(obj); y += height)
+            for (y = 0; y < ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height; y += height)
             {
-                for (x = 0; x < _width(obj); x += width)
+                for (x = 0; x < ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width; x += width)
                 {
                     WritePixelArrayAlpha
                     (
                         buffer, 0, 0, width * sizeof(LONG),
-                        _rp(obj), _left(obj) + x, _top(obj) + y,
-                        x + width  > _width(obj)  ? _width(obj)  - x : width,
-                        y + height > _height(obj) ? _height(obj) - y : height,
+                        ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + x, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + y,
+                        x + width  > ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width  ? ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width  - x : width,
+                        y + height > ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height ? ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - y : height,
                         0xffffffff
                     );
                 }
             }
 #else
-            LONG  width  = _width(obj);
-            LONG  height = _height(obj);
+            LONG  width  = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width;
+            LONG  height = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height;
             LONG *buffer = NULL;
             
-            if (GetBitMapAttr(_rp(obj)->BitMap, BMA_DEPTH) >= 15)
+            if (GetBitMapAttr(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort->BitMap, BMA_DEPTH) >= 15)
             {
                 buffer = AllocVec(width * sizeof(LONG), MEMF_ANY);
             }
@@ -205,7 +206,7 @@
                 WritePixelArrayAlpha
                 (
                     buffer, 0, 0, 0,
-                    _rp(obj), _left(obj), _top(obj), width, height,
+                    ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top, width, height,
                     0xffffffff
                 );
                 FreeVec(buffer);
@@ -215,24 +216,24 @@
             {
                 /* fallback */
                 const static UWORD pattern[] = { 0x8888, 0x2222, };
-                LONG fg = muiRenderInfo(obj)->mri_Pens[MPEN_SHADOW];
+                LONG fg = ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_Pens[MPEN_SHADOW];
                 
-                SetDrMd(_rp(obj), JAM1);
-                SetAPen(_rp(obj), fg);
-                SetAfPt(_rp(obj), pattern, 1);
-                RectFill(_rp(obj), _left(obj), _top(obj), _right(obj),
-                    _bottom(obj));
-                SetAfPt(_rp(obj), NULL, 0);
+                SetDrMd(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, JAM1);
+                SetAPen(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, fg);
+                SetAfPt(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, pattern, 1);
+                RectFill(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1,
+                    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1);
+                SetAfPt(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_RastPort, NULL, 0);
             }
         }
     } /* if (object is disabled) */
 
     /* copy buffer to window */
-    if (muiRenderInfo(obj)->mri_BufferBM)
+    if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_BufferBM)
     {
-        ClipBlit(&muiRenderInfo(obj)->mri_BufferRP, _left(obj), _top(obj),
-                 muiRenderInfo(obj)->mri_Window->RPort, _left(obj), _top(obj),
-                 _width(obj), _height(obj), 0xc0);
+        ClipBlit(&((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_BufferRP, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,
+                 ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_Window->RPort, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,
+                 ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height, 0xc0);
     }
 
     if (clip != (APTR)-1)

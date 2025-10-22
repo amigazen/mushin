@@ -15,7 +15,7 @@
 #include <proto/utility.h>
 
 #include "clib/muimaster_protos.h"
-#include "inline/muimaster.h"
+/* inline/muimaster.h removed - not needed when building the library itself */
 #include "libraries/mui.h"
 #include "mui.h"
 #include "muimaster_intern.h"

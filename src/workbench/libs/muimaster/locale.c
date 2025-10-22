@@ -4,12 +4,13 @@
 
 #include <exec/types.h>
 #include <proto/locale.h>
+#include "SDI_compiler.h"
 
 #define CATCOMP_ARRAY
 #include "muimaster_strings.h"
 
 #define CATALOG_NAME     "System/Libs/muimaster.catalog"
-#include "catalogs/catalog_version.h"
+#define CATALOG_VERSION 3
 
 /*** Variables **************************************************************/
 struct Catalog *catalog;
@@ -52,5 +53,4 @@ VOID Locale_Deinitialize(VOID)
 }
 
 
-ADD2INIT(Locale_Initialize,   90);
-ADD2EXIT(Locale_Deinitialize, 90);
+/* ADD2INIT and ADD2EXIT macros removed - not compatible with SAS/C */

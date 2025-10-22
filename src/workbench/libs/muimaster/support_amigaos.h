@@ -74,11 +74,7 @@ Object *VARARGS68K DoSuperNewTags(struct IClass *cl, Object *obj, void *dummy, .
 int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
 
 
-#ifdef __amigaos4__       /* PRIV */
-#ifndef WritePixelArrayAlpha /* PRIV */
-#define WritePixelArrayAlpha(srcRect, SrcX, SrcY, SrcMod, RastPort, DestX, DestY, SizeX, SizeY, globalAlpha) ICyberGfx->WritePixelArrayAlpha(srcRect, SrcX, SrcY, SrcMod, RastPort, DestX, DestY, SizeX, SizeY, globalAlpha) /* PRIV */
-#endif /* PRIV */
-#endif /* PRIV */
+/* WritePixelArrayAlpha macro removed - using proper function declaration from frame.c */
 
 
 /*** HookEntry for OS4 (is only a dummy) ************************************/

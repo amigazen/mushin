@@ -1527,8 +1527,8 @@ static void group_minmax_horiz(struct IClass *cl, Object *obj,
            is the min of all maxheights
          */
         tmp.MaxHeight = MIN(tmp.MaxHeight, _maxheight(child));
-        data->horiz_weight_sum += _hweight(child);
-        if (_vweight(child) > 0)
+        data->horiz_weight_sum += ((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight;
+        if (((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight > 0)
         {
             found_nonzero_vweight = TRUE;
         }
@@ -1603,8 +1603,8 @@ static void group_minmax_vert(struct IClass *cl, Object *obj,
         tmp.MinWidth = MAX(tmp.MinWidth, _minwidth(child));
         tmp.DefWidth = MAX(tmp.DefWidth, _defwidth(child));
         tmp.MaxWidth = MIN(tmp.MaxWidth, _maxwidth(child));
-        data->vert_weight_sum += _vweight(child);
-        if (_hweight(child) > 0)
+        data->vert_weight_sum += ((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight;
+        if (((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight > 0)
         {
             found_nonzero_hweight = TRUE;
         }
@@ -1650,10 +1650,10 @@ minmax_2d_rows_pass(struct MUI_GroupData *data, struct MinList *children,
             min_h = MAX(min_h, _minheight(child));
             def_h = MAX(def_h, w0_defheight(child));
             max_h = MIN(max_h, _maxheight(child));
-            if (_vweight(child) > 0)
+            if (((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight > 0)
             {
                 found_nonzero_vweight = TRUE;
-                data->row_infos[i].weight += _vweight(child);
+                data->row_infos[i].weight += ((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight;
             }
             ++j;
             if ((j % data->columns) == 0)
@@ -1717,10 +1717,10 @@ minmax_2d_columns_pass(struct MUI_GroupData *data, struct MinList *children,
              *  non-null weight obj
              */
             max_w = MIN(max_w, _maxwidth(child));
-            if (_hweight(child) > 0)
+            if (((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight > 0)
             {
                 found_nonzero_hweight = TRUE;
-                data->col_infos[i].weight += _hweight(child);
+                data->col_infos[i].weight += ((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight;
             }
         }
         if (!found_nonzero_hweight)
@@ -2199,7 +2199,7 @@ static void Layout1D_minmax_constraints_and_redistrib(struct MinList
                 Layout1D_minmax_constraint(&_width(child), _minwidth(child),
                     _maxwidth(child), &remainder, &size_growables,
                     &size_shrinkables, &weight_growables,
-                    &weight_shrinkables, _hweight(child), samesize);
+                    &weight_shrinkables, ((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight, samesize);
 
 /*                D(bug("loop1 on %p : width=%d was %d, rem=%d, A=%d, " */
 /*                    "sizegrow=%d, sizeshrink=%d w=%d min=%d max=%d\n", */
@@ -2214,7 +2214,7 @@ static void Layout1D_minmax_constraints_and_redistrib(struct MinList
                 Layout1D_minmax_constraint(&_height(child),
                     _minheight(child), _maxheight(child), &remainder,
                     &size_growables, &size_shrinkables, &weight_growables,
-                    &weight_shrinkables, _vweight(child), samesize);
+                    &weight_shrinkables, ((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight, samesize);
 
 /*                D(bug("loop1 on %p : h=%ld was %d, rem=%d, A=%d, " */
 /*                    "sizegrow=%d, sizeshrink=%d w=%d min=%d max=%d\n", */
@@ -2248,7 +2248,7 @@ static void Layout1D_minmax_constraints_and_redistrib(struct MinList
                 Layout1D_redistribution(&_width(child), _minwidth(child),
                     _maxwidth(child), &remainder, &size_growables,
                     &size_shrinkables, &weight_growables,
-                    &weight_shrinkables, _hweight(child));
+                    &weight_shrinkables, ((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight);
 
 /*                  D(bug("loop2 on %p : h=%d was %d, rem=%d, A=%d, " */
 /*                        "size_grow=%d, size_shrink=%d\n", child, */
@@ -2262,7 +2262,7 @@ static void Layout1D_minmax_constraints_and_redistrib(struct MinList
                 Layout1D_redistribution(&_height(child), _minheight(child),
                     _maxheight(child), &remainder, &size_growables,
                     &size_shrinkables, &weight_growables,
-                    &weight_shrinkables, _vweight(child));
+                    &weight_shrinkables, ((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight);
 
 /*                  D(bug("loop2 on %p : h=%d was %d, rem=%d, A=%d, " */
 /*                        "size_grow=%d, size_shrink=%d\n", child, */
@@ -2364,7 +2364,7 @@ static void group_layout_vert(struct IClass *cl, Object *obj,
             continue;
 
         Layout1D_weight_constraint(&total_size, &total_init_size,
-            &total_weight, &_height(child), _vweight(child),
+            &total_weight, &_height(child), ((struct __dummyAreaData__ *)(child))->mad.mad_VertWeight,
             _minheight(child));
 /*          D(bug("child %p : ideal=%d w=%ld\n", */
 /*                child, _height(child), _vweight(child))); */
@@ -2472,7 +2472,7 @@ static void group_layout_horiz(struct IClass *cl, Object *obj,
             continue;
 
         Layout1D_weight_constraint(&total_size, &total_init_size,
-            &total_weight, &_width(child), _hweight(child),
+            &total_weight, &_width(child), ((struct __dummyAreaData__ *)(child))->mad.mad_HorizWeight,
             _minwidth(child));
 /*          D(bug("child %p : ideal=%d w=%ld\n", */
 /*                child, _width(child), _hweight(child))); */

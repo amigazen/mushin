@@ -269,11 +269,11 @@ static ULONG get_total_weight_2(struct Balance_DATA *data, Object *objA,
 {
     if (data->horizgroup)
     {
-        return (ULONG)(_hweight(objA) + _hweight(objB));
+        return (ULONG)(((struct __dummyAreaData__ *)(objA))->mad.mad_HorizWeight + ((struct __dummyAreaData__ *)(objB))->mad.mad_HorizWeight);
     }
     else
     {
-        return (ULONG)(_vweight(objA) + _vweight(objB));
+        return (ULONG)(((struct __dummyAreaData__ *)(objA))->mad.mad_VertWeight + ((struct __dummyAreaData__ *)(objB))->mad.mad_VertWeight);
     }
 }
 
@@ -378,11 +378,11 @@ static LONG get_weight(struct Balance_DATA *data, Object *obj)
 {
     if (data->horizgroup)
     {
-        return _hweight(obj);
+        return ((struct __dummyAreaData__ *)(obj))->mad.mad_HorizWeight;
     }
     else
     {
-        return _vweight(obj);
+        return ((struct __dummyAreaData__ *)(obj))->mad.mad_VertWeight;
     }
 }
 
@@ -417,16 +417,16 @@ static void set_interpolated_weight(struct Balance_DATA *data, Object *obj,
     if (data->horizgroup)
     {
         if (oldw)
-            _hweight(obj) = _hweight(obj) * neww / oldw;
+            ((struct __dummyAreaData__ *)(obj))->mad.mad_HorizWeight = ((struct __dummyAreaData__ *)(obj))->mad.mad_HorizWeight * neww / oldw;
         else
-            _hweight(obj) = 0;
+            ((struct __dummyAreaData__ *)(obj))->mad.mad_HorizWeight = 0;
     }
     else
     {
         if (oldw)
-            _vweight(obj) = _vweight(obj) * neww / oldw;
+            ((struct __dummyAreaData__ *)(obj))->mad.mad_VertWeight = ((struct __dummyAreaData__ *)(obj))->mad.mad_VertWeight * neww / oldw;
         else
-            _vweight(obj) = 0;
+            ((struct __dummyAreaData__ *)(obj))->mad.mad_VertWeight = 0;
     }
 
 }

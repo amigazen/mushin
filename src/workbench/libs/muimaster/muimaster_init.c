@@ -21,6 +21,7 @@
 #include <proto/datatypes.h>
 #include <proto/iffparse.h>
 #include <proto/diskfont.h>
+#include <proto/asl.h>
 #include <proto/icon.h>
 #include <proto/wb.h>
 #include <proto/muiscreen.h>
@@ -34,6 +35,24 @@
 /* Typedef for cleaner casting */
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
+/* Global library base variables */
+struct Library *MUIScreenBase;
+struct Library *AslBase;
+struct Library *LayersBase;
+struct Library *CxBase;
+struct RxsLib *RexxSysBase;
+struct Library *GadToolsBase;
+struct Library *KeymapBase;
+struct Library *DataTypesBase;
+struct Library *IFFParseBase;
+struct Library *DiskfontBase;
+struct Library *IconBase;
+struct Library *WorkbenchBase;
+struct Library *CoolImagesBase;
+
+/* Forward declarations */
+void __asm __saveds L_ExpungeLib(register __a0 struct Library *_MUIMasterBase);
+
 /****************************************************************************************/
 
 /* #define MYDEBUG 1 */
@@ -41,6 +60,7 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
 struct Library *MUIMasterBase;
 struct Library **MUIMasterBasePtr = &MUIMasterBase;
+struct Library *CyberGfxBase;
 
 /* Library version constants for clarity */
 #define DOS_MIN_VERSION         37
@@ -61,7 +81,7 @@ struct Library **MUIMasterBasePtr = &MUIMasterBase;
 
 /****************************************************************************************/
 
-ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
+ULONG __asm __saveds L_InitLib(register __a0 struct Library *_MUIMasterBase)
 {
     /* C89 COMPATIBILITY: All declarations must be at the top of the function block. */
     MUIMasterBase_intern *libBase = (MUIMasterBase_intern *)_MUIMasterBase;
@@ -98,7 +118,7 @@ ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
     /* Optional libraries: continue even if they are not available */
     CyberGfxBase = OpenLibrary("cybergraphics.library", 0);
 #ifdef HAVE_COOLIMAGES
-    CoolImagesBase = OpenLibrary("coolimages.library", 0);
+    libBase->coolimagesbase = OpenLibrary("coolimages.library", 0);
 #endif
 
     /* Initialize internal lists and semaphores */
@@ -110,30 +130,30 @@ ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
 
 fail:
     D(bug("muimaster.library Init FAILED. Expunging open libraries.\n"));
-    LC_BUILDNAME(L_ExpungeLib)(_MUIMasterBase);
+    L_ExpungeLib(_MUIMasterBase);
     return FALSE;
 }
 
 /****************************************************************************************/
 
-ULONG SAVEDS STDARGS LC_BUILDNAME(L_OpenLib)(LC_LIBHEADERTYPEPTR MUIMasterBase)
+ULONG __asm __saveds L_OpenLib(register __a0 struct Library *MUIMasterBase)
 {
     D(bug("Inside Open func of muimaster.library\n"));
-    MUIMasterBase->lib_OpenCnt++;
+    ((struct Library *)MUIMasterBase)->lib_OpenCnt++;
     return TRUE;
 }
 
 /****************************************************************************************/
 
-void SAVEDS STDARGS LC_BUILDNAME(L_CloseLib)(LC_LIBHEADERTYPEPTR MUIMasterBase)
+void __asm __saveds L_CloseLib(register __a0 struct Library *MUIMasterBase)
 {
     D(bug("Inside Close func of muimaster.library\n"));
-    MUIMasterBase->lib_OpenCnt--;
+    ((struct Library *)MUIMasterBase)->lib_OpenCnt--;
 }
 
 /****************************************************************************************/
 
-void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
+void __asm __saveds L_ExpungeLib(register __a0 struct Library *_MUIMasterBase)
 {
     /* C89 COMPATIBILITY: Declaration at top of the block. */
     MUIMasterBase_intern *libBase = (MUIMasterBase_intern *)_MUIMasterBase;

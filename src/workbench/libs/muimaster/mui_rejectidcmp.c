@@ -8,6 +8,7 @@
 
 #include "muimaster_intern.h"
 #include "mui.h"
+#include "area_macros.h"
 
 /*****************************************************************************
 
@@ -33,22 +34,22 @@
 
 *****************************************************************************/
 {
-    if (muiRenderInfo(obj) && (_flags(obj) & MADF_SETUP) && _win(obj))
+    if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo && (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_SETUP) && ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_WindowObject)
     {
-        if (muiAreaData(obj)->mad_hiehn.ehn_Events)
+        if (((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn.ehn_Events)
         {
-            DoMethod(_win(obj), MUIM_Window_RemEventHandler,
-                (IPTR)&muiAreaData(obj)->mad_hiehn);
+            DoMethod(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_WindowObject, MUIM_Window_RemEventHandler,
+                (IPTR)&((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn);
         }
-        muiAreaData(obj)->mad_hiehn.ehn_Events &= ~flags;
-        if (muiAreaData(obj)->mad_hiehn.ehn_Events)
+        ((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn.ehn_Events &= ~flags;
+        if (((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn.ehn_Events)
         {
-            DoMethod(_win(obj), MUIM_Window_AddEventHandler,
-                (IPTR)&muiAreaData(obj)->mad_hiehn);
+            DoMethod(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_WindowObject, MUIM_Window_AddEventHandler,
+                (IPTR)&((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn);
         }
     }
     else
     {
-        muiAreaData(obj)->mad_hiehn.ehn_Events &= ~flags;
+        ((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn.ehn_Events &= ~flags;
     }
 } /* MUI_RejectIDCMP */
