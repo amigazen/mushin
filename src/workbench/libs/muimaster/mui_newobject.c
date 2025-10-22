@@ -4,7 +4,6 @@
 
 #include <proto/exec.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"
@@ -15,14 +14,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(Object *, MUI_NewObjectA,
-
-/*  SYNOPSIS */
-        AROS_LHA(ClassID, classid,     A0),
-        AROS_LHA(struct TagItem *, tags, A1),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 5, MUIMaster)
+        __asm __saveds Object *MUI_NewObjectA(register __a0 ClassID classid, register __a1 struct TagItem *tags)
 
 /*  FUNCTION
         Create object from MUI class.
@@ -48,8 +40,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     Class  *cl;
 
     cl = MUI_GetClass(classid);
@@ -66,6 +56,4 @@
     bug("*** Couldn't find %s\n", classid);
 
     return NULL;
-
-    AROS_LIBFUNC_EXIT
-} /* MUIA_NewObjectA */
+} /* MUI_NewObjectA */

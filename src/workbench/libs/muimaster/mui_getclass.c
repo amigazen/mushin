@@ -6,12 +6,13 @@
 
 #include <proto/exec.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #include "muimaster_intern.h"
 #include "mui.h"
 #include "support.h"
 #include "support_classes.h"
+
+extern struct Library *MUIMasterBase;
 
 /*#define MYDEBUG 1*/
 #include "debug.h"
@@ -19,13 +20,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH1(struct IClass *, MUI_GetClass,
-
-/*  SYNOPSIS */
-        AROS_LHA(ClassID, classid, A0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 13, MUIMaster)
+        __asm __saveds struct IClass *MUI_GetClass(register __a0 ClassID classid)
 
 /*  FUNCTION
         Get a pointer to a MUI Class.
@@ -60,8 +55,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     Class *cl;
 
     if (!classid)
@@ -73,8 +66,5 @@
         cl = ZUNE_GetExternalClass(classid, MUIMasterBase);
 
     return cl;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_GetClass */
+} /* MUI_GetClass */
 

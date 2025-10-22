@@ -6,7 +6,6 @@
 #include <proto/intuition.h>
 #include <proto/graphics.h>
 #include <proto/dos.h>
-#include <proto/muimaster.h>
 #include <proto/utility.h>
 
 #include "mui.h"
@@ -14,20 +13,14 @@
 #include "support.h"
 #include "support_classes.h"
 
+/* Forward declarations for internal functions */
+struct IClass *MUI_GetClass(ClassID classid);
+VOID MUI_FreeClass(Class *cl);
+
 /*****************************************************************************
 
     NAME */
-        AROS_LH5(struct MUI_CustomClass *, MUI_CreateCustomClass,
-
-/*  SYNOPSIS */
-        AROS_LHA(struct Library *,         base,       A0),
-        AROS_LHA(ClassID,                  supername,  A1),
-        AROS_LHA(struct MUI_CustomClass *, supermcc,   A2),
-        AROS_LHA(ULONG,                    datasize,   D0),
-        AROS_LHA(APTR,                     dispatcher, A3),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 18, MUIMaster)
+        __asm __saveds struct MUI_CustomClass *MUI_CreateCustomClass(register __a0 struct Library *base, register __a1 ClassID supername, register __a2 struct MUI_CustomClass *supermcc, register __d0 ULONG datasize, register __a3 APTR dispatcher)
 
 /*  FUNCTION
 
@@ -47,7 +40,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
 
     struct MUI_CustomClass *mcc;
     struct IClass        *cl, *super;
@@ -94,5 +86,4 @@
 
     return mcc;
     
-    AROS_LIBFUNC_EXIT
-} /* MUIA_CreateCustomClass */
+} /* MUI_CreateCustomClass */

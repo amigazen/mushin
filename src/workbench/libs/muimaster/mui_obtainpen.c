@@ -4,7 +4,6 @@
 
 #include <exec/types.h>
 #include <proto/graphics.h>
-#include <proto/muimaster.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -16,15 +15,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH3(LONG, MUI_ObtainPen,
-
-/*  SYNOPSIS */
-        AROS_LHA(struct MUI_RenderInfo *, mri, A0),
-        AROS_LHA(struct MUI_PenSpec *, spec, A1),
-        AROS_LHA(ULONG, flags, D0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 26, MUIMaster)
+        __asm __saveds LONG MUI_ObtainPen(register __a0 struct MUI_RenderInfo *mri, register __a1 struct MUI_PenSpec *spec, register __d0 ULONG flags)
 
 /*  FUNCTION
         Turns struct MUI_PenSpec (the result of a Poppen object) into
@@ -47,8 +38,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     LONG retval = -1;
     struct MUI_PenSpec_intern intern;
     
@@ -68,7 +57,4 @@
     }
 
     return retval;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_ObtainPen */
+} /* MUI_ObtainPen */

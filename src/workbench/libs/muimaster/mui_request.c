@@ -11,7 +11,6 @@
 #endif
 #include <proto/exec.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #ifdef __AROS__
 #include <stdlib.h>
@@ -60,19 +59,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 /*****************************************************************************
 
     NAME */
-        AROS_LH7(LONG, MUI_RequestA,
-
-/*  SYNOPSIS */
-        AROS_LHA(APTR,         app,     D0),
-        AROS_LHA(APTR,         win,     D1),
-        AROS_LHA(LONGBITS,     flags,   D2),
-        AROS_LHA(CONST_STRPTR, title,   A0),
-        AROS_LHA(CONST_STRPTR, gadgets, A1),
-        AROS_LHA(CONST_STRPTR, format,  A2),
-        AROS_LHA(APTR,         params,  A3),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 7, MUIMaster)
+        __asm __saveds LONG MUI_RequestA(register __d0 APTR app, register __d1 APTR win, register __d2 LONGBITS flags, register __a0 CONST_STRPTR title, register __a1 CONST_STRPTR gadgets, register __a2 CONST_STRPTR format, register __a3 APTR params)
 
 /*  FUNCTION
 
@@ -92,7 +79,6 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
 
     LONG result;
     char *reqtxt;
@@ -304,6 +290,4 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
     }
     return result;
 
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_RequestA */
+} /* MUI_RequestA */

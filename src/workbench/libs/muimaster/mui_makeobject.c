@@ -10,7 +10,6 @@
 #include <libraries/gadtools.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
-#include <proto/muimaster.h>
 #include <string.h>
 
 #ifdef HAVE_COOLIMAGES
@@ -186,14 +185,7 @@ Object *INTERNAL_ImageButton(CONST_STRPTR label, CONST_STRPTR imagePath,
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(Object *, MUI_MakeObjectA,
-
-/*  SYNOPSIS */
-        AROS_LHA(LONG, type, D0),
-        AROS_LHA(IPTR *, params, A0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 20, MUIMaster)
+        __asm __saveds Object *MUI_MakeObjectA(register __d0 LONG type, register __a0 IPTR *params)
 
 /*  FUNCTION
         Create an object from the builtin object collection.
@@ -220,7 +212,6 @@ Object *INTERNAL_ImageButton(CONST_STRPTR label, CONST_STRPTR imagePath,
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
 
     switch (type)
     {
@@ -522,5 +513,4 @@ Object *INTERNAL_ImageButton(CONST_STRPTR label, CONST_STRPTR imagePath,
 
     return NULL;
 
-    AROS_LIBFUNC_EXIT
-}                               /* MUIA_MakeObjectA */
+}                               /* MUI_MakeObjectA */

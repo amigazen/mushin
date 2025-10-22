@@ -242,7 +242,7 @@ Class *ZUNE_GetExternalClass(ClassID className, struct Library *mb);
 #define ZUNE_AddBuiltinClass(cl, mb)                                         \
 do                                                                           \
 {                                                                            \
-    AddTail((struct List *)&MUIMB(mb)->BuiltinClasses, (struct Node *)(cl)); \
+    AddTail((struct List *)&((struct MUIMasterBase_intern *)(mb))->BuiltinClasses, (struct Node *)(cl)); \
     (cl)->cl_Flags |= CLF_INLIST;                                            \
 } while (0)
 

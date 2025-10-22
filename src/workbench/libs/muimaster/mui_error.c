@@ -2,18 +2,12 @@
     Copyright (C) 2002-2007, The AROS Development Team. All rights reserved.
 */
 
-#include <proto/muimaster.h>
 #include "muimaster_intern.h"
 
 /*****************************************************************************
 
     NAME */
-        AROS_LH0(LONG, MUI_Error,
-
-/*  SYNOPSIS */
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 11, MUIMaster)
+        __asm __saveds LONG MUI_Error(void)
 
 /*  FUNCTION
         Obsolete function. Use SetIoErr()/IoErr() instead.
@@ -35,10 +29,5 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     return 0;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_Error */
+} /* MUI_Error */

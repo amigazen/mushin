@@ -50,9 +50,21 @@
 #include "support.h"
 #include "application.h"
 #include "window.h"
-#include "area_macros.h"
 
-/* MUI_GlobalInfo_Private is defined in muimaster_intern.h */
+extern struct Library *MUIMasterBase;
+typedef struct MUIMasterBase_intern MUIMasterBase_intern;
+
+/* Private structure definition for MUI_GlobalInfo */
+struct MUI_GlobalInfo_Private
+{
+    ULONG priv0;
+    Object *mgi_ApplicationObject;
+    struct MsgPort *mgi_WindowsPort;
+    struct MsgPort *mgi_AppPort;
+    Object *mgi_Configdata;
+    struct ZunePrefsNew *mgi_Prefs;
+    struct Screen *mgi_CustomScreen;
+};
 
 /* Define missing constants */
 #ifndef MUIA_Configdata_ZunePrefs
@@ -415,7 +427,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     {
         Object *other_app;
 
-        ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+        ObtainSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
         if ((other_app = find_application_by_base(cl, obj, data->app_Base)))
         {
             //FIXME "Is calling MUIM_Application_PushMethod on an alien
@@ -425,7 +437,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
                 TRUE);
             data->app_Base = NULL;
         }
-        ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+        ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
         data->app_Base = StrDup(data->app_Base);
     }
@@ -726,12 +738,12 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
         return 0;
     }
 
-    ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ObtainSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
     data->app_TrackingNode.tn_Application = obj;
-    AddTail((struct List *)&MUIMB(MUIMasterBase)->Applications,
+    AddTail((struct List *)&((MUIMasterBase_intern *)MUIMasterBase)->Applications,
         (struct Node *)&data->app_TrackingNode);
     data->app_is_TNode_in_list = TRUE;
-    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
     return (IPTR) obj;
 }
@@ -768,9 +780,9 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
 
     if (data->app_is_TNode_in_list)
     {
-        ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+        ObtainSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
         Remove((struct Node *)&data->app_TrackingNode);
-        ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+        ReleaseSemaphore(&((MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
     }
 
     if (data->app_WindowFamily)

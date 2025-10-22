@@ -5,7 +5,6 @@
 #include <proto/graphics.h>
 #include <proto/layers.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"
@@ -13,14 +12,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(BOOL, MUI_BeginRefresh,
-
-/*  SYNOPSIS */
-        AROS_LHA( struct MUI_RenderInfo *, mri, A0),
-        AROS_LHA(ULONG, flags, D0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 32, MUIMaster)
+        __asm __saveds BOOL MUI_BeginRefresh(register __a0 struct MUI_RenderInfo *mri, register __d0 ULONG flags)
 
 /*  FUNCTION
 
@@ -40,8 +32,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     struct Window *w = mri->mri_Window;
     struct Layer  *l;
 
@@ -62,7 +52,4 @@
     LockLayerInfo(&w->WScreen->LayerInfo);
     BeginRefresh(w);
     return 1;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_BeginRefresh */
+} /* MUI_BeginRefresh */

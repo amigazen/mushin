@@ -12,3 +12,4 @@ struct __dummyAreaData__
 #endif /* _AREA_MACROS_H */
 
 
+

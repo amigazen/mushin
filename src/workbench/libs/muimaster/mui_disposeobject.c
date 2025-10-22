@@ -2,7 +2,6 @@
     Copyright (C) 2002-2007, The AROS Development Team. All rights reserved.
 */
 
-#include <proto/muimaster.h>
 #include <proto/intuition.h>
 #include <intuition/classes.h>
 
@@ -11,13 +10,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH1(VOID, MUI_DisposeObject,
-
-/*  SYNOPSIS */
-        AROS_LHA(Object *, obj, A0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 6, MUIMaster)
+        __asm __saveds VOID MUI_DisposeObject(register __a0 Object *obj)
 
 /*  FUNCTION
         Deletes MUI object and its child objects.
@@ -42,8 +35,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     if (obj == NULL)
         return;
     
@@ -52,7 +43,4 @@
         DisposeObject(obj);
         MUI_FreeClass(cl);
     }
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_DisposeObject */
+} /* MUI_DisposeObject */

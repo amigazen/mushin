@@ -22,7 +22,6 @@
 #include <proto/iffparse.h>
 #include <proto/diskfont.h>
 #include <proto/icon.h>
-#include <proto/asl.h>
 #include <proto/wb.h>
 #include <proto/muiscreen.h>
 #include <proto/cybergraphics.h>
@@ -35,11 +34,6 @@
 /* Typedef for cleaner casting */
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
-/* Forward declarations */
-void __saveds __stdargs L_ExpungeLib(struct Library * _MUIMasterBase);
-
-#include "locale.h"
-
 /****************************************************************************************/
 
 /* #define MYDEBUG 1 */
@@ -47,7 +41,6 @@ void __saveds __stdargs L_ExpungeLib(struct Library * _MUIMasterBase);
 
 struct Library *MUIMasterBase;
 struct Library **MUIMasterBasePtr = &MUIMasterBase;
-struct Library *CyberGfxBase;
 
 /* Library version constants for clarity */
 #define DOS_MIN_VERSION         37
@@ -68,7 +61,7 @@ struct Library *CyberGfxBase;
 
 /****************************************************************************************/
 
-ULONG __saveds __stdargs L_InitLib(struct Library * _MUIMasterBase)
+ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
 {
     /* C89 COMPATIBILITY: All declarations must be at the top of the function block. */
     MUIMasterBase_intern *libBase = (MUIMasterBase_intern *)_MUIMasterBase;
@@ -113,20 +106,17 @@ ULONG __saveds __stdargs L_InitLib(struct Library * _MUIMasterBase)
     NewList((struct List *)&libBase->BuiltinClasses);
     NewList((struct List *)&libBase->Applications);
 
-    /* Initialize localization */
-    Locale_Initialize();
-
     return TRUE;
 
 fail:
     D(bug("muimaster.library Init FAILED. Expunging open libraries.\n"));
-    L_ExpungeLib(_MUIMasterBase);
+    LC_BUILDNAME(L_ExpungeLib)(_MUIMasterBase);
     return FALSE;
 }
 
 /****************************************************************************************/
 
-ULONG __saveds __stdargs L_OpenLib(struct Library * MUIMasterBase)
+ULONG SAVEDS STDARGS LC_BUILDNAME(L_OpenLib)(LC_LIBHEADERTYPEPTR MUIMasterBase)
 {
     D(bug("Inside Open func of muimaster.library\n"));
     MUIMasterBase->lib_OpenCnt++;
@@ -135,7 +125,7 @@ ULONG __saveds __stdargs L_OpenLib(struct Library * MUIMasterBase)
 
 /****************************************************************************************/
 
-void __saveds __stdargs L_CloseLib(struct Library * MUIMasterBase)
+void SAVEDS STDARGS LC_BUILDNAME(L_CloseLib)(LC_LIBHEADERTYPEPTR MUIMasterBase)
 {
     D(bug("Inside Close func of muimaster.library\n"));
     MUIMasterBase->lib_OpenCnt--;
@@ -143,15 +133,12 @@ void __saveds __stdargs L_CloseLib(struct Library * MUIMasterBase)
 
 /****************************************************************************************/
 
-void __saveds __stdargs L_ExpungeLib(struct Library * _MUIMasterBase)
+void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
 {
     /* C89 COMPATIBILITY: Declaration at top of the block. */
     MUIMasterBase_intern *libBase = (MUIMasterBase_intern *)_MUIMasterBase;
 
     D(bug("Inside Expunge func of muimaster.library\n"));
-
-    /* Deinitialize localization */
-    Locale_Deinitialize();
 
     /* Close libraries stored in the internal base struct */
     CloseLibrary((struct Library *)libBase->gfxbase);

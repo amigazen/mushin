@@ -4,7 +4,6 @@
 
 #include <proto/exec.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"
@@ -13,13 +12,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH1(BOOL, MUI_DeleteCustomClass,
-
-/*  SYNOPSIS */
-        AROS_LHA(struct MUI_CustomClass *, mcc, A0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 19, MUIMaster)
+        __asm __saveds BOOL MUI_DeleteCustomClass(register __a0 struct MUI_CustomClass *mcc)
 
 /*  FUNCTION
         Delete private or public custom classes.
@@ -44,8 +37,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     if (mcc)
     {
         Class *super = mcc->mcc_Super;
@@ -61,7 +52,4 @@
     }
 
     return FALSE;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_DeleteCustomClass */
+} /* MUI_DeleteCustomClass */

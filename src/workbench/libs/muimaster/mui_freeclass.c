@@ -4,7 +4,6 @@
 
 #include <string.h>
 
-#include <proto/muimaster.h>
 #include <proto/intuition.h>
 #include <proto/exec.h>
 
@@ -12,16 +11,13 @@
 #include "support_classes.h"
 #include "debug.h"
 
+extern struct Library *MUIMasterBase;
+typedef struct MUIMasterBase_intern MUIMasterBase_intern;
+
 /*****************************************************************************
 
     NAME */
-        AROS_LH1(VOID, MUI_FreeClass,
-
-/*  SYNOPSIS */
-        AROS_LHA(Class *, cl, A0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 14, MUIMaster)
+        __asm __saveds VOID MUI_FreeClass(register __a0 Class *cl)
 
 /*  FUNCTION
         Frees a class returned by MUI_GetClass(). This function is
@@ -45,9 +41,7 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
-    ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ObtainSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
     /* CLF_INLIST tells us that this class is a builtin class */
     if (cl->cl_Flags & CLF_INLIST)
@@ -76,15 +70,12 @@
         }
         cl->cl_Dispatcher.h_Data = count;
 
-        ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+        ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
     }
     else
     {
-        ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+        ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
         CloseLibrary((struct Library *)cl->cl_Dispatcher.h_Data);
     }
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_FreeClass */
+} /* MUI_FreeClass */

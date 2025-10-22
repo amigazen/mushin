@@ -5,7 +5,6 @@
 #include <proto/intuition.h>
 #include <intuition/classusr.h>
 #include <clib/alib_protos.h>
-#include <proto/muimaster.h>
 
 #include "muimaster_intern.h"
 #include "mui.h"
@@ -13,14 +12,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(VOID, MUI_RejectIDCMP,
-
-/*  SYNOPSIS */
-        AROS_LHA(Object *, obj  , A0),
-        AROS_LHA(ULONG   , flags, D0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 16, MUIMaster)
+        __asm __saveds VOID MUI_RejectIDCMP(register __a0 Object *obj, register __d0 ULONG flags)
 
 /*  FUNCTION
 
@@ -41,8 +33,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     if (muiRenderInfo(obj) && (_flags(obj) & MADF_SETUP) && _win(obj))
     {
         if (muiAreaData(obj)->mad_hiehn.ehn_Events)
@@ -61,7 +51,4 @@
     {
         muiAreaData(obj)->mad_hiehn.ehn_Events &= ~flags;
     }
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_RejectIDCMP */
+} /* MUI_RejectIDCMP */

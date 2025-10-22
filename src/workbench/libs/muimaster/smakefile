@@ -159,7 +159,6 @@ lib:small.lib
 lib:scm.lib
 objs/zunemaster_lib.o
 objs/muimaster_init.o
-objs/locale.o
 $(LIBOBJS)
 $(SUPPORTOBJS)
 objs/classes/aboutmui.o    objs/classes/application.o    objs/classes/area.o    objs/classes/balance.o    objs/classes/bitmap.o

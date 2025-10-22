@@ -5,11 +5,11 @@
 #include <intuition/classusr.h>
 #include <clib/alib_protos.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "classes/area.h"
+#include "area_macros.h"
 
 /* Ensure MADF_ISVIRTUALGROUP is defined */
 #ifndef MADF_ISVIRTUALGROUP
@@ -22,18 +22,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH6(BOOL, MUI_Layout,
-
-/*  SYNOPSIS */
-        AROS_LHA(Object *, obj, A0),
-        AROS_LHA(LONG, left, D0),
-        AROS_LHA(LONG, top, D1),
-        AROS_LHA(LONG, width, D2),
-        AROS_LHA(LONG, height, D3),
-        AROS_LHA(ULONG, flags, D4),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 21, MUIMaster)
+        __asm __saveds BOOL MUI_Layout(register __a0 Object *obj, register __d0 LONG left, register __d1 LONG top, register __d2 LONG width, register __d3 LONG height, register __d4 ULONG flags)
 
 /*  FUNCTION
 
@@ -53,8 +42,6 @@ Z
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     static const struct MUIP_Layout method = { MUIM_Layout };
     Object *parent = _parent(obj);
 
@@ -83,7 +70,4 @@ Z
 
     DoMethodA(obj, (Msg)&method);
     return TRUE;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_Layout */
+} /* MUI_Layout */

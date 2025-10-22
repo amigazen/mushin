@@ -5,7 +5,6 @@
 #include <proto/graphics.h>
 #include <proto/layers.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"
@@ -15,14 +14,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(APTR, MUI_AddClipRegion,
-
-/*  SYNOPSIS */
-        AROS_LHA(struct MUI_RenderInfo *, mri, A0),
-        AROS_LHA(struct Region *, r, A1),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 30, MUIMaster)
+        __asm __saveds APTR MUI_AddClipRegion(register __a0 struct MUI_RenderInfo *mri, register __a1 struct Region *r)
 
 /*  FUNCTION
 
@@ -42,8 +34,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     struct Window *w = mri->mri_Window;
     struct Layer  *l;
     APTR result;
@@ -94,7 +84,4 @@
     mri->mri_rArray[mri->mri_rCount++] = r;
 
     return result;
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_AddClipRegion */
+} /* MUI_AddClipRegion */

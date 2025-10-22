@@ -2,7 +2,6 @@
     Copyright (C) 2002-2007, The AROS Development Team. All rights reserved.
 */
 
-#include <proto/muimaster.h>
 #include <proto/asl.h>
 
 #include "muimaster_intern.h"
@@ -10,14 +9,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(BOOL, MUI_AslRequest,
-
-/*  SYNOPSIS */
-        AROS_LHA(APTR, requester, A0),
-        AROS_LHA(struct TagItem *, tagList, A1),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 9, MUIMaster)
+        __asm __saveds BOOL MUI_AslRequest(register __a0 APTR requester, register __a1 struct TagItem *tagList)
 
 /*  FUNCTION
         Interface to asl.library.
@@ -39,10 +31,5 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     return AslRequest(requester, tagList);
-
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_AslRequest */
+} /* MUI_AslRequest */

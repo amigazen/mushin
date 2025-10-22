@@ -9,7 +9,6 @@
 #include <cybergraphx/cybergraphics.h>
 #include <proto/graphics.h>
 #include <proto/intuition.h>
-#include <proto/muimaster.h>
 #include <proto/cybergraphics.h>
 
 #include "muimaster_intern.h"
@@ -28,14 +27,7 @@
 /*****************************************************************************
 
     NAME */
-        AROS_LH2(VOID, MUI_Redraw,
-
-/*  SYNOPSIS */
-        AROS_LHA(Object *, obj, A0),
-        AROS_LHA(ULONG, flags, D0),
-
-/*  LOCATION */
-        struct Library *, MUIMasterBase, 17, MUIMaster)
+        __asm __saveds VOID MUI_Redraw(register __a0 Object *obj, register __d0 ULONG flags)
 
 /*  FUNCTION
 
@@ -55,7 +47,6 @@
 
 *****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
 
     APTR clip = (APTR)-1;
     IPTR disabled = 0;
@@ -250,6 +241,4 @@
         MUI_RemoveClipRegion(muiRenderInfo(obj), clip);
     }
 
-    AROS_LIBFUNC_EXIT
-
-} /* MUIA_Redraw */
+} /* MUI_Redraw */
