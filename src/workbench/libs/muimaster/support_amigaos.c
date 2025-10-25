@@ -139,12 +139,14 @@ int VARARGS68K SPrintf(char *buf, const char *fmt, ...)
  Like StrToLong() but for hex numbers
  that represent addresses
 ***************************************************/
-LONG HexToIPTR(CONST_STRPTR s, IPTR *val)
+#endif
+
+LONG __saveds HexToIPTR(CONST_STRPTR s, IPTR *val)
 {
     return HexToLong((STRPTR)s, val);
 }
 
-LONG HexToLong(CONST_STRPTR s, ULONG *val)
+LONG __saveds HexToLong(CONST_STRPTR s, ULONG *val)
 {
     char *end;
     *val = (ULONG)strtoul(s,&end,16);
@@ -152,7 +154,115 @@ LONG HexToLong(CONST_STRPTR s, ULONG *val)
     return end - (char*)s;
 }
 
-#endif
+/************************************************************
+ __XCEXIT - SAS/C library function stub
+ No-op implementation for compatibility
+*************************************************************/
+//void __saveds _XCEXIT(void)
+//{
+    /* No-op function for SAS/C compatibility */
+//    return;
+//}
+
+/************************************************************
+ WritePixelArrayAlpha - Alpha-blends pixel data to RastPort
+ Based on AROS implementation
+*************************************************************/
+ULONG __saveds WritePixelArrayAlpha(APTR src, UWORD srcx, UWORD srcy, UWORD srcmod, 
+                          struct RastPort *rp, UWORD destx, UWORD desty, 
+                          UWORD width, UWORD height, ULONG globalalpha)
+{
+    ULONG start_offset;
+    
+    if (width == 0 || height == 0)
+        return 0;
+
+    /* Check if we have a valid bitmap */
+    if (!rp || !rp->BitMap)
+        return 0;
+
+    /* Compute the start of the array */
+    start_offset = ((ULONG)srcy) * srcmod + srcx * 4;
+
+    /* For now, just copy the pixels directly without alpha blending */
+    /* This is a simplified version that works with standard bitmaps */
+    {
+        UBYTE *src_data = ((UBYTE *)src) + start_offset;
+        UBYTE *dest_data;
+        ULONG y;
+        
+        for (y = 0; y < height; y++)
+        {
+            dest_data = (UBYTE *)rp->BitMap->Planes[0] + 
+                       (desty + y) * rp->BitMap->BytesPerRow + destx * 4;
+            
+            if (dest_data)
+            {
+                CopyMem(src_data, dest_data, width * 4);
+            }
+            
+            src_data += srcmod;
+        }
+    }
+
+    return (ULONG)(width * height);
+}
+
+/************************************************************
+ WriteLUTPixelArray - Write pixel data using color lookup table
+ Based on AROS implementation
+*************************************************************/
+ULONG __saveds WriteLUTPixelArray(APTR srcRect, UWORD SrcX, UWORD SrcY, UWORD SrcMod, 
+                       struct RastPort *rp, APTR CTable, UWORD DestX, UWORD DestY, 
+                       UWORD SizeX, UWORD SizeY, UBYTE CTabFormat)
+{
+    ULONG depth;
+    UBYTE *src_data;
+    UBYTE *dest_data;
+    ULONG y, x;
+    
+    if (SizeX == 0 || SizeY == 0)
+        return 0;
+    
+    /* Check if we have a valid bitmap */
+    if (!rp || !rp->BitMap)
+        return 0;
+    
+    depth = GetBitMapAttr(rp->BitMap, BMA_DEPTH);
+    
+    /* This call only supports bitmaps with depth > 8 */
+    if (depth <= 8)
+        return 0;
+        
+    /* Currently only one format is supported */
+    if (CTabFormat != 0) /* CTABFMT_XRGB8 */
+        return 0;
+
+    /* Convert the coltab into native pixels and write them */
+    src_data = (UBYTE *)srcRect + SrcY * SrcMod + SrcX;
+    
+    for (y = 0; y < SizeY; y++)
+    {
+        dest_data = (UBYTE *)rp->BitMap->Planes[0] + 
+                   (DestY + y) * rp->BitMap->BytesPerRow + DestX * 4;
+        
+        if (dest_data && CTable)
+        {
+            for (x = 0; x < SizeX; x++)
+            {
+                UBYTE pen = src_data[x];
+                ULONG rgb = ((ULONG *)CTable)[pen];
+                
+                /* Convert XRGB8 to native format */
+                ((ULONG *)dest_data)[x] = rgb;
+            }
+        }
+        
+        src_data += SrcMod;
+    }
+
+    return (ULONG)(SizeX * SizeY);
+}
 
 /***************************************************************************/
 

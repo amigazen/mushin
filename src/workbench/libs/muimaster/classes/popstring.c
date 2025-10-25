@@ -14,6 +14,7 @@
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
+#include "area_macros.h"
 
 /*  #define MYDEBUG 0 */
 #include "debug.h"

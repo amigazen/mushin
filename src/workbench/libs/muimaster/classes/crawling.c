@@ -18,6 +18,7 @@
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
+#include "area_macros.h"
 #include "support_classes.h"
 #include "debug.h"
 #include "crawling_private.h"

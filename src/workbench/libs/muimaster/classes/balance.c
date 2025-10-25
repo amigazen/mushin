@@ -18,16 +18,13 @@
 #include "muimaster_intern.h"
 #include "support.h"
 #include "prefs.h"
-#include "classes/area.h"
-#include "balance_private.h"
 #include "area_macros.h"
+#include "balance_private.h"
 
 /*  #define MYDEBUG 0 */
 #include "debug.h"
 
 extern struct Library *MUIMasterBase;
-
-/* MUI_GlobalInfo_Private is defined in muimaster_intern.h */
 
 /*
  *  [FirstBound .... <- balance -> .... SecondBound]
@@ -153,26 +150,26 @@ IPTR Balance__MUIM_Draw(struct IClass *cl, Object *obj,
     if (data->horizgroup)
     {
         SetAPen(_rp(obj), _pens(obj)[col1]);
-        Move(_rp(obj), _mleft(obj), _mtop(obj));
-        Draw(_rp(obj), _mleft(obj), _mbottom(obj));
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1);
         SetAPen(_rp(obj), _pens(obj)[MPEN_FILL]);
-        Move(_rp(obj), _mleft(obj) + 1, _mtop(obj));
-        Draw(_rp(obj), _mleft(obj) + 1, _mbottom(obj));
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + 1, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + 1, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1);
         SetAPen(_rp(obj), _pens(obj)[col2]);
-        Move(_rp(obj), _mleft(obj) + 2, _mtop(obj));
-        Draw(_rp(obj), _mleft(obj) + 2, _mbottom(obj));
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + 2, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + 2, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1);
     }
     else
     {
         SetAPen(_rp(obj), _pens(obj)[col1]);
-        Move(_rp(obj), _mleft(obj), _mtop(obj));
-        Draw(_rp(obj), _mright(obj), _mtop(obj));
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top);
         SetAPen(_rp(obj), _pens(obj)[MPEN_FILL]);
-        Move(_rp(obj), _mleft(obj), _mtop(obj) + 1);
-        Draw(_rp(obj), _mright(obj), _mtop(obj) + 1);
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + 1);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + 1);
         SetAPen(_rp(obj), _pens(obj)[col2]);
-        Move(_rp(obj), _mleft(obj), _mtop(obj) + 2);
-        Draw(_rp(obj), _mright(obj), _mtop(obj) + 2);
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + 2);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + 2);
     }
 
     return TRUE;
@@ -181,16 +178,16 @@ IPTR Balance__MUIM_Draw(struct IClass *cl, Object *obj,
 static void draw_object_frame(Object *obj, Object *o, BOOL fixed)
 {
     SetAPen(_rp(obj), _pens(obj)[MPEN_TEXT]);
-    Move(_rp(obj), _left(o), _top(o));
-    Draw(_rp(obj), _left(o), _bottom(o));
-    Draw(_rp(obj), _right(o), _bottom(o));
-    Draw(_rp(obj), _right(o), _top(o));
-    Draw(_rp(obj), _left(o), _top(o));
+    Move(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top);
+    Draw(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Height - 1);
+    Draw(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Height - 1);
+    Draw(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top);
+    Draw(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top);
     if (!fixed)
     {
-        Draw(_rp(obj), _right(o), _bottom(o));
-        Move(_rp(obj), _right(o), _top(o));
-        Draw(_rp(obj), _left(o), _bottom(o));
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Height - 1);
+        Move(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Width - 1, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top);
+        Draw(_rp(obj), ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(o))->mad.mad_Box.Height - 1);
     }
 }
 
@@ -201,12 +198,12 @@ static LONG get_first_bound(struct Balance_DATA *data, Object *obj)
     if (data->horizgroup)
     {
         get(_parent(obj), MUIA_Group_HorizSpacing, &spacing);
-        return (LONG)(_left(obj) + _minwidth(obj) + _subwidth(obj) + spacing);
+        return (LONG)(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + _minwidth(obj) + _subwidth(obj) + spacing);
     }
     else
     {
         get(_parent(obj), MUIA_Group_VertSpacing, &spacing);
-        return (LONG)(_top(obj) + _minheight(obj) + _subheight(obj) + spacing);
+        return (LONG)(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + _minheight(obj) + _subheight(obj) + spacing);
     }
 }
 
@@ -217,12 +214,12 @@ static LONG get_second_bound(struct Balance_DATA *data, Object *obj)
     if (data->horizgroup)
     {
         get(_parent(obj), MUIA_Group_HorizSpacing, &spacing);
-        return (LONG)(_right(obj) - _minwidth(obj) - _subwidth(obj) - spacing);
+        return (LONG)(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1 - _minwidth(obj) - _subwidth(obj) - spacing);
     }
     else
     {
         get(_parent(obj), MUIA_Group_VertSpacing, &spacing);
-        return (LONG)(_bottom(obj) - _minheight(obj) - _subheight(obj) - spacing);
+        return (LONG)(((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1 - _minheight(obj) - _subheight(obj) - spacing);
     }
 }
 
@@ -231,11 +228,11 @@ static LONG get_first_bound_multi(struct Balance_DATA *data, Object *obj)
 {
     if (data->horizgroup)
     {
-        return _mleft(_parent(obj));
+        return ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Left;
     }
     else
     {
-        return _mtop(_parent(obj));
+        return ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Top;
     }
 }
 
@@ -243,11 +240,11 @@ static LONG get_second_bound_multi(struct Balance_DATA *data, Object *obj)
 {
     if (data->horizgroup)
     {
-        return _mright(_parent(obj));
+        return ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Width - 1;
     }
     else
     {
-        return _mbottom(_parent(obj));
+        return ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Height - 1;
     }
 }
 
@@ -314,13 +311,13 @@ static void set_weight_2(struct Balance_DATA *data, WORD current)
 
     if (data->horizgroup)
     {
-        set(data->obj_before, MUIA_HorizWeight, weightA);
-        set(data->obj_after, MUIA_HorizWeight, weightB);
+        ((struct __dummyAreaData__ *)(data->obj_before))->mad.mad_HorizWeight = weightA;
+        ((struct __dummyAreaData__ *)(data->obj_after))->mad.mad_HorizWeight = weightB;
     }
     else
     {
-        set(data->obj_before, MUIA_VertWeight, weightA);
-        set(data->obj_after, MUIA_VertWeight, weightB);
+        ((struct __dummyAreaData__ *)(data->obj_before))->mad.mad_VertWeight = weightA;
+        ((struct __dummyAreaData__ *)(data->obj_after))->mad.mad_VertWeight = weightB;
     }
 }
 
@@ -390,11 +387,11 @@ static void set_weight(struct Balance_DATA *data, Object *obj, LONG w)
 {
     if (data->horizgroup)
     {
-        set(obj, MUIA_HorizWeight, w);
+        ((struct __dummyAreaData__ *)(obj))->mad.mad_HorizWeight = w;
     }
     else
     {
-        set(obj, MUIA_VertWeight, w);
+        ((struct __dummyAreaData__ *)(obj))->mad.mad_VertWeight = w;
     }
 }
 
@@ -688,9 +685,9 @@ static void handle_move(struct IClass *cl, Object *obj, WORD mouse)
         Object *sibling;
         Object *object_state;
 
-        DoMethod(_parent(obj), MUIM_DrawBackground, _mleft(_parent(obj)),
-            _mtop(_parent(obj)), _mwidth(_parent(obj)),
-            _mheight(_parent(obj)), 0, 0, 0);
+        DoMethod(_parent(obj), MUIM_DrawBackground, ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Left,
+            ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Top, ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Width,
+            ((struct __dummyAreaData__ *)(_parent(obj)))->mad.mad_Box.Height, 0, 0, 0);
 
         /* relayout with new weights */
         DoMethod(_parent(obj), MUIM_Layout);

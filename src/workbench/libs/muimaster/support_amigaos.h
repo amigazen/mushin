@@ -31,6 +31,13 @@
 LONG HexToIPTR(CONST_STRPTR s, ULONG *val);
 LONG HexToLong(CONST_STRPTR s, ULONG *val);
 
+/* CyberGfx function stubs for Amiga */
+ULONG WritePixelArrayAlpha(APTR, UWORD, UWORD, UWORD, struct RastPort *, UWORD, UWORD, UWORD, UWORD, ULONG);
+ULONG WriteLUTPixelArray(APTR, UWORD, UWORD, UWORD, struct RastPort *, APTR, UWORD, UWORD, UWORD, UWORD, UBYTE);
+
+/* SAS/C library function stubs 
+void _XCEXIT(void); */
+
 /* Define all classes as built in...should be moved out to config.h like file */
 #define ZUNE_BUILTIN_ABOUTMUI 1
 #define ZUNE_BUILTIN_BALANCE 1

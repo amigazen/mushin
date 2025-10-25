@@ -23,6 +23,7 @@
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
+#include "area_macros.h"
 #include "support_classes.h"
 #include "popasl_private.h"
 

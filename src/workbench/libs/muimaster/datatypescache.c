@@ -883,10 +883,8 @@ void dt_put_on_rastport(struct dt_node *node, struct RastPort *rp, int x,
             pa.pbpa_Width = dt_width(node);
             pa.pbpa_Height = dt_height(node);
             DoMethodA(o, (Msg) & pa);
-#ifdef __AROS__
             WritePixelArrayAlpha(img, 0, 0, dt_width(node) * 4, rp, x, y,
                 dt_width(node), dt_height(node), 0xffffffff);
-#endif
             FreeVec((APTR) img);
         }
     }
@@ -951,10 +949,8 @@ void dt_put_mim_on_rastport(struct dt_node *node, struct RastPort *rp,
             pa.pbpa_Width = width;
             pa.pbpa_Height = height;
             DoMethodA(o, (Msg) & pa);
-#ifdef __AROS__
             WritePixelArrayAlpha(img, 0, 0, width * 4, rp, x, y, width,
                 height, 0xffffffff);
-#endif
             FreeVec((APTR) img);
         }
     }

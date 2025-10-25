@@ -25,6 +25,7 @@
 #include "textengine.h"
 #include "bubbleengine.h"
 #include "support.h"
+#include "area_macros.h"
 
 #include "muimaster_intern.h"
 

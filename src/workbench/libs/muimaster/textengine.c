@@ -28,6 +28,7 @@
 #include "imspec.h"
 #include "support.h"
 #include "listimage.h"
+#include "area_macros.h"
 
 #include "muimaster_intern.h"
 

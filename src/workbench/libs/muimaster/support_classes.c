@@ -224,7 +224,7 @@ Class *ZUNE_GetBuiltinClass(ClassID classid, struct Library * mb)
 {
     Class *cl;
 
-    ObtainSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ObtainSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
     cl = ZUNE_FindBuiltinClass(classid, mb);
 
@@ -245,7 +245,7 @@ Class *ZUNE_GetBuiltinClass(ClassID classid, struct Library * mb)
         }
     }
 
-    ReleaseSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
     return cl;
 }

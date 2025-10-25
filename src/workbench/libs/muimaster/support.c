@@ -17,6 +17,7 @@
 #include "mui.h"
 #include "support.h"
 #include "muimaster_intern.h"
+#include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
 
@@ -83,13 +84,13 @@ IPTR DoShowMethod(Object * obj)
 
     ret = DoMethod(obj, MUIM_Show);
     if (ret)
-        _flags(obj) |= MADF_CANDRAW;
+        ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags |= MADF_CANDRAW;
     return ret;
 }
 
 IPTR DoHideMethod(Object * obj)
 {
-    _flags(obj) &= ~MADF_CANDRAW;
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags &= ~MADF_CANDRAW;
     return DoMethod(obj, MUIM_Hide);
 }
 
@@ -208,7 +209,7 @@ ULONG IsObjectVisible(Object * child, struct Library * MUIMasterBase)
     Object *wnd;
     Object *obj;
 
-    wnd = _win(child);
+    wnd = ((struct __dummyAreaData__ *)(child))->mad.mad_RenderInfo->mri_WindowObject;
     obj = child;
 
     while (get(obj, MUIA_Parent, &obj))
@@ -218,9 +219,22 @@ ULONG IsObjectVisible(Object * child, struct Library * MUIMasterBase)
         if (obj == wnd)
             break;
 
-        if (_right(child) < _mleft(obj) || _left(child) > _mright(obj)
-            || _bottom(child) < _mtop(obj) || _top(child) > _mbottom(obj))
-            return FALSE;
+        {
+            LONG child_right = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Width - 1;
+            LONG child_left = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Left;
+            LONG child_bottom = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Height - 1;
+            LONG child_top = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Top;
+            
+            LONG obj_mleft = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_addleft;
+            LONG obj_mright = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_addleft + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width + ((struct __dummyAreaData__ *)(obj))->mad.mad_subwidth - 1;
+            LONG obj_mtop = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_addtop;
+            LONG obj_mbottom = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_addtop + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height + ((struct __dummyAreaData__ *)(obj))->mad.mad_subheight - 1;
+            
+            if (child_right < obj_mleft || child_left > obj_mright || child_bottom < obj_mtop || child_top > obj_mbottom)
+            {
+                return FALSE;
+            }
+        }
     }
     return TRUE;
 }

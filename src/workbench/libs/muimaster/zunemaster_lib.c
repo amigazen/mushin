@@ -314,5 +314,5 @@ const ULONG LibInitTable[4] = {
 
 void _CXFERR(void)
 {
-    D(bug("CFXERR\n"));
+    D(bug("CXFERR\n"));
 }
