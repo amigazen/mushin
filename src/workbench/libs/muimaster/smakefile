@@ -520,6 +520,11 @@ objs/test.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
 #//classes/nlist/NList_mcc/nlist.mcc.lib
 <
 
+opentest: objs/opentest.o
+  sc link to opentest with <<
+objs/opentest.o
+<
+
 wb: objs/wanderer.o  $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
   sc link lib lib:debug.lib lib sc:lib/scm.lib to wb with <<
 objs/wanderer.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
@@ -529,9 +534,9 @@ demos: muimaster.lib
   smake -f //demos/smakefile
 
 include: buildincludes zunemaster_lib.sfd
-  -delete include all
-  -makedir include
-  -makedir include/libraries include/clib include/proto include/pragma
+#  -delete include all
+#  -makedir include
+#  -makedir include/libraries include/clib include/proto include/pragma
   buildincludes >include/libraries/mui.h
   -makedir t:zunemaster
   copy zunemaster_lib.sfd t:zunemaster
@@ -552,6 +557,10 @@ include: buildincludes zunemaster_lib.sfd
 buildincludes: buildincludes.c
   sc link buildincludes.c
 
+objs/opentest.o: opentest.c
+  sc $(CFLAGS) incdir=include opentest.c objname=objs/opentest.o
+
 clean:
   -delete objs all
   -delete test
+  -delete opentest

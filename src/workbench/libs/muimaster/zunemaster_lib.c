@@ -22,6 +22,22 @@ LONG ReturnError2(void)
   return -1;
 }
 
+/* Library initialization helper function */
+ULONG __saveds __stdargs L_InitLib(struct Library *lib)
+{
+    /* Initialize the library base structure */
+    lib->lib_Node.ln_Type = NT_LIBRARY;
+    lib->lib_Node.ln_Pri = 0;
+    lib->lib_Flags = LIBF_SUMUSED | LIBF_CHANGED;
+    lib->lib_Version = 19;
+    lib->lib_Revision = 50;
+    lib->lib_IdString = "MUI Master Library 19.50";
+    lib->lib_OpenCnt = 0;
+    lib->lib_Sum = 0;
+    
+    return 0; /* Return 0 for success */
+}
+
 #include "muimaster_intern.h"
 
 /* Function declarations for MUI functions - matching muimaster_lib.sfd */
@@ -60,9 +76,8 @@ extern VOID MUI_EndRefresh(struct MUI_RenderInfo *mri, ULONG flags);
 #define REVISION  50
 #define DATETXT   "27.06.2003"
 #define VERSTXT   "19.50"
-
-#define LIBNAME  "zunemaster.library"
-#define IDSTRING "zunemaster.library " VERSTXT " (" DATETXT ")\r\n"
+#define LIBNAME  "muimaster.library"
+#define IDSTRING "$VER: muimaster.library " VERSTXT " (" DATETXT ")\r\n"
 
 #define MYDEBUG 1
 #include "debug.h"
@@ -230,7 +245,7 @@ ASM struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct MUIMaste
 
   D(bug("Librarybase at 0x%p\n",mb));
 
-  if (L_InitLib(&mb->library))
+  if (L_InitLib(&mb->library) == 0)
     return &mb->library;
 
   /* Free the vector table and the library data */
@@ -316,3 +331,4 @@ void _CXFERR(void)
 {
     D(bug("CXFERR\n"));
 }
+
