@@ -25,7 +25,14 @@ extern "C" {
 #include <libraries/mui.h>
 #endif
 
-/* "muimaster.library"*/
+/*"muimaster.library"*/
+/*--- functions in V19 or higher ---*/
+
+/* v19 LVO implemented by Zune: matches LibVectors[], muimaster_lib.fd, and*/
+/* muimaster_pragmas.h (through MUI_EndRefresh at 0xc6).  Trailing mui38dev /*/
+/* MUI 5 reserved slots (Show, Hide, LayoutObj, Offset, ...) are omitted*/
+/* until implemented.*/
+
 Object *MUI_NewObjectA(CONST_STRPTR classname, struct TagItem *tags);
 Object *MUI_NewObject(CONST_STRPTR classname, ...);
 void MUI_DisposeObject(Object *obj);
@@ -36,7 +43,7 @@ APTR MUI_AllocAslRequestTags(ULONG reqType, ...);
 BOOL MUI_AslRequest(APTR requester, struct TagItem *tagList);
 BOOL MUI_AslRequestTags(APTR requester, ...);
 void MUI_FreeAslRequest(APTR requester);
-LONG MUI_Error(void);
+LONG MUI_Error(void );
 LONG MUI_SetError(LONG num);
 struct IClass *MUI_GetClass(CONST_STRPTR classname);
 void MUI_FreeClass(struct IClass *classptr);
@@ -48,6 +55,10 @@ BOOL MUI_DeleteCustomClass(struct MUI_CustomClass *mcc);
 Object *MUI_MakeObjectA(LONG type, IPTR *params);
 Object *MUI_MakeObject(LONG type, ...);
 BOOL MUI_Layout(Object *obj, LONG left, LONG top, LONG width, LONG height, ULONG flags);
+void MUI_Priv1(void );
+void MUI_Priv2(void );
+void MUI_Priv3(void );
+void MUI_Priv4(void );
 LONG MUI_ObtainPen(struct MUI_RenderInfo *mri, struct MUI_PenSpec *spec, ULONG flags);
 void MUI_ReleasePen(struct MUI_RenderInfo *mri, LONG pen);
 APTR MUI_AddClipping(struct MUI_RenderInfo *mri, WORD left, WORD top, WORD width, WORD height);

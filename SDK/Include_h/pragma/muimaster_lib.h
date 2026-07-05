@@ -12,7 +12,14 @@
 #include <clib/muimaster_protos.h>
 #endif /* CLIB_MUIMASTER_PROTOS_H */
 
-/* "muimaster.library" */
+/*"muimaster.library" */
+/*--- functions in V19 or higher --- */
+
+/* v19 LVO implemented by Zune: matches LibVectors[], muimaster_lib.fd, and */
+/* muimaster_pragmas.h (through MUI_EndRefresh at 0xc6).  Trailing mui38dev / */
+/* MUI 5 reserved slots (Show, Hide, LayoutObj, Offset, ...) are omitted */
+/* until implemented. */
+
 #pragma amicall(MUIMasterBase, 0x1E, MUI_NewObjectA(a0,a1))
 #if defined(__STORM__)
 #pragma tagcall(MUIMasterBase, 0x1E, MUI_NewObject(a0,a1))
@@ -31,7 +38,7 @@
 #pragma tagcall(MUIMasterBase, 0x36, MUI_AslRequestTags(a0,a1))
 #endif /* __STORM__ */
 #pragma amicall(MUIMasterBase, 0x3C, MUI_FreeAslRequest(a0))
-#pragma amicall(MUIMasterBase, 0x42, MUI_Error())
+#pragma amicall(MUIMasterBase, 0x42, MUI_Error(a0))
 #pragma amicall(MUIMasterBase, 0x48, MUI_SetError(d0))
 #pragma amicall(MUIMasterBase, 0x4E, MUI_GetClass(a0))
 #pragma amicall(MUIMasterBase, 0x54, MUI_FreeClass(a0))
@@ -45,6 +52,10 @@
 #pragma tagcall(MUIMasterBase, 0x78, MUI_MakeObject(d0,a0))
 #endif /* __STORM__ */
 #pragma amicall(MUIMasterBase, 0x7E, MUI_Layout(a0,d0,d1,d2,d3,d4))
+#pragma amicall(MUIMasterBase, 0x84, MUI_Priv1(a0))
+#pragma amicall(MUIMasterBase, 0x8A, MUI_Priv2(a0))
+#pragma amicall(MUIMasterBase, 0x90, MUI_Priv3(a0))
+#pragma amicall(MUIMasterBase, 0x96, MUI_Priv4(a0))
 #pragma amicall(MUIMasterBase, 0x9C, MUI_ObtainPen(a0,a1,d0))
 #pragma amicall(MUIMasterBase, 0xA2, MUI_ReleasePen(a0,d0))
 #pragma amicall(MUIMasterBase, 0xA8, MUI_AddClipping(a0,d0,d1,d2,d3))

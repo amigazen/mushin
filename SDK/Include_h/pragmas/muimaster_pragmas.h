@@ -12,7 +12,14 @@
 #include <clib/muimaster_protos.h>
 #endif /* CLIB_MUIMASTER_PROTOS_H */
 
-/* "muimaster.library" */
+/*"muimaster.library" */
+/*--- functions in V19 or higher --- */
+
+/* v19 LVO implemented by Zune: matches LibVectors[], muimaster_lib.fd, and */
+/* muimaster_pragmas.h (through MUI_EndRefresh at 0xc6).  Trailing mui38dev / */
+/* MUI 5 reserved slots (Show, Hide, LayoutObj, Offset, ...) are omitted */
+/* until implemented. */
+
 #pragma libcall MUIMasterBase MUI_NewObjectA 1E 9802
 #if defined(__SASC_60)
 #pragma tagcall MUIMasterBase MUI_NewObject 1E 9802
@@ -31,7 +38,7 @@
 #pragma tagcall MUIMasterBase MUI_AslRequestTags 36 9802
 #endif /* __SASC_60 */
 #pragma libcall MUIMasterBase MUI_FreeAslRequest 3C 801
-#pragma libcall MUIMasterBase MUI_Error 42 00
+#pragma libcall MUIMasterBase MUI_Error 42 801
 #pragma libcall MUIMasterBase MUI_SetError 48 001
 #pragma libcall MUIMasterBase MUI_GetClass 4E 801
 #pragma libcall MUIMasterBase MUI_FreeClass 54 801
@@ -45,6 +52,10 @@
 #pragma tagcall MUIMasterBase MUI_MakeObject 78 8002
 #endif /* __SASC_60 */
 #pragma libcall MUIMasterBase MUI_Layout 7E 43210806
+#pragma libcall MUIMasterBase MUI_Priv1 84 801
+#pragma libcall MUIMasterBase MUI_Priv2 8A 801
+#pragma libcall MUIMasterBase MUI_Priv3 90 801
+#pragma libcall MUIMasterBase MUI_Priv4 96 801
 #pragma libcall MUIMasterBase MUI_ObtainPen 9C 09803
 #pragma libcall MUIMasterBase MUI_ReleasePen A2 0802
 #pragma libcall MUIMasterBase MUI_AddClipping A8 3210805
