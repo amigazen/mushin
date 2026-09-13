@@ -668,7 +668,7 @@ static void handle_move(struct IClass *cl, Object *obj, WORD mouse)
         return;
 
     /* full drawing, or sketch */
-    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->balancing_look ==
+    if ((muiGlobalInfo(obj))->mgi_Prefs->balancing_look ==
         BALANCING_SHOW_OBJECTS)
     {
         DoMethod(_parent(obj), MUIM_Hide);

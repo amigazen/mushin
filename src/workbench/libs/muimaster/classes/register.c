@@ -27,26 +27,30 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing attribute definitions */
-#ifndef MADF_INNERLEFT
-#define MADF_INNERLEFT (1<<0)
-#endif
+/*
+ * Local stand-ins for MADF_INNERLEFT, MADF_INNERTOP, MADF_INNERRIGHT and
+ * MADF_INNERBOTTOM used to sit here.  All four are declared in classes/area.h,
+ * which mui.h pulls in, but each declaration carries a PRIV marker and so had
+ * been dropped from the generated <libraries/mui.h> that this file used to
+ * reach instead.
+ *
+ * These were the worst of the stand-ins: they numbered the four flags (1<<0)
+ * to (1<<3) where area.h puts them at (1<<23) to (1<<26), so the bits they
+ * named are MADF_DRAWOBJECT, MADF_DRAWUPDATE, MADF_DRAW_XXX and MADF_DRAWFRAME
+ * instead.  Testing an inner-spacing flag here read a redraw flag, and setting
+ * one asked for a redraw.
+ */
 
-#ifndef MADF_INNERTOP
-#define MADF_INNERTOP (1<<1)
-#endif
-
-#ifndef MADF_INNERRIGHT
-#define MADF_INNERRIGHT (1<<2)
-#endif
-
-#ifndef MADF_INNERBOTTOM
-#define MADF_INNERBOTTOM (1<<3)
-#endif
-
-#ifndef MUIM_UpdateInnerSizes
-#define MUIM_UpdateInnerSizes (MUIB_Group | 0x00000006)
-#endif
+/*
+ * A local stand-in for MUIM_UpdateInnerSizes used to sit here.  The method is
+ * declared in classes/area.h, which mui.h pulls in, but the declaration
+ * carries a PRIV marker and so had been dropped from the generated
+ * <libraries/mui.h> that this file used to reach instead.
+ *
+ * The stand-in had guessed MUIB_Group | 0x6, where the method really belongs
+ * to Area as MUIB_Area | 0x4, so this class was sending its page group a
+ * method identifier no class in the library dispatches.
+ */
 
 #define INTERTAB 4
 #define TEXTSPACING 4
@@ -172,13 +176,13 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
         item_bg_height = data->tab_height;
         item_bar_width = right_item_bar_x - left_item_bar_x + 1;
         /* fill tab with register background */
-        DoMethod(obj, MUIM_DrawBackground, left_item_bar_x,
+        ZuneDrawBackground(obj, left_item_bar_x,
             top_item_bar_y + 4, item_bar_width, item_bg_height - 4,
             left_item_bar_x, top_item_bar_y + 4, 0);
-        DoMethod(obj, MUIM_DrawBackground, left_item_bar_x + 2,
+        ZuneDrawBackground(obj, left_item_bar_x + 2,
             top_item_bar_y + 2, item_bar_width - (2 * 2), 2,
             left_item_bar_x + 2, top_item_bar_y + 2, 0);
-        DoMethod(obj, MUIM_DrawBackground, left_item_bar_x + 4,
+        ZuneDrawBackground(obj, left_item_bar_x + 4,
             top_item_bar_y + 1, item_bar_width - (2 * 4), 1,
             left_item_bar_x + 4, top_item_bar_y + 1, 0);
     }
@@ -226,7 +230,7 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
         WritePixel(_rp(obj), left_item_bar_x - 1, bottom_item_bar_y + 1);
         SetAPen(_rp(obj), _pens(obj)[MPEN_SHADOW]);
         WritePixel(_rp(obj), right_item_bar_x + 1, bottom_item_bar_y + 1);
-        DoMethod(obj, MUIM_DrawBackground, left_item_bar_x - 1,
+        ZuneDrawBackground(obj, left_item_bar_x - 1,
             bottom_item_bar_y + 2, item_bar_width + (2 * 1), 1,
             left_item_bar_x - 1, bottom_item_bar_y + 2, 0);
 
@@ -267,7 +271,7 @@ static void RenderRegisterTab(struct IClass *cl, Object *obj, ULONG flags)
  */
     if (flags & MADF_DRAWOBJECT)
     {
-        DoMethod(obj, MUIM_DrawParentBackground, data->left, data->top,
+        ZuneDrawParentBackground(obj, data->left, data->top,
             data->framewidth, data->tab_height - 1, data->left, data->top,
             0);
     }
@@ -286,8 +290,13 @@ static void RenderRegisterTab(struct IClass *cl, Object *obj, ULONG flags)
         old_top = _top(obj) + ri->y1;
         old_width = ri->x2 - ri->x1 + 5;
         old_height = data->tab_height - 1;
-        DoMethod(obj, method, old_left, old_top,
-            old_width, old_height, old_left, old_top, 0);
+        /* DoMethod varargs truncates 32-bit method IDs; use DoMethodA helpers. */
+        if (method == MUIM_DrawBackground)
+            ZuneDrawBackground(obj, old_left, old_top, old_width, old_height,
+                old_left, old_top, 0);
+        else
+            ZuneDrawParentBackground(obj, old_left, old_top, old_width,
+                old_height, old_left, old_top, 0);
         SetDrMd(_rp(obj), JAM1);
         SetAPen(_rp(obj), _pens(obj)[MPEN_SHINE]);
         RectFill(_rp(obj), old_left, old_top + old_height,
@@ -374,7 +383,7 @@ static void SetHardCoord(Object *obj, struct Register_DATA *data)
     //    * (data->rows - 1 - data->active/data->columns)
     //    +  REGISTER_FRAMEBOTTOM;
 
-    frame = (struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Group];
+    frame = (struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Group];
 
     adata->mad_InnerLeft = frame->innerLeft + 1;
     adata->mad_InnerTop =
@@ -525,7 +534,7 @@ IPTR Register__MUIM_Setup(struct IClass *cl, Object *obj,
         zune_text_get_bounds(data->items[i].ztext, obj);
     }
 
-    if (!(((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->register_truncate_titles))
+    if (!((muiGlobalInfo(obj))->mgi_Prefs->register_truncate_titles))
     {
         struct RastPort temprp;
         int i;
@@ -659,6 +668,20 @@ IPTR Register__MUIM_Draw(struct IClass *cl, Object *obj,
 {
     struct Register_DATA *data = INST_DATA(cl, obj);
     APTR clip;
+    IPTR active;
+
+    /*
+     * Group owns MUIA_Group_ActivePage and fires MADF_DRAWUPDATE on change.
+     * Register keeps a parallel data->active for tab rendering; sync it here
+     * (Layout already does) or the tab strip never shows the new selection.
+     */
+    active = 0;
+    get(obj, MUIA_Group_ActivePage, &active);
+    if ((WORD)active != data->active)
+    {
+        data->oldactive = data->active;
+        data->active = (WORD)active;
+    }
 
     /* Before all the current page is drawn erase the part of the area covered
      * by tabs which is not erased (between _left(obj) and _mleft(obj) and
@@ -674,14 +697,14 @@ IPTR Register__MUIM_Draw(struct IClass *cl, Object *obj,
         width = _right(obj) - left;     /* +1 - 1 */
         height = _mheight(obj);
 
-        DoMethod(obj, MUIM_DrawBackground, left, top, width, height, left,
+        ZuneDrawBackground(obj, left, top, width, height, left,
             top, 0);
 
         left = _left(obj) + 1;
             /* +1 because the register frame shouldn't be ereased */
         width = _mleft(obj) - left;     /* + 1 - 1 */
 
-        DoMethod(obj, MUIM_DrawBackground, left, top, width, height, left,
+        ZuneDrawBackground(obj, left, top, width, height, left,
             top, 0);
 
         top = _top(obj) + data->tab_height;
@@ -689,14 +712,14 @@ IPTR Register__MUIM_Draw(struct IClass *cl, Object *obj,
         width = _width(obj) - 2;
 
         if (height > 0 && width > 0)
-            DoMethod(obj, MUIM_DrawBackground, left, top, width, height,
+            ZuneDrawBackground(obj, left, top, width, height,
                 left, top, 0);
 
         top = _mbottom(obj);
         height = _bottom(obj) - top;    /* + 1 - 1 */
 
         if (height > 0 && width > 0)
-            DoMethod(obj, MUIM_DrawBackground, left, top, width, height,
+            ZuneDrawBackground(obj, left, top, width, height,
                 left, top, 0);
     }
 

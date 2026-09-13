@@ -48,6 +48,26 @@ VOID FreeVecPooled(APTR pool, APTR memory)
     }
 }
 
+/*
+ * snprintf() and sprintf() below are deliberately built on RawDoFmt() rather
+ * than taken from sc.lib.  A shared library is linked without startup code,
+ * so pulling in the SAS/C stdio formatting engine would drag in globals that
+ * nothing ever initialises; RawDoFmt() is in exec and needs no setup.
+ *
+ * The consequence is that THE WHOLE LIBRARY USES THE RawDoFmt FORMAT DIALECT,
+ * in which the length modifier is not optional:
+ *
+ *     %ld %lu %lx %lc   read 32 bits   <- always use these
+ *     %d  %u  %x  %c    read 16 bits   <- silently wrong for an int/LONG
+ *
+ * A 32-bit argument formatted with %d makes RawDoFmt() consume only the high
+ * half of it and then take the low half as the *next* argument, so one stray
+ * %d corrupts every conversion after it too.  Twelve call sites still had
+ * non-'l' specifiers - producing broken image specs, frame specs, pen specs,
+ * volume sizes, scale labels and application port names - and were fixed;
+ * keep any new format string in the 'l' form.
+ */
+
 struct snprintf_msg
 {
 	int size;
@@ -164,105 +184,28 @@ LONG __saveds HexToLong(CONST_STRPTR s, ULONG *val)
 //    return;
 //}
 
-/************************************************************
- WritePixelArrayAlpha - Alpha-blends pixel data to RastPort
- Based on AROS implementation
-*************************************************************/
-ULONG __saveds WritePixelArrayAlpha(APTR src, UWORD srcx, UWORD srcy, UWORD srcmod, 
-                          struct RastPort *rp, UWORD destx, UWORD desty, 
-                          UWORD width, UWORD height, ULONG globalalpha)
-{
-    ULONG start_offset;
-    
-    if (width == 0 || height == 0)
-        return 0;
-
-    /* Check if we have a valid bitmap */
-    if (!rp || !rp->BitMap)
-        return 0;
-
-    /* Compute the start of the array */
-    start_offset = ((ULONG)srcy) * srcmod + srcx * 4;
-
-    /* For now, just copy the pixels directly without alpha blending */
-    /* This is a simplified version that works with standard bitmaps */
-    {
-        UBYTE *src_data = ((UBYTE *)src) + start_offset;
-        UBYTE *dest_data;
-        ULONG y;
-        
-        for (y = 0; y < height; y++)
-        {
-            dest_data = (UBYTE *)rp->BitMap->Planes[0] + 
-                       (desty + y) * rp->BitMap->BytesPerRow + destx * 4;
-            
-            if (dest_data)
-            {
-                CopyMem(src_data, dest_data, width * 4);
-            }
-            
-            src_data += srcmod;
-        }
-    }
-
-    return (ULONG)(width * height);
-}
-
-/************************************************************
- WriteLUTPixelArray - Write pixel data using color lookup table
- Based on AROS implementation
-*************************************************************/
-ULONG __saveds WriteLUTPixelArray(APTR srcRect, UWORD SrcX, UWORD SrcY, UWORD SrcMod, 
-                       struct RastPort *rp, APTR CTable, UWORD DestX, UWORD DestY, 
-                       UWORD SizeX, UWORD SizeY, UBYTE CTabFormat)
-{
-    ULONG depth;
-    UBYTE *src_data;
-    UBYTE *dest_data;
-    ULONG y, x;
-    
-    if (SizeX == 0 || SizeY == 0)
-        return 0;
-    
-    /* Check if we have a valid bitmap */
-    if (!rp || !rp->BitMap)
-        return 0;
-    
-    depth = GetBitMapAttr(rp->BitMap, BMA_DEPTH);
-    
-    /* This call only supports bitmaps with depth > 8 */
-    if (depth <= 8)
-        return 0;
-        
-    /* Currently only one format is supported */
-    if (CTabFormat != 0) /* CTABFMT_XRGB8 */
-        return 0;
-
-    /* Convert the coltab into native pixels and write them */
-    src_data = (UBYTE *)srcRect + SrcY * SrcMod + SrcX;
-    
-    for (y = 0; y < SizeY; y++)
-    {
-        dest_data = (UBYTE *)rp->BitMap->Planes[0] + 
-                   (DestY + y) * rp->BitMap->BytesPerRow + DestX * 4;
-        
-        if (dest_data && CTable)
-        {
-            for (x = 0; x < SizeX; x++)
-            {
-                UBYTE pen = src_data[x];
-                ULONG rgb = ((ULONG *)CTable)[pen];
-                
-                /* Convert XRGB8 to native format */
-                ((ULONG *)dest_data)[x] = rgb;
-            }
-        }
-        
-        src_data += SrcMod;
-    }
-
-    return (ULONG)(SizeX * SizeY);
-}
+/*
+ * WritePixelArrayAlpha() and WriteLUTPixelArray() used to be reimplemented
+ * here.  Both have been removed, for two reasons.
+ *
+ * They were dead code.  Every one of the nine files that calls them includes
+ * <proto/cybergraphics.h>, which supplies
+ * "#pragma libcall CyberGfxBase WritePixelArrayAlpha 0d8 ...", so those calls
+ * were always compiled as indirect jsrs into the real cybergraphics.library
+ * and never reached the definitions here.
+ *
+ * They were also unsafe.  Both wrote straight into rp->BitMap->Planes[0] as
+ * though it were a chunky 32-bit framebuffer, using
+ * "desty * BytesPerRow + destx * 4".  On a planar AGA/ECS BitMap Planes[0] is
+ * a single bitplane, so that scribbles across the neighbouring planes and off
+ * the end of the allocation; on a real RTG BitMap the memory may not be CPU
+ * addressable at all without LockBitMapTags().  Neither checked the depth,
+ * and WritePixelArrayAlpha() ignored the alpha channel it is named for.
+ *
+ * The right fix for a missing cybergraphics.library is to not make the call,
+ * which is what the CyberGfxBase tests in datatypescache.c, dragndrop.c and
+ * textengine.c now do.
+ */
 
 /***************************************************************************/
 

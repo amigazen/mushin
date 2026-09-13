@@ -20,6 +20,7 @@
 #include <proto/intuition.h>
 #include <proto/colorwheel.h>
 #include <proto/muimaster.h>
+#include <proto/cybergraphics.h>
 
 #include <string.h>
 
@@ -592,7 +593,8 @@ IPTR Coloradjust__MUIM_Setup(struct IClass *cl, Object *obj,
         }
 
         data->truecolor =
-            GetBitMapAttr(_screen(obj)->RastPort.BitMap, BMA_DEPTH) >= 15;
+            (CyberGfxBase != NULL)
+            && (GetBitMapAttr(_screen(obj)->RastPort.BitMap, BMA_DEPTH) >= 15);
     }
 
     return 1;

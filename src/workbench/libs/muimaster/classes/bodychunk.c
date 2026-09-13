@@ -30,7 +30,9 @@ static void planar2chunky(UBYTE *src, UBYTE *dest, WORD width, WORD depth,
     LONG bpr)
 {
     UBYTE *s, *d, byte;
-    UBYTE pmask, dmask = 1, notdmask = ~1;
+    /* 0xFE rather than ~1: the latter is the int -2, which SAS/C rightly
+       warns about narrowing into a UBYTE even though the result is the same. */
+    UBYTE pmask, dmask = 1, notdmask = 0xFE;
     WORD x, pl;
 
     for (pl = 0; pl < depth; pl++)

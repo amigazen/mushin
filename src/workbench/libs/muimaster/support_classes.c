@@ -79,10 +79,18 @@ static const struct __MUIBuiltinClass *const builtins[] = {
         ZUNE_KNOB_DESC
         ZUNE_DTPIC_DESC
         ZUNE_PALETTE_DESC
-        ZUNE_PANEL_DESC
-        ZUNE_PANELGROUP_DESC
-        ZUNE_DRAGHANDLE_DESC
-        ZUNE_PANELTITLE_DESC
+        /*
+         * Settings is a documented MUI class and classes/settings.o has always
+         * been compiled and linked, but its descriptor was never listed here,
+         * so MUI_NewObject("Settings.mui", ...) could not find it.  AROS
+         * upstream has the same omission.
+         *
+         * ZUNE_PANEL_DESC, ZUNE_PANELGROUP_DESC, ZUNE_DRAGHANDLE_DESC and
+         * ZUNE_PANELTITLE_DESC used to follow.  Those four classes exist only
+         * on AROS and one of them took the class name of an unrelated real MUI
+         * class; see the note in mui.h.
+         */
+        ZUNE_SETTINGS_DESC
 };
 
 Class *ZUNE_GetExternalClass(ClassID classname,
@@ -206,8 +214,27 @@ static Class *ZUNE_MakeBuiltinClass(ClassID classid,
                 cl->cl_Dispatcher.h_Entry = (HOOKFUNC) metaDispatcher;
                 cl->cl_Dispatcher.h_SubEntry = builtins[i]->dispatcher;
 #endif
-                /* Use this as a reference counter */
-                cl->cl_Dispatcher.h_Data = 0;
+                /*
+                 * h_Data is what metaDispatcher loads into A6 before entering
+                 * the real dispatcher, which is how MUI tells a class where
+                 * its owning library base is - MUI_CreateCustomClass() stores
+                 * the MCC's own base here for exactly that reason.  For a
+                 * builtin class the owning library is this one.
+                 *
+                 * A reference count used to be kept here instead.  That left
+                 * A6 holding 0 (or a small integer) on entry to every builtin
+                 * dispatcher, and with SCOPTIONS selecting LIBRARYCODE a
+                 * __saveds function derives A4 from A6, so every dispatcher
+                 * ran with a bogus near-data base.  LIBRARYCODE has since been
+                 * removed as well, but A6 still has to be right for any
+                 * third-party class reached through this same path.
+                 */
+                cl->cl_Dispatcher.h_Data = MUIMasterBase;
+
+                /* MakeClass() leaves cl_UserData ("application specific")
+                   alone and nothing else in the library uses it, so the
+                   reference count lives there now. */
+                cl->cl_UserData = 0;
             }
 
             break;
@@ -233,17 +260,19 @@ Class *ZUNE_GetBuiltinClass(ClassID classid, struct Library * mb)
         cl = ZUNE_MakeBuiltinClass(classid, mb);
 
         if (cl)
-        {
-            char *count;
-            
             ZUNE_AddBuiltinClass(cl, mb);
-
-            /* Increase the reference counter */
-            count = cl->cl_Dispatcher.h_Data;
-            count++;
-            cl->cl_Dispatcher.h_Data = count;
-        }
     }
+
+    /*
+     * Counted on every successful lookup, not only when the class is created.
+     * MUI_FreeClass() decrements once per MUI_GetClass(), so counting only
+     * creations let the count reach zero - and the class be freed - while
+     * other callers still held it.  The second and later MUI_GetClass() calls
+     * for the same builtin class are the common case, since every class here
+     * is shared by every application that uses it.
+     */
+    if (cl)
+        cl->cl_UserData++;
 
     ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
@@ -273,17 +302,29 @@ AROS_UFH3(IPTR, metaDispatcher,
 
 #else
 #ifdef __SASC
+/*
+ * A6 is declared as a fourth register parameter of the dispatcher rather than
+ * being poked in with putreg() beforehand.  putreg() only guarantees A6 at
+ * that instant; the compiler is free to use A6 while evaluating the call, and
+ * nothing in the function's signature stopped it.  Declaring it makes the
+ * compiler responsible for loading A6 immediately before the jsr, which is
+ * also exactly what the AROS branch above expresses with AROS_UFPA(..., A6).
+ *
+ * Dispatchers declared with BOOPSI_DISPATCHER only name three parameters and
+ * simply ignore the fourth, which is harmless.
+ */
 __asm ULONG metaDispatcher(register __a0 struct IClass * cl,
     register __a2 Object * obj, register __a1 Msg msg)
 {
     __asm ULONG(*entry) (register __a0 struct IClass * cl,
-        register __a2 Object * obj, register __a1 Msg msg) =
+        register __a2 Object * obj, register __a1 Msg msg,
+        register __a6 APTR base) =
         (__asm ULONG(*)(register __a0 struct IClass *,
             register __a2 Object *,
-            register __a1 Msg))cl->cl_Dispatcher.h_SubEntry;
+            register __a1 Msg,
+            register __a6 APTR))cl->cl_Dispatcher.h_SubEntry;
 
-    putreg(REG_A6, (long)cl->cl_Dispatcher.h_Data);
-    return entry(cl, obj, msg);
+    return entry(cl, obj, msg, cl->cl_Dispatcher.h_Data);
 }
 #endif
 #endif

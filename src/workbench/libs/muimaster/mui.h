@@ -31,7 +31,21 @@
 #include "mui_identifiers.h"
 
 #ifndef __AROS__
+/*
+ * Must agree with LIBNAME in zunemaster_lib.c, which is what goes into the
+ * RomTag - OpenLibrary() matches the requested name against the RomTag name,
+ * so a mismatch fails the open outright.  MUIMASTER_DROPIN selects the
+ * drop-in build; see the comment in zunemaster_lib.c.
+ *
+ * Existing MUI applications do not use this symbol at all - they pass the
+ * literal "muimaster.library" to OpenLibrary() - so the drop-in build serves
+ * them whatever this header happens to say.
+ */
+#ifdef MUIMASTER_DROPIN
+#define MUIMASTER_NAME "muimaster.library"
+#else
 #define MUIMASTER_NAME "zunemaster.library"
+#endif
 #define MUIMASTER_VMIN    0
 #define MUIMASTER_VLATEST 0
 #else
@@ -573,13 +587,17 @@ struct MUI_AlphaData
 #include "classes/pixmap.h"
 #endif
 
-#ifndef _MUI_CLASSES_PANEL_H
-#include "classes/panel.h"
-#endif
-
-#ifndef _MUI_CLASSES_PANELGROUP_H
-#include "classes/panelgroup.h"
-#endif
+/*
+ * classes/panel.h and classes/panelgroup.h used to be included here.  They
+ * declared AROS' Panel, PanelGroup, PanelTitle and DragHandle - a collapsible
+ * titled container with drag handles, written for the AROS desktop and present
+ * in no release of MUI.  Real MUI does document a Panel class, but it is an
+ * abstract base class for ASL-style selectors with a single method,
+ * MUIM_Panel_Run, and Filepanel/Fontpanel/Screenmodepanel derive from it.
+ * Both claim the class name "Panel.mui", so shipping the AROS one from a
+ * library that answers to muimaster.library would hand applications asking
+ * for MUI's Panel something entirely unrelated.
+ */
 
 /**************************************************************************
  Zune/MUI Image and Background definition

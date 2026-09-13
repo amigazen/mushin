@@ -24,14 +24,17 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing attribute definitions */
-#ifndef MUIA_Virtgroup_MinWidth
-#define MUIA_Virtgroup_MinWidth (MUIB_Group | 0x00000001)
-#endif
-
-#ifndef MUIA_Virtgroup_MinHeight
-#define MUIA_Virtgroup_MinHeight (MUIB_Group | 0x00000002)
-#endif
+/*
+ * Local stand-ins for MUIA_Virtgroup_MinWidth and MUIA_Virtgroup_MinHeight
+ * used to sit here.  Both are declared in classes/virtgroup.h, which mui.h
+ * pulls in, but both declarations carry a PRIV marker and so had been dropped
+ * from the generated <libraries/mui.h> that this file used to reach instead.
+ *
+ * Both stand-ins were built on the wrong identifier base - MUIB_Group rather
+ * than MUIB_Virtgroup - so the two values collided with Group's own private
+ * identifiers, and the virtual group inside the scroll group never saw the
+ * minimum size this class was trying to give it.
+ */
 
 AROS_UFH3(ULONG, Scrollgroup_Layout_Function,
     AROS_UFHA(struct Hook *, hook, A0),

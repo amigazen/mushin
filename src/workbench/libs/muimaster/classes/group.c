@@ -21,10 +21,6 @@ extern struct Library *MUIMasterBase;
 #include "classes/area.h"
 #include "group.h"
 
-/* Ensure MADF_ISVIRTUALGROUP is defined */
-#ifndef MADF_ISVIRTUALGROUP
-#define MADF_ISVIRTUALGROUP (1<<30)
-#endif
 #include "support.h"
 #include "prefs.h"
 #include "area_macros.h"
@@ -33,36 +29,23 @@ extern struct Library *MUIMasterBase;
 /* #define MYDEBUG 1 */
 #include "debug.h"
 
-/* Define missing constants */
-#ifndef MUIM_Window_RecalcDisplay
-#define MUIM_Window_RecalcDisplay (MUIB_Window | 0x00000009)
-#endif
-#ifndef MUIA_Virtgroup_MinWidth
-#define MUIA_Virtgroup_MinWidth (MUIB_Group | 0x00000001)
-#endif
-#ifndef MUIA_Virtgroup_MinHeight
-#define MUIA_Virtgroup_MinHeight (MUIB_Group | 0x00000002)
-#endif
-#ifndef MUIM_Group_ExitChange2
-#define MUIM_Group_ExitChange2 (MUIB_Group | 0x00000003)
-#endif
-#ifndef MUIM_DragQueryExtended
-#define MUIM_DragQueryExtended (MUIB_Group | 0x00000004)
-#endif
-#ifndef MUIM_FindAreaObject
-#define MUIM_FindAreaObject (MUIB_Group | 0x00000005)
-#endif
-
-/* Define missing message structure */
-struct MUIP_FindAreaObject
-{
-    ULONG MethodID;
-    Object *obj;
-    WORD x, y;
-    Object **result;
-};
-
-/* MUI_GlobalInfo_Private is defined in muimaster_intern.h */
+/*
+ * MUIM_Window_RecalcDisplay (window.h), MUIA_Virtgroup_MinWidth/MinHeight
+ * (virtgroup.h, reached via mui.h), MUIM_Group_ExitChange2 (group.h),
+ * MUIM_DragQueryExtended and MUIM_FindAreaObject (area.h) and
+ * MADF_ISVIRTUALGROUP (area.h) are all already in scope here.
+ *
+ * A block of "#ifndef ... #define" fallbacks used to stand in this place on
+ * the assumption they were missing.  They were inert, but two of them carried
+ * wrong values (MUIM_Window_RecalcDisplay as MUIB_Window|0x9 instead of 0x5,
+ * MUIM_FindAreaObject as MUIB_Group|0x5 instead of MUIB_Area|0x5) and would
+ * have become live bugs on any include reordering.
+ *
+ * struct MUIP_FindAreaObject was also redeclared here with four members
+ * (adding x, y and result, apparently copied from MUIP_DragQueryExtended).
+ * area.h declares the real two-member message, which is what all four senders
+ * in window.c build and all that Group__MUIM_FindAreaObject below reads.
+ */
 
 #define ROUND(x) ((int)(x + 0.5))
 #define IS_HIDDEN(obj) (! (_flags(obj) & MADF_SHOWME) \
@@ -243,7 +226,7 @@ static void change_active_page(struct IClass *cl, Object *obj, LONG page)
 
         if (_flags(obj) & MADF_CANDRAW)
         {
-            DoMethod(obj, MUIM_Layout);
+            ZuneLayout(obj);
             Group__MUIM_Show(cl, obj, NULL);
             data->update = 1;
             MUI_Redraw(obj, MADF_DRAWUPDATE);
@@ -264,6 +247,9 @@ static int Group_GetNumVisibleChildren(struct MUI_GroupData *data,
     int num_visible_children = data->num_children;
     APTR cstate;
     Object *child;
+
+    if (children == NULL)
+        return 0;
 
     /* As there can be invisible children we have to subtract those from
      * the total number of children */
@@ -381,7 +367,11 @@ IPTR Group__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             D(bug("[group.mui] Adding child 0x%p\n", tag->ti_Data));
             if (tag->ti_Data)
             {
-                DoMethod(obj, OM_ADDMEMBER, tag->ti_Data);
+                struct MUIP_StructWithObj addmsg;
+
+                addmsg.MethodID = OM_ADDMEMBER;
+                addmsg.obj = (Object *)tag->ti_Data;
+                DoMethodA(obj, (Msg)&addmsg);
                 /* Set first child as group title */
                 if ((frame == MUIV_Frame_Register)
                     && (data->titlegroup == NULL))
@@ -497,14 +487,24 @@ IPTR Group__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 IPTR Group__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_GroupData *data = INST_DATA(cl, obj);
+    IPTR rc;
 
+    ZuneTrace("zune: Group DISPOSE obj=%lx family=%lx\n",
+        (ULONG) obj, (ULONG) data->family);
     if (data->row_infos != NULL)
         mui_free(data->row_infos);
     if (data->col_infos != NULL)
         mui_free(data->col_infos);
     if (data->family != NULL)
+    {
         MUI_DisposeObject(data->family);
-    return DoSuperMethodA(cl, obj, msg);
+        data->family = NULL;
+        ZuneTrace("zune: Group DISPOSE family done obj=%lx\n", (ULONG) obj);
+    }
+    ZuneTrace("zune: Group DISPOSE super obj=%lx\n", (ULONG) obj);
+    rc = DoSuperMethodA(cl, obj, msg);
+    ZuneTrace("zune: Group DISPOSE done obj=%lx\n", (ULONG) obj);
+    return rc;
 }
 
 /**************************************************************************
@@ -682,7 +682,7 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
         data->virt_offx = virt_offx;
         data->virt_offy = virt_offy;
         /* Relayout ourselves. This will also relayout all the children */
-        DoMethod(obj, MUIM_Layout);
+        ZuneLayout(obj);
         if (_flags(obj) & MADF_CANDRAW)
             Group__MUIM_Show(cl, obj, NULL);
         data->update = 2;
@@ -881,6 +881,8 @@ IPTR Group__MUIM_DisconnectParent(struct IClass *cl, Object *obj,
     struct MinList *ChildList = NULL;
 
     get(data->family, MUIA_Family_List, &(ChildList));
+    if (ChildList == NULL)
+        return TRUE;
     cstate = ChildList->mlh_Head;
     while ((child = NextObject(&cstate)))
     {
@@ -1055,6 +1057,8 @@ static ULONG Group_DispatchMsg(struct IClass *cl, Object *obj, Msg msg)
         return TRUE;
 
     get(data->family, MUIA_Family_List, &(ChildList));
+    if (ChildList == NULL)
+        return TRUE;
     cstate = ChildList->mlh_Head;
     while ((child = NextObject(&cstate)))
     {
@@ -1082,10 +1086,12 @@ IPTR Group__MUIM_Setup(struct IClass *cl, Object *obj,
     ASSERT_VALID_PTR(muiGlobalInfo(obj));
 
     if (!(data->flags & GROUP_HSPACING))
-        data->horiz_spacing = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_hspacing;
+        data->horiz_spacing = (muiGlobalInfo(obj))->mgi_Prefs->group_hspacing;
     if (!(data->flags & GROUP_VSPACING))
-        data->vert_spacing = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->group_vspacing;
+        data->vert_spacing = (muiGlobalInfo(obj))->mgi_Prefs->group_vspacing;
     get(data->family, MUIA_Family_List, &(ChildList));
+    if (ChildList == NULL)
+        return FALSE;
     cstate = ChildList->mlh_Head;
     while ((child = NextObject(&cstate)))
     {
@@ -1139,14 +1145,17 @@ IPTR Group__MUIM_Cleanup(struct IClass *cl, Object *obj, Msg msg)
     }
 
     get(data->family, MUIA_Family_List, &(ChildList));
-    cstate = ChildList->mlh_Head;
-    while ((child = NextObject(&cstate)))
+    if (ChildList != NULL)
     {
+        cstate = ChildList->mlh_Head;
+        while ((child = NextObject(&cstate)))
+        {
 #if 0                           /* SHOWME affects only show/hide */
-        if (!(_flags(child) & MADF_SHOWME))
-            continue;
+            if (!(_flags(child) & MADF_SHOWME))
+                continue;
 #endif
-        DoMethodA(child, (Msg) msg);
+            DoMethodA(child, (Msg) msg);
+        }
     }
     return DoSuperMethodA(cl, obj, (Msg) msg);
 }
@@ -1220,32 +1229,31 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
     if (data->flags & GROUP_CHANGING)
         return FALSE;
 
-    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_redraw
-        == WINDOW_REDRAW_WITHOUT_CLEAR)
-    {
-        struct Region *r = group_children_clip_region(cl, obj);
-        APTR c = (APTR)-1;
-        if (r)
-            c = MUI_AddClipRegion(muiRenderInfo(obj), r);
-
-        DoSuperMethodA(cl, obj, (Msg) msg);
-
-        if (r)
-            MUI_RemoveClipRegion(muiRenderInfo(obj), c);
-    }
-    else
-    {
-        DoSuperMethodA(cl, obj, (Msg) msg);
-    }
+    /*
+     * Default prefs use WINDOW_REDRAW_WITHOUT_CLEAR, which installs a
+     * children-gap clip region before DoSuperMethodA.  On OS3 that path
+     * has been crashing inside the first WindowOpen MUI_Redraw; clear the
+     * whole group like WINDOW_REDRAW_WITH_CLEAR until the clip path is
+     * proven safe on m68k.
+     */
+    ZuneTrace("zune: Group Draw begin flags=%lx\n", (ULONG)msg->flags);
+    DoSuperMethodA(cl, obj, (Msg) msg);
+    ZuneTrace("zune: Group Draw after super\n");
 
     if ((msg->flags & MADF_DRAWUPDATE) && data->update == 1)
     {
         struct Region *r = NULL;
         APTR c = (APTR)-1;
 
-        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->window_redraw
+        if ((muiGlobalInfo(obj))->mgi_Prefs->window_redraw
             == WINDOW_REDRAW_WITHOUT_CLEAR)
-            r = group_children_clip_region(cl, obj);
+        {
+            /*
+             * Gap-clip path disabled for the same reason as above; paint
+             * the page background without a children-gap clip region.
+             */
+            r = NULL;
+        }
 
         if (r)
             c = MUI_AddClipRegion(muiRenderInfo(obj), r);
@@ -1254,11 +1262,11 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
          * update is set when changing active page of a page group
          * need to redraw background ourself
          */
-        DoMethod(obj, MUIM_DrawBackground,
+        ZuneDrawBackground(obj,
             _mleft(obj), _mtop(obj), _mwidth(obj), _mheight(obj),
             _mleft(obj), _mtop(obj), 0);
 
-        if (r)
+        if (c != (APTR)-1)
             MUI_RemoveClipRegion(muiRenderInfo(obj), c);
     }
     else
@@ -1296,8 +1304,12 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
              ** ScrollRasterBF(_rp(obj), diff_virt_offx, diff_virt_offy, _mleft(obj), _mtop(obj), _mright(obj),_mbottom(obj));
              */
 
-            ScrollWindowRaster(_window(obj), diff_virt_offx, diff_virt_offy,
-                left, top, right, bottom);
+            if (_window(obj) == NULL
+                || (_window(obj)->Flags & WFLG_SIMPLE_REFRESH) == 0)
+            {
+                ScrollWindowRaster(_window(obj), diff_virt_offx,
+                    diff_virt_offy, left, top, right, bottom);
+            }
 
             if ((region = NewRegion()))
             {
@@ -1323,7 +1335,7 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
 
                     if (rect.MinX <= rect.MaxX)
                     {
-                        DoMethod(obj, MUIM_DrawBackground,
+                        ZuneDrawBackground(obj,
                             rect.MinX, rect.MinY,
                             rect.MaxX - rect.MinX + 1,
                             rect.MaxY - rect.MinY + 1,
@@ -1354,7 +1366,7 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
                     }
                     if (rect.MinY <= rect.MaxY)
                     {
-                        DoMethod(obj, MUIM_DrawBackground,
+                        ZuneDrawBackground(obj,
                             rect.MinX, rect.MinY,
                             rect.MaxX - rect.MinX + 1,
                             rect.MaxY - rect.MinY + 1,
@@ -1378,7 +1390,8 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
     {
         /* Not really needed if MUI Draws all the objects, maybe that's
          * what DRAWALL is for??? */
-        if ((region = NewRegion()))
+        if (_mright(obj) >= _mleft(obj) && _mbottom(obj) >= _mtop(obj)
+            && (region = NewRegion()))
         {
             struct Rectangle rect;
             rect.MinX = _mleft(obj);
@@ -1386,6 +1399,15 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
             rect.MaxX = _mright(obj);
             rect.MaxY = _mbottom(obj);
             OrRectRegion(region, &rect);
+            ZuneTrace("zune: Group virt clip %ld,%ld-%ld,%ld\n",
+                (LONG)rect.MinX, (LONG)rect.MinY,
+                (LONG)rect.MaxX, (LONG)rect.MaxY);
+        }
+        else
+        {
+            ZuneTrace("zune: Group virt skip bad box l=%ld t=%ld r=%ld b=%ld\n",
+                (LONG)_mleft(obj), (LONG)_mtop(obj),
+                (LONG)_mright(obj), (LONG)_mbottom(obj));
         }
     }
 
@@ -1396,33 +1418,44 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
     group_rect = muiRenderInfo(obj)->mri_ClipRect;
     page = -1;
     get(data->family, MUIA_Family_List, &(ChildList));
-    cstate = ChildList->mlh_Head;
-    while ((child = NextObject(&cstate)))
+    if (ChildList != NULL)
     {
-        if (!(_flags(child) & MADF_SHOWME))
-            continue;
-
-        if (child != data->titlegroup)
-            ++page;
-
-        if ((data->flags & GROUP_PAGEMODE) && ((page != data->active_page)
-            && (child != data->titlegroup)))
+        cstate = ChildList->mlh_Head;
+        while ((child = NextObject(&cstate)))
         {
-            continue;
-        }
+            Class *ccl;
+            CONST_STRPTR cid;
 
-        if ((data->flags & GROUP_PAGEMODE) && (child == data->titlegroup)
-            && (msg->flags & MADF_DRAWUPDATE) && (data->update == 1))
-        {
-            /* Do not issue a re-draw to title group during page switch.
-             * The group will re-draw itself due to setting of
-             * MUIA_Group_ActivePage attribute.
-             */
-            continue;
-        }
+            if (!(_flags(child) & MADF_SHOWME))
+                continue;
 
-        MUI_Redraw(child, MADF_DRAWOBJECT);
-        muiRenderInfo(obj)->mri_ClipRect = group_rect;
+            if (child != data->titlegroup)
+                ++page;
+
+            if ((data->flags & GROUP_PAGEMODE) && ((page != data->active_page)
+                && (child != data->titlegroup)))
+            {
+                continue;
+            }
+
+            if ((data->flags & GROUP_PAGEMODE) && (child == data->titlegroup)
+                && (msg->flags & MADF_DRAWUPDATE) && (data->update == 1))
+            {
+                /* Do not issue a re-draw to title group during page switch.
+                 * The group will re-draw itself due to setting of
+                 * MUIA_Group_ActivePage attribute.
+                 */
+                continue;
+            }
+
+            ccl = OCLASS(child);
+            cid = (ccl != NULL && ccl->cl_ID != NULL)
+                ? (CONST_STRPTR)ccl->cl_ID : (CONST_STRPTR)"?";
+            ZuneTrace("zune: Group child redraw %lx class=%s\n",
+                (ULONG)child, cid);
+            MUI_Redraw(child, MADF_DRAWOBJECT);
+            muiRenderInfo(obj)->mri_ClipRect = group_rect;
+        }
     }
 
     if (data->flags & GROUP_VIRTUAL && region && clip != (APTR) - 1)
@@ -1917,6 +1950,8 @@ IPTR Group__MUIM_AskMinMax(struct IClass *cl, Object *obj,
     childMsg.MethodID = msg->MethodID;
     childMsg.MinMaxInfo = &childMinMax;
     get(data->family, MUIA_Family_List, &(lm.lm_Children));
+    if (lm.lm_Children == NULL)
+        return TRUE;
 
     cstate = lm.lm_Children->mlh_Head;
     while ((child = NextObject(&cstate)))
@@ -2324,6 +2359,9 @@ static void group_layout_vert(struct IClass *cl, Object *obj,
     WORD layout_width;
     WORD layout_height;
 
+    if (children == NULL)
+        return;
+
     //kprintf("group_layout_vert: virtoff = %d,%d\n",
     //    data->virt_offx, data->virt_offy);
 
@@ -2425,6 +2463,9 @@ static void group_layout_horiz(struct IClass *cl, Object *obj,
     WORD left = 0;
     WORD layout_width;
     WORD layout_height;
+
+    if (children == NULL)
+        return;
 
     //kprintf("group_layout_horiz: virtoff = %d,%d\n",
     //    data->virt_offx, data->virt_offy);
@@ -2866,6 +2907,8 @@ IPTR Group__MUIM_Layout(struct IClass *cl, Object *obj,
     struct MUI_LayoutMsg lm = { 0 };
 
     get(data->family, MUIA_Family_List, &(lm.lm_Children));
+    if (lm.lm_Children == NULL)
+        return 0;
     if (data->flags & GROUP_PAGEMODE)
     {
         group_layout_pagemode(cl, obj, lm.lm_Children);
@@ -2950,6 +2993,8 @@ IPTR Group__MUIM_Show(struct IClass *cl, Object *obj,
         DoSuperMethodA(cl, obj, (Msg) msg);
 
     get(data->family, MUIA_Family_List, &(ChildList));
+    if (ChildList == NULL)
+        return TRUE;
     cstate = ChildList->mlh_Head;
 
     if (data->flags & GROUP_PAGEMODE)

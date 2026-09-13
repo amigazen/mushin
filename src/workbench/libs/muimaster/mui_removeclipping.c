@@ -3,8 +3,15 @@
 */
 
 
+#define MUIMASTER_DEFINING_CLIPPING
 #include "mui.h"
 #include "muimaster_intern.h"
+#include "support.h"
+
+VOID ZuneRemoveClipping(struct MUI_RenderInfo *mri, APTR handle)
+{
+    ZuneRemoveClipRegion(mri, handle);
+}
 
 /*****************************************************************************
 
@@ -29,5 +36,5 @@
 
 *****************************************************************************/
 {
-    MUI_RemoveClipRegion(mri, handle);
+    ZuneRemoveClipping(mri, handle);
 } /* MUI_RemoveClipping */

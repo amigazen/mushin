@@ -77,7 +77,7 @@ static void CalcKnobDimensions(struct IClass *cl, Object *obj)
 
     knob_frame =
         zune_zframe_get(obj,
-        (struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob]);
+        (struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob]);
 
     InitRastPort(&rp);
     SetFont(&rp, _font(obj));
@@ -98,8 +98,12 @@ static void CalcKnobDimensions(struct IClass *cl, Object *obj)
     {
         LONG nw;
         char *buf;
+        struct MUIP_Numeric_Stringify smsg;
 
-        buf = (char *)DoMethod(obj, MUIM_Numeric_Stringify, val);
+        /* DoMethod varargs truncates 32-bit method IDs under SAS/C. */
+        smsg.MethodID = MUIM_Numeric_Stringify;
+        smsg.value = val;
+        buf = (char *)DoMethodA(obj, (Msg)&smsg);
         nw = TextLength(&rp, buf, strlen(buf));
         if (nw > width)
             width = nw;
@@ -108,14 +112,14 @@ static void CalcKnobDimensions(struct IClass *cl, Object *obj)
     data->knob_width = width +
         knob_frame->ileft +
         knob_frame->iright +
-        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerLeft +
-        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerRight;
+        ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerLeft +
+        ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerRight;
 
     data->knob_height = _font(obj)->tf_YSize +
         knob_frame->itop +
         knob_frame->ibottom +
-        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerTop +
-        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerBottom;
+        ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerTop +
+        ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerBottom;
 
     if (data->flags & SLIDER_HORIZ)
         data->knob_length = data->knob_width;
@@ -247,7 +251,13 @@ IPTR Slider__MUIM_Setup(struct IClass *cl, Object *obj,
 
     CalcKnobDimensions(cl, obj);
 
-    DoMethod(_win(obj), MUIM_Window_AddEventHandler, (IPTR) & data->ehn);
+    {
+        struct MUIP_Window_AddEventHandler amsg;
+
+        amsg.MethodID = MUIM_Window_AddEventHandler;
+        amsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&amsg);
+    }
 
     return TRUE;
 }
@@ -265,7 +275,13 @@ IPTR Slider__MUIM_Cleanup(struct IClass *cl, Object *obj,
         zune_imspec_cleanup(data->knob_bg);
         data->knob_bg = NULL;
     }
-    DoMethod(_win(obj), MUIM_Window_RemEventHandler, (IPTR) & data->ehn);
+    {
+        struct MUIP_Window_RemEventHandler rmsg;
+
+        rmsg.MethodID = MUIM_Window_RemEventHandler;
+        rmsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&rmsg);
+    }
 
     return DoSuperMethodA(cl, obj, (Msg) msg);
 }
@@ -368,9 +384,12 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
     /* Update knob position if not cached */
     if (!(data->flags & SLIDER_VALIDOFFSET))
     {
-        data->knob_offset =
-            DoMethod(obj, MUIM_Numeric_ValueToScale, 0,
-                data->scale_length);
+        struct MUIP_Numeric_ValueToScale vmsg;
+
+        vmsg.MethodID = MUIM_Numeric_ValueToScale;
+        vmsg.scalemin = 0;
+        vmsg.scalemax = data->scale_length;
+        data->knob_offset = (LONG)DoMethodA(obj, (Msg)&vmsg);
         data->flags |= SLIDER_VALIDOFFSET;
     }
 
@@ -381,7 +400,7 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
     else
         data->knob_top += data->knob_offset;
 
-    DoMethod(obj, MUIM_DrawBackground, _mleft(obj), _mtop(obj),
+    ZuneDrawBackground(obj, _mleft(obj), _mtop(obj),
         _mwidth(obj), _mheight(obj), 0, 0, 0);
 
     zune_imspec_draw(data->knob_bg, muiRenderInfo(obj),
@@ -389,11 +408,11 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
         data->knob_height, 0, 0, 0);
 
     knob_frame_state =
-        ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->state;
+        ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->state;
     if (XGET(obj, MUIA_Pressed))
         knob_frame_state ^= 1;
     knob_frame = zune_zframe_get_with_state(obj,
-        (struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob],
+        (struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob],
         knob_frame_state);
     knob_frame->draw(knob_frame->customframe, muiRenderInfo(obj),
         data->knob_left, data->knob_top, data->knob_width,
@@ -407,10 +426,14 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
             _pens(obj)[MPEN_BACKGROUND], JAM1);
         if (!(data->flags & SLIDER_VALIDSTRING))
         {
+            struct MUIP_Numeric_Stringify smsg;
+
             longget(obj, MUIA_Numeric_Value, &val);
             if (data->text_buffer) FreeVec((APTR)data->text_buffer);
-            data->text_buffer = StrDup((CONST_STRPTR) DoMethod(obj,
-                MUIM_Numeric_Stringify, val));
+            smsg.MethodID = MUIM_Numeric_Stringify;
+            smsg.value = val;
+            data->text_buffer =
+                StrDup((CONST_STRPTR)DoMethodA(obj, (Msg)&smsg));
             data->text_length = strlen(data->text_buffer);
             data->text_width =
                 TextLength(_rp(obj), data->text_buffer, data->text_length);
@@ -419,10 +442,10 @@ IPTR Slider__MUIM_Draw(struct IClass *cl, Object *obj,
 
         Move(_rp(obj),
             data->knob_left + knob_frame->ileft +
-            ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerLeft +
+            ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerLeft +
             (data->max_text_width - data->text_width) / 2,
             data->knob_top + _font(obj)->tf_Baseline + knob_frame->itop +
-            ((struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerTop);
+            ((struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Knob])->innerTop);
         Text(_rp(obj), data->text_buffer, data->text_length);
     }
 
@@ -466,12 +489,17 @@ IPTR Slider__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                     && _between(data->knob_top, msg->imsg->MouseY,
                         data->knob_top + data->knob_height))
                 {
-                    /* Clicked on knob */
-                    DoMethod(_win(obj), MUIM_Window_RemEventHandler,
-                        (IPTR) & data->ehn);
+                    struct MUIP_Window_RemEventHandler rmsg;
+                    struct MUIP_Window_AddEventHandler amsg;
+
+                    /* Rem/Add so ChangeEvents enables IDCMP_MOUSEMOVE. */
+                    rmsg.MethodID = MUIM_Window_RemEventHandler;
+                    rmsg.ehnode = &data->ehn;
+                    DoMethodA(_win(obj), (Msg)&rmsg);
                     data->ehn.ehn_Events |= IDCMP_MOUSEMOVE;
-                    DoMethod(_win(obj), MUIM_Window_AddEventHandler,
-                        (IPTR) & data->ehn);
+                    amsg.MethodID = MUIM_Window_AddEventHandler;
+                    amsg.ehnode = &data->ehn;
+                    DoMethodA(_win(obj), (Msg)&amsg);
                     set(obj, MUIA_Pressed, TRUE);
                     MUI_Redraw(obj, MADF_DRAWUPDATE);
                 }
@@ -485,9 +513,15 @@ IPTR Slider__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
                     if (XGET(obj, MUIA_Numeric_Reverse))
                         increase = !increase;
-                    
-                    DoMethod(obj, increase ?
-                        MUIM_Numeric_Increase : MUIM_Numeric_Decrease, 1);
+
+                    {
+                        struct MUIP_Numeric_Increase imsg;
+
+                        imsg.MethodID = increase ?
+                            MUIM_Numeric_Increase : MUIM_Numeric_Decrease;
+                        imsg.amount = 1;
+                        DoMethodA(obj, (Msg)&imsg);
+                    }
                 }
                 result = MUI_EventHandlerRC_Eat;
             }
@@ -496,11 +530,16 @@ IPTR Slider__MUIM_HandleEvent(struct IClass *cl, Object *obj,
         {
             if (XGET(obj, MUIA_Pressed))
             {
-                DoMethod(_win(obj), MUIM_Window_RemEventHandler,
-                    (IPTR) & data->ehn);
+                struct MUIP_Window_RemEventHandler rmsg;
+                struct MUIP_Window_AddEventHandler amsg;
+
+                rmsg.MethodID = MUIM_Window_RemEventHandler;
+                rmsg.ehnode = &data->ehn;
+                DoMethodA(_win(obj), (Msg)&rmsg);
                 data->ehn.ehn_Events &= ~IDCMP_MOUSEMOVE;
-                DoMethod(_win(obj), MUIM_Window_AddEventHandler,
-                    (IPTR) & data->ehn);
+                amsg.MethodID = MUIM_Window_AddEventHandler;
+                amsg.ehnode = &data->ehn;
+                DoMethodA(_win(obj), (Msg)&amsg);
                 set(obj, MUIA_Pressed, FALSE);
                 MUI_Redraw(obj, MADF_DRAWUPDATE);
                 result = MUI_EventHandlerRC_Eat;
@@ -528,8 +567,18 @@ IPTR Slider__MUIM_HandleEvent(struct IClass *cl, Object *obj,
             else if (data->knob_offset > data->scale_length)
                 data->knob_offset = data->scale_length;
 
-            newval = DoMethod(obj, MUIM_Numeric_ScaleToValue,
-                0, data->scale_length, data->knob_offset);
+            {
+                struct MUIP_Numeric_ScaleToValue scmsg;
+
+                /* DoMethod varargs truncates 32-bit method IDs; without
+                 * ScaleToValue the value never changes and Gauge notify
+                 * never fires (knob may still paint from knob_offset). */
+                scmsg.MethodID = MUIM_Numeric_ScaleToValue;
+                scmsg.scalemin = 0;
+                scmsg.scalemax = data->scale_length;
+                scmsg.scale = data->knob_offset;
+                newval = (LONG)DoMethodA(obj, (Msg)&scmsg);
+            }
 
             if (data->knob_offset != old_offset)
             {

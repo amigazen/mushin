@@ -46,32 +46,35 @@
 #include "prefs.h"
 #include "penspec.h"
 
-/* Private struct definitions for accessing private members */
-/* MUI_Prefs is defined in prefs.h */
-
-/* MUI_InputX is defined in prefs.h as ZuneKeySpec */
-
 /* Include prefs.h to get ZunePrefsNew definition */
 #ifndef __ZUNE_PREFS_H__
 #include "prefs.h"
 #endif
 
-/* Define MUI_Prefs as typedef for ZunePrefsNew */
+/* Convenience alias still used by imspec.c */
 typedef struct ZunePrefsNew MUI_Prefs;
 
-struct MUI_GlobalInfo_Private
-{
-    struct MUI_GlobalInfo public;
-    
-    /* Private members */
-    ULONG priv0;                    /* Private field 0 */
-    Object *mgi_ApplicationObject;  /* Application object */
-    struct MsgPort *mgi_WindowsPort; /* Application-wide IDCMP port */
-    struct MsgPort *mgi_AppPort;    /* Application-wide AppMessage port */
-    Object *mgi_Configdata;         /* The config data */
-    MUI_Prefs *mgi_Prefs;           /* For faster access (using typedef, not struct) */
-    struct Screen *mgi_CustomScreen; /* Screen opened customly by the application */
-};
+/*
+ * There is deliberately no "struct MUI_GlobalInfo_Private" here.
+ *
+ * classes/application.h (reached via mui.h above) already declares
+ * struct MUI_GlobalInfo with all seven members - priv0,
+ * mgi_ApplicationObject, mgi_WindowsPort, mgi_AppPort, mgi_Configdata,
+ * mgi_Prefs and mgi_CustomScreen - so the private fields need no separate
+ * view.  Only the *public* copy in the generated <libraries/mui.h> stops at
+ * two members, and that header is shadowed inside the library by the
+ * shared LIBRARIES_MUI_H guard.
+ *
+ * A wrapper struct that embedded the public one as its first member and then
+ * repeated the private fields used to exist here.  Because the embedded
+ * member was in fact the full 28-byte struct, every field it declared landed
+ * 28 bytes past its real home - directly on top of app_IHList and
+ * app_MethodQueue in struct MUI_ApplicationData - so Application OM_NEW
+ * destroyed both lists immediately after initialising them, while readers
+ * that used muiGlobalInfo() directly (macros.h _app(), area.c mgi_Prefs)
+ * disagreed with every writer.  Always access these fields through
+ * muiGlobalInfo(obj) or the struct itself.
+ */
 
 #ifndef BNULL
 #define BNULL NULL
@@ -118,6 +121,16 @@ struct MUIMasterBase_intern
     struct MUI_PenSpec          *defaultPens;
 };
 
-
+/*
+ * Kickstart NextObject is an intuition register LVO. A missing prototype
+ * (IGNORE=63) or lost pragma turns the call into a stack C call and the
+ * return value is garbage. Every child walk in this library goes through
+ * ZuneNextObject instead (support.c).
+ */
+Object *ZuneNextObject(Object **state);
+#ifdef NextObject
+#undef NextObject
+#endif
+#define NextObject ZuneNextObject
 
 #endif /* MUIMASTER_INTERN_H */

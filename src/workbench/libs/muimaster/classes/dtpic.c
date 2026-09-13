@@ -141,23 +141,46 @@ static void update_alpha(struct Dtpic_DATA *data)
         data->alpha, data->deltaalpha, data->currentalpha));
 }
 
+/*
+ * Returns a copy of from_bm with the given ProcessPixelArray() operation
+ * applied, or NULL if that cannot be done.  Callers must cope with NULL - see
+ * the render path in Dtpic__MUIM_Draw(), which falls back to the unmodified
+ * bitmap.
+ */
 static struct BitMap *clone_bitmap(struct BitMap *from_bm, ULONG operation,
     ULONG value)
 {
+    struct BitMap *to_bm;
+    struct RastPort rp;
+    UWORD width, height, depth;
+
     if (from_bm == NULL)
         return NULL;
 
-    struct BitMap *to_bm = NULL;
-    struct RastPort rp;
+    /*
+     * ProcessPixelArray() lives in cybergraphics.library, which this library
+     * opens with version 0 and treats as optional because it may be absent on
+     * AmigaOS 3.x (muimaster_init.c).  The pragma compiles the call into an
+     * indirect jsr through CyberGfxBase at a fixed jump-table offset, so
+     * making it with no library at all, or with one whose jump table does not
+     * reach that far, jumps into nothing.  Every other cybergraphics caller in
+     * this library tests the base first (datatypescache.c, dragndrop.c,
+     * textengine.c, classes/bitmap.c); this one also needs a version test,
+     * because ProcessPixelArray() is a much later addition than the calls
+     * those files make.  51 is the threshold Scalos uses for precisely the
+     * POP_BRIGHTEN/POP_DARKEN operations wanted here.
+     */
+    if (CyberGfxBase == NULL || CyberGfxBase->lib_Version < 51)
+        return NULL;
 
-    UWORD width = GetBitMapAttr(from_bm, BMA_WIDTH);
-    UWORD height = GetBitMapAttr(from_bm, BMA_HEIGHT);
-    UWORD depth = GetBitMapAttr(from_bm, BMA_DEPTH);
+    width = GetBitMapAttr(from_bm, BMA_WIDTH);
+    height = GetBitMapAttr(from_bm, BMA_HEIGHT);
+    depth = GetBitMapAttr(from_bm, BMA_DEPTH);
 
     InitRastPort(&rp);
     to_bm = AllocBitMap(width, height, depth, BMF_MINPLANES, from_bm);
-    D(bug("[clone_bitmap] %p width %d height %d depth %d\n", to_bm, width,
-        height, depth));
+    D(bug("[clone_bitmap] %lx width %ld height %ld depth %ld\n", (IPTR) to_bm,
+        (LONG) width, (LONG) height, (LONG) depth));
     if (to_bm)
     {
         rp.BitMap = to_bm;
@@ -397,12 +420,20 @@ IPTR Dtpic__MUIM_Draw(struct IClass *cl, Object *obj,
                 /* All other cases */
 
                 struct BitMap *bm = data->bm;
-                if (data->selected)
+
+                /*
+                 * The selected and highlighted bitmaps are optional: cloning
+                 * them needs a recent cybergraphics.library and can also fail
+                 * on AllocBitMap(), in which case clone_bitmap() returned
+                 * NULL.  Render the plain bitmap rather than passing NULL to
+                 * BltBitMapRastPort() below.
+                 */
+                if (data->selected && data->bm_selected)
                 {
                     bm = data->bm_selected;
                     D(bug("render selected\n"));
                 }
-                else if (data->highlighted)
+                else if (data->highlighted && data->bm_highlighted)
                 {
                     D(bug("render highlighted\n"));
                     bm = data->bm_highlighted;
@@ -411,7 +442,8 @@ IPTR Dtpic__MUIM_Draw(struct IClass *cl, Object *obj,
                 {
                     D(bug("render normal\n"));
                 }
-                
+
+
                 BltBitMapRastPort(bm, 0, 0, _rp(obj), _mleft(obj),
                     _mtop(obj), _mwidth(obj), _mheight(obj), 0xC0);
             }

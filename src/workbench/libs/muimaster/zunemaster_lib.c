@@ -3,11 +3,14 @@
     All rights reserved.
     
 
-    Library code for AmigaOS, based on Dirk St�ckers Libary
+    Library code for AmigaOS, based on Dirk Stöckers Libary
     Example
 */
 
 #define BASE_GLOBAL
+#define __USE_SYSBASE
+
+struct ExecBase *SysBase;
 
 #include <proto/exec.h>
 #include <exec/resident.h>
@@ -15,27 +18,9 @@
 #include <intuition/intuitionbase.h>
 #include <exec/execbase.h>
 
-struct ExecBase      *SysBase;
-
 LONG ReturnError2(void)
 {
   return -1;
-}
-
-/* Library initialization helper function */
-ULONG __saveds __stdargs L_InitLib(struct Library *lib)
-{
-    /* Initialize the library base structure */
-    lib->lib_Node.ln_Type = NT_LIBRARY;
-    lib->lib_Node.ln_Pri = 0;
-    lib->lib_Flags = LIBF_SUMUSED | LIBF_CHANGED;
-    lib->lib_Version = 19;
-    lib->lib_Revision = 50;
-    lib->lib_IdString = "MUI Master Library 19.50";
-    lib->lib_OpenCnt = 0;
-    lib->lib_Sum = 0;
-    
-    return 0; /* Return 0 for success */
 }
 
 #include "muimaster_intern.h"
@@ -76,10 +61,36 @@ extern VOID MUI_EndRefresh(struct MUI_RenderInfo *mri, ULONG flags);
 #define REVISION  50
 #define DATETXT   "27.06.2003"
 #define VERSTXT   "19.50"
+/*
+ * The name exec puts in the RomTag, which is also the name callers have to
+ * pass to OpenLibrary().  These cannot be allowed to disagree: OpenLibrary()
+ * loads LIBS:<requested name> and then looks the *RomTag* name up in the
+ * system library list, so if the two differ every open fails even though the
+ * file loaded perfectly.  It must therefore match both the filename the
+ * smakefile produces and MUIMASTER_NAME in mui.h.
+ *
+ * It used to read "muimaster.library" while the smakefile built a file called
+ * zunemaster.library and mui.h told callers to ask for zunemaster.library.
+ *
+ * The default is zunemaster.library so this library can be installed and
+ * tested alongside a real muimaster.library.  "smake muimaster.library"
+ * recompiles this one file with MUIMASTER_DROPIN set to produce the drop-in
+ * replacement; no other source file depends on the name, because everything
+ * internal reads MUIMasterBase->lib_Node.ln_Name at runtime instead.
+ */
+#ifdef MUIMASTER_DROPIN
 #define LIBNAME  "muimaster.library"
-#define IDSTRING "$VER: muimaster.library " VERSTXT " (" DATETXT ")\r\n"
+#else
+#define LIBNAME  "zunemaster.library"
+#endif
+#define IDSTRING "$VER: " LIBNAME " " VERSTXT " (" DATETXT ")\r\n"
 
-#define MYDEBUG 1
+/*
+ * kprintf (debug.lib) talks to the serial port.  LibInit / LibOpen run inside
+ * OpenLibrary(), which holds a Forbid, so a kprintf that Waits for the serial
+ * device deadlocks the machine.  Leave this off until the open path returns.
+ */
+/* #define MYDEBUG 1 */
 #include "debug.h"
 
 typedef BPTR SEGLISTPTR;
@@ -88,32 +99,46 @@ typedef BPTR SEGLISTPTR;
 /************************************************************************/
 
 /* First executable routine of this library; must return an error
-   to the unsuspecting caller */
-LONG ReturnError(void)
+   to the unsuspecting caller (CLib39x LibStart). */
+LONG LibStart(void)
 {
   return -1;
+}
+
+LONG ReturnError(void)
+{
+  return LibStart();
 }
 
 /************************************************************************/
 
 /* MUI private functions */
 
-__asm void MUI_Priv1(register __a6 struct Library *MUIMasterBase)
+/*
+ * LVO 0x84 to 0x96, so these are entered straight from an application with
+ * nothing but A6 set up, exactly like LibOpen() and friends below, and they
+ * need __saveds for the same reason.  D() is empty while MYDEBUG is off, but
+ * the attribute has to stay so a later debug rebuild does not reintroduce a
+ * near-data access with the caller's A4.  Every other function reachable
+ * through the jump table - all of mui_*.c - is declared __asm __saveds already.
+ */
+
+__asm __saveds void MUI_Priv1(register __a6 struct Library *MUIMasterBase)
 {
         D(bug("MUI_Priv1() called"));
 }
 
-__asm void MUI_Priv2(register __a6 struct Library *MUIMasterBase)
+__asm __saveds void MUI_Priv2(register __a6 struct Library *MUIMasterBase)
 {
         D(bug("MUI_Priv2() called"));
 }
 
-__asm void MUI_Priv3(register __a6 struct Library *MUIMasterBase)
+__asm __saveds void MUI_Priv3(register __a6 struct Library *MUIMasterBase)
 {
         D(bug("MUI_Priv3() called"));
 }
 
-__asm void MUI_Priv4(register __a6 struct Library *MUIMasterBase)
+__asm __saveds void MUI_Priv4(register __a6 struct Library *MUIMasterBase)
 {
         D(bug("MUI_Priv4() called"));
 }
@@ -129,14 +154,38 @@ void  SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib) (LC_LIBHEADERTYPEPTR MUIMasterBa
 
 /************************************************************************/
 
-struct LibInitData {
- UBYTE i_Type;     UBYTE o_Type;     UBYTE  d_Type;     UBYTE p_Type;
- UBYTE i_Name;     UBYTE o_Name;     STRPTR d_Name;
- UBYTE i_Flags;    UBYTE o_Flags;    UBYTE  d_Flags;    UBYTE p_Flags;
- UBYTE i_Version;  UBYTE o_Version;  UWORD  d_Version;
- UBYTE i_Revision; UBYTE o_Revision; UWORD  d_Revision;
- UBYTE i_IdString; UBYTE o_IdString; STRPTR d_IdString;
- ULONG endmark;
+/*
+ * MakeLibrary() feeds this table to InitStruct() before calling LibInit.
+ *
+ * The previous form was a struct of UBYTEs mixed with STRPTRs, using the
+ * compact 0xA0/0x80/0x90 commands.  InitStruct long-aligns a 0x80 payload,
+ * which only matches that struct if the compiler also 4-aligns pointers.
+ * SAS/C's default ALIGNMENT=2 puts the name pointer two bytes early, so
+ * Kickstart reads the next command as part of ln_Name and then walks off
+ * the table into LibVectors[] - OpenLibrary() never returns.
+ *
+ * CLib39x (and Commodore's exec/initializers.h) use a stream of UWORDs so
+ * the compiler cannot insert padding.  INITBYTE/INITWORD are the 0xE000/0xD000
+ * commands Kickstart documents.  Fallbacks below match those macros in case
+ * an older NDK header only provides OFFSET.
+ */
+#ifndef INITBYTE
+#define INITBYTE(offset,value)  0xe000,(UWORD)(offset),(UWORD)((value)<<8)
+#define INITWORD(offset,value)  0xd000,(UWORD)(offset),(UWORD)(value)
+#endif
+
+/*
+ * Name and id-string pointers stay out of this table: INITLONG splits an
+ * address with >>16, and SAS/C will not accept that as a static initializer
+ * (Error 20).  LibInit writes both pointers itself, the same way CLib39x
+ * InitLib does.
+ */
+static const UWORD LibInitData[] = {
+  INITBYTE(OFFSET(Node,    ln_Type),      NT_LIBRARY),
+  INITBYTE(OFFSET(Library, lib_Flags),    LIBF_SUMUSED|LIBF_CHANGED),
+  INITWORD(OFFSET(Library, lib_Version),  VERSION),
+  INITWORD(OFFSET(Library, lib_Revision), REVISION),
+  0
 };
 
 /************************************************************************/
@@ -160,14 +209,36 @@ const struct Resident RomTag = {
 
 /************************************************************************/
 
+/*
+ * The four vectors below, plus LibInit further down, are the only functions in
+ * this library that the system enters directly: exec calls them from
+ * OpenLibrary(), CloseLibrary(), RemLibrary() and InitResident().  scoptions
+ * selects SMALLDATA, so every reference to a global compiles to an A4-relative
+ * access, and exec plainly does not set A4 to this library's data base before
+ * jumping through the vector table.  Each one therefore has to be SAVEDS - just
+ * like the MUI_* entry points in the mui_*.c files and the BOOPSI dispatchers,
+ * which have always been declared that way - so that it reloads A4 from
+ * __LinkerDB on entry.
+ *
+ * These six were the only entry points in the library that were missing it.
+ * LibInit's "SysBase = sysbase" is the damaging case: with the caller's A4
+ * still in place, that assignment wrote ExecBase to whatever address happened
+ * to sit at the same near-data offset from the caller's A4 rather than to this
+ * library's own SysBase.  The global was left as the linker set it, so the
+ * first OpenLibrary() in L_InitLib() called through a NULL base - which is why
+ * OpenLibrary("muimaster.library") never returned.  LibExpunge and LibClose
+ * have the same problem with the Remove() and FreeMem() calls they make, and
+ * would have taken the machine down on the way out even if init had survived.
+ */
+
 /* The mandatory reserved library function */
-ULONG LibReserved(void)
+SAVEDS ULONG LibReserved(void)
 {
   return 0;
 }
 
 /* Open the library, as called via OpenLibrary() */
-ASM struct Library *LibOpen(REG(a6, struct MUIMasterBase_intern * MUIMasterBase))
+ASM SAVEDS struct Library *LibOpen(REG(a6, struct MUIMasterBase_intern * MUIMasterBase))
 {
   /* Prevent delayed expunge and increment opencnt */
   MUIMasterBase->library.lib_Flags &= ~LIBF_DELEXP;
@@ -177,7 +248,7 @@ ASM struct Library *LibOpen(REG(a6, struct MUIMasterBase_intern * MUIMasterBase)
 }
 
 /* Expunge the library, remove it from memory */
-ASM SEGLISTPTR LibExpunge(REG(a6, struct MUIMasterBase_intern *mb))
+ASM SAVEDS SEGLISTPTR LibExpunge(REG(a6, struct MUIMasterBase_intern *mb))
 {
   if (!mb->library.lib_OpenCnt)
   {
@@ -205,7 +276,7 @@ ASM SEGLISTPTR LibExpunge(REG(a6, struct MUIMasterBase_intern *mb))
 }
 
 /* Close the library, as called by CloseLibrary() */
-ASM SEGLISTPTR LibClose(REG(a6, struct MUIMasterBase_intern *mb))
+ASM SAVEDS SEGLISTPTR LibClose(REG(a6, struct MUIMasterBase_intern *mb))
 {
   if(!(--mb->library.lib_OpenCnt))
   {
@@ -219,7 +290,7 @@ ASM SEGLISTPTR LibClose(REG(a6, struct MUIMasterBase_intern *mb))
 extern struct ExecBase *SysBase;
 
 /* Initialize library */
-ASM struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct MUIMasterBase_intern *mb), REG(a6, struct ExecBase *sysbase))
+ASM SAVEDS struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct MUIMasterBase_intern *mb), REG(a6, struct ExecBase *sysbase))
 {
 #ifdef _M68060
   if(!(sysbase->AttnFlags & AFF_68060))
@@ -235,20 +306,27 @@ ASM struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct MUIMaste
     return 0;
 #endif
 
-  /* Remember stuff */
   mb->seglist = seglist;
-
-  /* Fill some globals */
-//  MUIMasterBase = (struct Library *)mb;
   mb->sysbase = sysbase;
-        SysBase = sysbase;
+  SysBase = sysbase;
+
+  /*
+   * CLib39x InitLib writes these itself rather than trusting InitStruct
+   * alone.  Do the same: if the table is ignored or only partly applied,
+   * AddLibrary() still sees a valid name, type and id string.
+   */
+  mb->library.lib_Node.ln_Type = NT_LIBRARY;
+  mb->library.lib_Node.ln_Name = LIBNAME;
+  mb->library.lib_Flags = LIBF_SUMUSED | LIBF_CHANGED;
+  mb->library.lib_Version = VERSION;
+  mb->library.lib_Revision = REVISION;
+  mb->library.lib_IdString = IDSTRING;
 
   D(bug("Librarybase at 0x%p\n",mb));
 
-  if (L_InitLib(&mb->library) == 0)
+  if (L_InitLib(&mb->library))
     return &mb->library;
 
-  /* Free the vector table and the library data */
   FreeMem((STRPTR)mb - mb->library.lib_NegSize,
   mb->library.lib_NegSize +
   mb->library.lib_PosSize);
@@ -256,9 +334,10 @@ ASM struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct MUIMaste
 }
 
 /************************************************************************/
-/* This is the table of functions that make up the library. The first
-   four are mandatory, everything following it are user callable
-   routines. The table is terminated by the value -1. */
+/* LVO jump table (CLib39x FuncTab[] pattern): four mandatory library
+   vectors, then muimaster_lib.fd entries through MUI_EndRefresh, -1.
+   Slot indices 4..32 map to LVO 0x1e..0xc6 (bias 30); Priv1-4 occupy
+   0x84..0x96.  No trailing mui38dev/MUI 5 slots until implemented. */
 
 static const APTR LibVectors[] = {
   (APTR) LibOpen,
@@ -297,33 +376,14 @@ static const APTR LibVectors[] = {
   (APTR) -1
 };
 
-static const struct LibInitData LibInitData = {
-#ifdef __VBCC__    /* VBCC does not like OFFSET macro */
- 0xA0,  8, NT_LIBRARY,                0,
- 0x80, 10, LIBNAME,
- 0xA0, 14, LIBF_SUMUSED|LIBF_CHANGED, 0,
- 0x90, 20, VERSION,
- 0x90, 22, REVISION,
- 0x80, 24, IDSTRING,
-#else
- 0xA0, (UBYTE) OFFSET(Node,    ln_Type),      NT_LIBRARY,                0,
- 0x80, (UBYTE) OFFSET(Node,    ln_Name),      LIBNAME,
- 0xA0, (UBYTE) OFFSET(Library, lib_Flags),    LIBF_SUMUSED|LIBF_CHANGED, 0,
- 0x90, (UBYTE) OFFSET(Library, lib_Version),  VERSION,
- 0x90, (UBYTE) OFFSET(Library, lib_Revision), REVISION,
- 0x80, (UBYTE) OFFSET(Library, lib_IdString), IDSTRING,
-#endif
- 0
-};
-
 /* The following data structures and data are responsible for
    setting up the Library base data structure and the library
    function vector.
 */
 const ULONG LibInitTable[4] = {
   (ULONG)sizeof(struct MUIMasterBase_intern), /* Size of the base data structure */
-  (ULONG)LibVectors,             /* Points to the function vector */
-  (ULONG)&LibInitData,           /* Library base data structure setup table */
+  (ULONG)LibVectors,             /* Points to the LVO jump table above */
+  (ULONG)LibInitData,            /* Library base data structure setup table */
   (ULONG)LibInit                 /* The address of the routine to do the setup */
 };
 
@@ -331,4 +391,11 @@ void _CXFERR(void)
 {
     D(bug("CXFERR\n"));
 }
+
+#ifdef __SASC
+/* Stubs required when linking sc.lib into a shared library (CLib39x LibInit.c). */
+void __regargs __chkabort(void) { }
+void __regargs _CXBRK(void)     { }
+void __saveds __XCEXIT(void)  { }
+#endif
 

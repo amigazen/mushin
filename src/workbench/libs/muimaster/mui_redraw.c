@@ -2,6 +2,8 @@
     Copyright (C) 2003-2023, The AROS Development Team. All rights reserved.
 */
 
+#define MUIMASTER_DEFINING_REDRAW
+
 #include <string.h>
 #include <clib/alib_protos.h>
 #include <intuition/classusr.h>
@@ -28,7 +30,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_Redraw(register __a0 Object *obj, register __d0 ULONG flags)
+        __asm __saveds VOID MUI_Redraw(register __a0 Object *objin, register __d0 ULONG flagsin)
 
 /*  FUNCTION
 
@@ -48,11 +50,30 @@
 
 *****************************************************************************/
 {
+    Object *obj;
+    ULONG flags;
+    APTR clip;
+    IPTR disabled;
+    struct MUIP_Draw dmsg;
 
-    APTR clip = (APTR)-1;
-    IPTR disabled = 0;
+    obj = objin;
+    flags = flagsin;
+    clip = (APTR)-1;
+    disabled = 0;
 
     if (!(((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_CANDRAW)) return;
+
+    {
+        Class *cl;
+        CONST_STRPTR cid;
+
+        cl = OCLASS(obj);
+        cid = (cl != NULL && cl->cl_ID != NULL) ? (CONST_STRPTR)cl->cl_ID : (CONST_STRPTR)"?";
+        ZuneTrace("zune: MUI_Redraw enter obj=%lx class=%s flags=%lx invirt=%ld\n",
+            (ULONG)obj, cid, flags,
+            (LONG)((((struct __dummyAreaData__ *)(obj))->mad.mad_Flags
+                & MADF_INVIRTUALGROUP) ? 1 : 0));
+    }
 
     if (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_INVIRTUALGROUP)
     {
@@ -60,6 +81,7 @@
         Object *parent;
         struct Region *region = NULL;
 
+        ZuneTrace("zune: MUI_Redraw INVIRTUAL clip walk\n");
         get(obj,MUIA_WindowObject,&wnd);
         parent = obj;
 
@@ -77,6 +99,15 @@
                 rect.MaxX = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Width + ((struct __dummyAreaData__ *)(parent))->mad.mad_subwidth - 1;
                 rect.MaxY = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Height + ((struct __dummyAreaData__ *)(parent))->mad.mad_subheight - 1;
 
+                /* Inverted rects crash classic layers OrRectRegion/AndRectRegion. */
+                if (rect.MaxX < rect.MinX || rect.MaxY < rect.MinY)
+                {
+                    ZuneTrace("zune: MUI_Redraw skip bad virt rect %ld,%ld-%ld,%ld\n",
+                        (LONG)rect.MinX, (LONG)rect.MinY,
+                        (LONG)rect.MaxX, (LONG)rect.MaxY);
+                    continue;
+                }
+
                 if (!region)
                 {
                     if ((region = NewRegion()))
@@ -93,6 +124,7 @@
             if (region)
         {
             clip = MUI_AddClipRegion(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo,region);
+            ZuneTrace("zune: MUI_Redraw INVIRTUAL clip handle=%lx\n", (ULONG)clip);
         }
         
     } /* if object is in a virtual group */
@@ -133,7 +165,12 @@
     
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags = (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & ~MADF_DRAWFLAGS) | (flags & MADF_DRAWFLAGS);
 
-    DoMethod(obj, MUIM_Draw, 0);
+    dmsg.MethodID = MUIM_Draw;
+    dmsg.flags = 0;
+    ZuneTrace("zune: MUI_Redraw DoMethodA obj=%lx flags=%lx\n",
+        (ULONG)obj, flags);
+    DoMethodA(obj, (Msg)&dmsg);
+    ZuneTrace("zune: MUI_Redraw DoMethodA done\n");
 
     if (get(obj, MUIA_Disabled, &disabled))
     {
@@ -229,8 +266,11 @@
     } /* if (object is disabled) */
 
     /* copy buffer to window */
-    if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_BufferBM)
+    if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_BufferBM
+        && ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width >= 1
+        && ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height >= 1)
     {
+        /* ClipBlit autodoc: XSize and YSize must be at least 1. */
         ClipBlit(&((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_BufferRP, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,
                  ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_Window->RPort, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,
                  ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width, ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height, 0xc0);
@@ -243,3 +283,13 @@
     }
 
 } /* MUI_Redraw */
+
+void ZuneRedraw(ULONG obju, ULONG flags)
+{
+    Object *obj;
+
+    obj = (Object *) obju;
+    if (obj == NULL)
+        return;
+    MUI_Redraw(obj, flags);
+}

@@ -1,5 +1,5 @@
 ==id $VER: muimaster_lib.sfd 19.50
-* "muimaster.library"
+*"muimaster.library"
 ==base _MUIMasterBase
 ==basetype struct Library *
 ==libname muimaster.library
@@ -39,7 +39,10 @@ Object * MUI_MakeObjectA(LONG type, IPTR * params) (d0,a0)
 ==varargs
 Object * MUI_MakeObject(LONG type, ...) (d0,a0)
 BOOL MUI_Layout(Object * obj, LONG left, LONG top, LONG width, LONG height, ULONG flags) (a0,d0,d1,d2,d3,d4)
-==reserve 4
+VOID MUI_Priv1() ()
+VOID MUI_Priv2() ()
+VOID MUI_Priv3() ()
+VOID MUI_Priv4() ()
 LONG MUI_ObtainPen(struct MUI_RenderInfo * mri, struct MUI_PenSpec * spec, ULONG flags) (a0,a1,d0)
 VOID MUI_ReleasePen(struct MUI_RenderInfo * mri, LONG pen) (a0,d0)
 APTR MUI_AddClipping(struct MUI_RenderInfo * mri, WORD left, WORD top, WORD width, WORD height) (a0,d0,d1,d2,d3)

@@ -5,13 +5,30 @@
 
 */
 
+/*
+ * The library's own header, never the generated <libraries/mui.h>.  Both use
+ * the LIBRARIES_MUI_H guard, so the first one seen silences the other, and the
+ * generated copy has had every line containing "PRIV" removed by
+ * buildincludes.c - including the five private members of struct
+ * MUI_GlobalInfo and the declaration of struct MUI_AreaData's private half.
+ * area_macros.h below needs the full declarations.
+ *
+ * It has to come before "area.h", and hence before "frame.h", which pulls
+ * area.h in as well.  classes/area.h includes classes/window.h for
+ * struct MUI_EventHandlerNode, and classes/window.h includes this header, so
+ * reaching area.h first leaves _MUI_CLASSES_AREA_H set by the time mui.h gets
+ * to its own include of it.  area.h's body is then skipped, struct
+ * MUI_AreaData never gets declared, and mui.h fails further down in macros.h
+ * where the class instance layout refers to it.  Every other class avoids
+ * this by naming mui.h before its own header; this file was the exception.
+ */
+#include "mui.h"
 #include "frame.h"
 #include "area.h"
 #include <exec/types.h>
 #include <graphics/gfxmacros.h>
 #include <intuition/imageclass.h>
 #include <libraries/gadtools.h>
-#include <libraries/mui.h>
 #include "area_macros.h"
 /* Raw key codes - minimal definitions for wheel events */
 #define RAWKEY_NM_WHEEL_UP      0x7A
@@ -213,10 +230,10 @@ static void _zune_focus_destroy(Object *obj, int type)
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
 
-        DoMethod(parent, MUIM_DrawBackground, x1, y1, width, 1, x1, y1, 0);
-        DoMethod(parent, MUIM_DrawBackground, x2, y1, 1, height, x2, y1, 0);
-        DoMethod(parent, MUIM_DrawBackground, x1, y2, width, 1, x1, y2, 0);
-        DoMethod(parent, MUIM_DrawBackground, x1, y1, 1, height, x1, y1, 0);
+        ZuneDrawBackground(parent, x1, y1, width, 1, x1, y1, 0);
+        ZuneDrawBackground(parent, x2, y1, 1, height, x2, y1, 0);
+        ZuneDrawBackground(parent, x1, y2, width, 1, x1, y2, 0);
+        ZuneDrawBackground(parent, x1, y1, 1, height, x1, y1, 0);
     } else {
         struct Region *region;
         struct Rectangle rect;
@@ -464,11 +481,18 @@ OM_DISPOSE
 static IPTR Area__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_AreaData *data = INST_DATA(cl, obj);
+    IPTR rc;
 
+    ZuneTrace("zune: Area DISPOSE obj=%lx flags=%lx spec=%lx\n",
+        (ULONG) obj, (ULONG) _flags(obj),
+        (ULONG) data->mad_BackgroundSpec);
     /* Safe to call this with NULL */
     zune_image_spec_free(data->mad_BackgroundSpec);
-
-    return DoSuperMethodA(cl, obj, msg);
+    data->mad_BackgroundSpec = NULL;
+    ZuneTrace("zune: Area DISPOSE super obj=%lx\n", (ULONG) obj);
+    rc = DoSuperMethodA(cl, obj, msg);
+    ZuneTrace("zune: Area DISPOSE done obj=%lx\n", (ULONG) obj);
+    return rc;
 }
 
 /**************************************************************************
@@ -994,8 +1018,8 @@ static void Area_Draw_handle_background(Object *obj, struct MUI_AreaData *data,
 
         /* Draw parent background for the entire area first - this fills the corners
          * that will be outside the rounded frame */
-        DoMethod(obj, MUIM_DrawParentBackground, bgleft, bgtop, bgw, bgh, bgleft,
-                 bgtop, flags);
+        ZuneDrawParentBackground(obj, bgleft, bgtop, bgw, bgh, bgleft,
+            bgtop, flags);
     } else {
         /* For non-rounded frames, use traditional inner area calculation */
         if (zframe->customframe)
@@ -1030,7 +1054,7 @@ static void Area_Draw_handle_background(Object *obj, struct MUI_AreaData *data,
             if (cliphandle != (APTR)-1) {
                 use_clipping = TRUE;
             } else {
-                DisposeRegion(clipregion);
+                /* MUI_AddClipRegion already DisposeRegion'd on failure. */
                 clipregion = NULL;
             }
         }
@@ -1072,10 +1096,10 @@ static void Area_Draw_handle_background(Object *obj, struct MUI_AreaData *data,
                    __LINE__)); */
             if (zframe->border_radius == 0) {
                 /* Non-rounded frames: draw background normally */
-                DoMethod(obj, MUIM_DrawBackground, rects[i].MinX, rects[i].MinY,
-                         rects[i].MaxX - rects[i].MinX + 1,
-                         rects[i].MaxY - rects[i].MinY + 1, rects[i].MinX,
-                         rects[i].MinY, data->mad_Flags);
+                ZuneDrawBackground(obj, rects[i].MinX, rects[i].MinY,
+                    rects[i].MaxX - rects[i].MinX + 1,
+                    rects[i].MaxY - rects[i].MinY + 1, rects[i].MinX,
+                    rects[i].MinY, data->mad_Flags);
             }
             /* For rounded frames with no background image, parent background is
              * already drawn */
@@ -1101,8 +1125,8 @@ static void Area_Draw_handle_background(Object *obj, struct MUI_AreaData *data,
              * of the parent object but only if
              * the upper object hasn't drawn it already
              * (which is the case if MADF_DRAWALL is setted) */
-            DoMethod(obj, MUIM_DrawParentBackground, bgleft, _top(obj), bgw,
-                     bgtop - _top(obj), bgleft, _top(obj), data->mad_Flags);
+            ZuneDrawParentBackground(obj, bgleft, _top(obj), bgw,
+                bgtop - _top(obj), bgleft, _top(obj), data->mad_Flags);
         }
     }
 }
@@ -1150,6 +1174,16 @@ static void Area_Draw_handle_frame(Object *obj, struct MUI_AreaData *data,
     }
 
     maxtxtwidth = _width(obj) - zframe->ileft - zframe->iright - 2 * 5 - addtw;
+
+    /* FrameTitle TextFit needs a live font; NULL tf_YSize is a hard crash. */
+    if (_font(obj) == NULL) {
+        framespec = get_intframe(obj, data, &tempframe);
+        frame_img = zune_frame_prepare_for_drawing(zframe, framespec, &temp_frame);
+        zframe->draw(frame_img, muiRenderInfo(obj), _left(obj), _top(obj),
+                     _width(obj), _height(obj), _left(obj), _top(obj), _width(obj),
+                     _height(obj));
+        return;
+    }
 
     nchars = TextFit(_rp(obj), data->mad_FrameTitle, strlen(data->mad_FrameTitle),
                      &te, NULL, 1, maxtxtwidth, _font(obj)->tf_YSize);
@@ -1289,7 +1323,8 @@ static IPTR Area__MUIM_Draw(struct IClass *cl, Object *obj,
 
     obj_font = _font(obj);
     _font(obj) = zune_font_get(obj, MUIV_Font_Title);
-    SetFont(_rp(obj), _font(obj));
+    if (_font(obj) != NULL)
+        SetFont(_rp(obj), _font(obj));
 
     /* Frame and frametitle drawing */
     if (!(data->mad_Flags & MADF_FRAMEPHANTOM)) {
@@ -1297,7 +1332,8 @@ static IPTR Area__MUIM_Draw(struct IClass *cl, Object *obj,
     }
 
     _font(obj) = obj_font;
-    SetFont(_rp(obj), _font(obj));
+    if (_font(obj) != NULL)
+        SetFont(_rp(obj), _font(obj));
 
     /*    MUI_RemoveClipping(muiRenderInfo(obj), areaclip);*/
 
@@ -1319,12 +1355,12 @@ Area__MUIM_DrawParentBackground(struct IClass *cl, Object *obj,
 
     get(obj, MUIA_Parent, &parent);
     if (parent) {
-        DoMethod(parent, MUIM_DrawBackground, msg->left, msg->top, msg->width,
-                 msg->height, msg->xoffset, msg->yoffset, msg->flags);
+        ZuneDrawBackground(parent, msg->left, msg->top, msg->width,
+            msg->height, msg->xoffset, msg->yoffset, msg->flags);
     } else {
         D(bug("Area_DrawParentBackground(%p) : MUIM_Window_DrawBackground\n", obj));
-        DoMethod(_win(obj), MUIM_Window_DrawBackground, msg->left, msg->top,
-                 msg->width, msg->height, msg->xoffset, msg->yoffset, msg->flags);
+        ZuneWindowDrawBackground(_win(obj), msg->left, msg->top,
+            msg->width, msg->height, msg->xoffset, msg->yoffset, msg->flags);
     }
     return TRUE;
 }
@@ -1360,9 +1396,9 @@ static IPTR Area__MUIM_DrawBackground(struct IClass *cl, Object *obj,
     if (!bg) {
         D(bug("Area_DrawBackground(%p) : MUIM_DrawParentBackground\n", obj));
 
-        return DoMethod(obj, MUIM_DrawParentBackground, msg->left, msg->top,
-                        msg->width, msg->height, msg->xoffset, msg->yoffset,
-                        msg->flags);
+        return ZuneDrawParentBackground(obj, msg->left, msg->top,
+            msg->width, msg->height, msg->xoffset, msg->yoffset,
+            msg->flags);
     }
     frame = get_intframe(obj, data, &tempframe);
 

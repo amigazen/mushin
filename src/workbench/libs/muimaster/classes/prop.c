@@ -39,14 +39,17 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing attribute definitions */
-#ifndef MUIA_Prop_OnlyTrigger
-#define MUIA_Prop_OnlyTrigger (MUIB_Prop | 0x00000001)
-#endif
-
-#ifndef MUIA_Prop_Release
-#define MUIA_Prop_Release (MUIB_Prop | 0x00000002)
-#endif
+/*
+ * Local stand-ins for MUIA_Prop_OnlyTrigger and MUIA_Prop_Release used to sit
+ * here.  Both are declared in classes/prop.h, this class's own header, but
+ * both declarations carry a PRIV marker and so had been dropped from the
+ * generated <libraries/mui.h> that this file used to reach instead.
+ *
+ * Both guesses were wrong: OnlyTrigger is MUIB_Prop | 0x0, not | 0x1, and
+ * Release is not a Zune extension at all but the documented MUI attribute
+ * MUIB_MUI | 0x00429839.  An application setting MUIA_Prop_Release from the
+ * public header was therefore setting something this file never tested.
+ */
 
 /* Missing constants */
 #ifndef IST_BITMAP
@@ -879,7 +882,7 @@ IPTR Prop__MUIM_Show(struct IClass *cl, Object *obj, struct MUIP_Show *msg)
         {
             ULONG width, height;
             
-            if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type ==
+            if ((muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type ==
                 SCROLLBAR_TYPE_NEWLOOK)
                 isnewlook = TRUE;
             else
@@ -893,7 +896,7 @@ IPTR Prop__MUIM_Show(struct IClass *cl, Object *obj, struct MUIP_Show *msg)
             ULONG depth =
                 (ULONG) GetBitMapAttr(_window(obj)->RPort->BitMap,
                 BMA_DEPTH);
-            if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type ==
+            if ((muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type ==
                 SCROLLBAR_TYPE_CUSTOM)
             {
                 if (spec)
@@ -1088,7 +1091,7 @@ IPTR Prop__MUIM_Draw(struct IClass *cl, Object *obj,
         //    DoMethod(p, MUIM_DrawParentBackground, _left(obj), _top(obj),
         //    _width(obj), _height(obj), _left(obj), _top(obj), 0);
         //else
-        DoMethod(obj, MUIM_DrawParentBackground, _left(obj), _top(obj),
+        ZuneDrawParentBackground(obj, _left(obj), _top(obj),
             _width(obj), _height(obj), _left(obj), _top(obj), 0);
 
         if (data->buffer)

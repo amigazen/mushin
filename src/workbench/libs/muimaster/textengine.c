@@ -711,9 +711,20 @@ void zune_text_draw(ZText * text, Object * obj, WORD left, WORD right,
             else if (chunk_node->alpha_data)
             {
                 struct MUI_AlphaData *alpha_data = chunk_node->alpha_data;
-                WritePixelArrayAlpha(alpha_data->data, 0, 0,
-                    alpha_data->width * 4, rp, x, top, alpha_data->width,
-                    alpha_data->height, 0);
+
+                /* WritePixelArrayAlpha() is a cybergraphics.library call,
+                   which is optional on AmigaOS 3.x; the generated code is an
+                   indirect jsr through CyberGfxBase, so calling it with the
+                   library absent jumps through address 0.  Unlike the other
+                   users of this function there is no depth or truecolour test
+                   guarding this branch, so the base has to be checked here.
+                   Alpha chunks are simply not drawn without RTG. */
+                if (CyberGfxBase != NULL)
+                {
+                    WritePixelArrayAlpha(alpha_data->data, 0, 0,
+                        alpha_data->width * 4, rp, x, top, alpha_data->width,
+                        alpha_data->height, 0);
+                }
             }
             else if (chunk_node->str)
             {

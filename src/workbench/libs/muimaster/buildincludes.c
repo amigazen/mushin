@@ -78,15 +78,40 @@ static void readfile(FILE *in)
 
 int main(void)
 {
-    int i;
+    FILE *in;
 
-    /* Open the mui.h file */
-    FILE *in = fopen("mui.h", "r");
-    if (in)
+    /*
+     * Class headers include "mui.h"; skip re-expansion while merging.  This
+     * has to succeed: without the seed entry, the first class header that
+     * names "mui.h" would send readfile() back to the top of the file it is
+     * already expanding, and it would recurse until the stack ran out.
+     */
+    included = malloc(sizeof(char *));
+    if (included == NULL)
     {
-        readfile(in);
-        fclose(in);
+        fprintf(stderr, "buildincludes: out of memory\n");
+        return 20;
     }
+    included[included_num++] = strdup("mui.h");
+    if (included[0] == NULL)
+    {
+        fprintf(stderr, "buildincludes: out of memory\n");
+        return 20;
+    }
+
+    /*
+     * The caller redirects stdout over include/libraries/mui.h, so failing
+     * quietly here would replace the public header with an empty file and the
+     * breakage would not show up until something tried to compile against it.
+     */
+    in = fopen("mui.h", "r");
+    if (in == NULL)
+    {
+        fprintf(stderr, "buildincludes: cannot open mui.h\n");
+        return 20;
+    }
+    readfile(in);
+    fclose(in);
 
     return 0;
 }

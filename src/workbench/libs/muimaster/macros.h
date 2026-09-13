@@ -67,28 +67,26 @@
 #define KeyentryObject      MUIOBJMACRO_START(MUIC_Keyentry)
 #define VGroup              MUIOBJMACRO_START(MUIC_Group)
 #define HGroup \
-    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Horiz, TRUE
+    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Horiz, 1L
 #define ColGroup(columns) \
     MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Columns, (columns)
 #define RowGroup(rows) \
     MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Rows   , (rows)
 #define PageGroup \
-    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_PageMode, TRUE
+    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_PageMode, 1L
 #define VGroupV             MUIOBJMACRO_START(MUIC_Virtgroup)
 #define HGroupV \
-    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Horiz, TRUE
+    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Horiz, 1L
 #define ColGroupV(columns) \
     MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Columns, (columns)
 #define RowGroupV(rows) \
     MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Rows   , (rows)
 #define PageGroupV \
-    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_PageMode, TRUE
+    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_PageMode, 1L
 #define RegisterGroup(ts) \
     MUIOBJMACRO_START(MUIC_Register), MUIA_Register_Titles, ((IPTR) (ts))
-#define Panel              MUIOBJMACRO_START(MUIC_Panel)
-#define HPanelGroup \
-    MUIOBJMACRO_START(MUIC_PanelGroup), MUIA_Group_Horiz, TRUE
-#define VPanelGroup         MUIOBJMACRO_START(MUIC_PanelGroup)
+/* Panel, HPanelGroup and VPanelGroup are gone along with the AROS-only Panel
+   family they built; see the note where mui.h used to include their headers. */
 
 #define End                 OBJMACRO_END
 
@@ -406,21 +404,28 @@
 #endif
 #endif
 
-/* The __dummyAreaData__ struct is defined in area_macros.h when needed */
+/* MUI_AREADATA_DEFINED guards the struct only; area_macros.h declares the
+   same struct under the same guard for translation units that pick up their
+   macros from the generated <libraries/mui.h> instead of this file. */
 #ifndef MUI_AREADATA_DEFINED
-#define muiNotifyData(obj) (&(((struct __dummyAreaData__ *)(obj))->mnd))
-#define muiAreaData(obj)   (&(((struct __dummyAreaData__ *)(obj))->mad))
+#define MUI_AREADATA_DEFINED
+struct __dummyAreaData__
+{
+    struct MUI_NotifyData mnd;
+    struct MUI_AreaData   mad CLASS_INSTANCE_ALIGN;
+};
 #endif
 
-#ifndef MUI_AREADATA_DEFINED
+#define muiNotifyData(obj) (&(((struct __dummyAreaData__ *)(obj))->mnd))
+#define muiAreaData(obj)   (&(((struct __dummyAreaData__ *)(obj))->mad))
+
 #define muiGlobalInfo(obj) \
     (((struct __dummyAreaData__ *)(obj))->mnd.mnd_GlobalInfo)
 #define muiUserData(obj)   \
     (((struct __dummyAreaData__ *)(obj))->mnd.mnd_UserData)
 #define muiRenderInfo(obj) \
     (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo)
-#endif
-#ifndef MUI_AREADATA_DEFINED
+
 /* the following macros are only valid inbetween MUIM_Setup and MUIM_Cleanup */
 #define _app(obj)          (muiGlobalInfo(obj)->mgi_ApplicationObject)
 #define _win(obj)          (muiRenderInfo(obj)->mri_WindowObject)
@@ -457,8 +462,5 @@
 #define _defwidth(obj)     (muiAreaData(obj)->mad_MinMax.DefWidth)
 #define _defheight(obj)    (muiAreaData(obj)->mad_MinMax.DefHeight)
 #define _flags(obj)        (muiAreaData(obj)->mad_Flags)
-#endif
-
-
 
 #endif /* _MUI_MACROS_H */

@@ -25,10 +25,16 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing attribute definitions */
-#ifndef MUIA_Image_Prop
-#define MUIA_Image_Prop (MUIB_Image | 0x00000001)
-#endif
+/*
+ * A local stand-in for MUIA_Image_Prop used to sit here.  It is declared in
+ * classes/image.h, which mui.h pulls in, but the declaration carries a PRIV
+ * marker and so had been dropped from the generated <libraries/mui.h> that
+ * this file used to reach instead.
+ *
+ * The stand-in had guessed MUIB_Image | 0x1 where the attribute is really
+ * MUIB_MUI | 0x004233d6, so the prop images this class builds were being
+ * configured through an identifier that classes/image.c does not recognise.
+ */
 
 struct Scrollbar_DATA
 {
@@ -130,7 +136,7 @@ IPTR Scrollbar__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
 
     if (!(_flags(obj) & MADF_BORDERGADGET) && !data->sb_pos)
     {
-        switch (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_arrangement)
+        switch ((muiGlobalInfo(obj))->mgi_Prefs->scrollbar_arrangement)
         {
         case SCROLLBAR_ARRANGEMENT_TOP:
             DoMethod(obj, MUIM_Group_Sort, (IPTR) data->prop,
@@ -147,7 +153,7 @@ IPTR Scrollbar__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
             break;
         }
 
-        switch (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type)
+        switch ((muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type)
         {
         case SCROLLBAR_TYPE_STANDARD:
             break;

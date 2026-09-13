@@ -16,6 +16,7 @@
 #ifdef HAVE_COOLIMAGES
 #include <libraries/coolimages.h>
 #include <proto/coolimages.h>
+extern struct Library *CoolImagesBase;
 #endif
 
 #include "muimaster_intern.h"
@@ -424,14 +425,14 @@ Object *INTERNAL_ImageButton(CONST_STRPTR label, CONST_STRPTR imagePath,
 
             return MUI_NewObject(MUIC_Text,
                 ButtonFrame,
-                MUIA_Font, MUIV_Font_Button,
-                MUIA_Text_HiCharIdx, '_',
+                MUIA_Font, (IPTR)MUIV_Font_Button,
+                MUIA_Text_HiCharIdx, (IPTR)'_',
                 MUIA_Text_Contents, params[0],
-                MUIA_Text_PreParse, "\33c",
-                MUIA_InputMode    , MUIV_InputMode_RelVerify,
-                MUIA_Background   , MUII_ButtonBack,
-                control_char ? MUIA_ControlChar : TAG_IGNORE, control_char,
-                MUIA_CycleChain,    1,
+                MUIA_Text_PreParse, (IPTR)"\33c",
+                MUIA_InputMode, (IPTR)MUIV_InputMode_RelVerify,
+                MUIA_Background, (IPTR)MUII_ButtonBack,
+                control_char ? MUIA_ControlChar : TAG_IGNORE, (IPTR)control_char,
+                MUIA_CycleChain, 1L,
                 TAG_DONE);
         }
     case MUIO_ImageButton:

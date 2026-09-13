@@ -5,8 +5,6 @@
 #ifndef LIBRARIES_MUI_H
 #define LIBRARIES_MUI_H
 
-#include "SDI_compiler.h"
-
 #ifndef INTUITION_CLASSES_H
 #   include <intuition/classes.h>
 #endif
@@ -55,41 +53,82 @@
 
 #define IMSPEC_EXTERNAL_PREFIX "MUI:Images/"
 
-/* Define all classes as built in...should be moved out to config.h like file */
+/* Function declarations */
+LONG HexToIPTR(CONST_STRPTR s, ULONG *val);
+LONG HexToLong(CONST_STRPTR s, ULONG *val);
+
+/*
+ * Which classes support_classes.c puts into builtins[].
+ *
+ * On AROS these come from mmakefile.src; on AmigaOS the list is maintained by
+ * hand here, and every entry support_classes.h tests MUST appear below.  An
+ * undefined macro is 0 under ANSI #if, so a missing entry silently drops the
+ * class from builtins[] *and* from the guarded descriptor in its own .c file -
+ * no warning, no link error, just MUI_GetClass() failing at runtime.  Fourteen
+ * entries were missing (this is still the case upstream), which is why the
+ * whole list is now spelled out explicitly, zeros included.
+ *
+ * Anything set to 0 below is deliberate; see the note against each one.
+ */
 #define ZUNE_BUILTIN_ABOUTMUI 1
 #define ZUNE_BUILTIN_BALANCE 1
 #define ZUNE_BUILTIN_BOOPSI 1
 #define ZUNE_BUILTIN_COLORADJUST 1
 #define ZUNE_BUILTIN_COLORFIELD 1
+#define ZUNE_BUILTIN_CRAWLING 1
+#define ZUNE_BUILTIN_DIRLIST 1
+#define ZUNE_BUILTIN_DTPIC 1
 #define ZUNE_BUILTIN_FRAMEADJUST 1
 #define ZUNE_BUILTIN_FRAMEDISPLAY 1
 #define ZUNE_BUILTIN_GAUGE 1
+/* No iconlist.c / iconlistview.c in this tree. */
 #define ZUNE_BUILTIN_ICONLISTVIEW 0
 #define ZUNE_BUILTIN_IMAGEADJUST 1
 #define ZUNE_BUILTIN_IMAGEDISPLAY 1
+#define ZUNE_BUILTIN_KNOB 1
+#define ZUNE_BUILTIN_LEVELMETER 1
+#define ZUNE_BUILTIN_NUMERICBUTTON 1
+/* No DRAGHANDLE / PANEL / PANELGROUP / PANELTITLE entries: those four classes
+   are an AROS desktop extension that no MUI release provides, and AROS' Panel
+   even collides with the name of a real, unrelated MUI class.  See the note in
+   mui.h where their headers used to be included. */
+#define ZUNE_BUILTIN_PALETTE 1
 #define ZUNE_BUILTIN_PENADJUST 1
 #define ZUNE_BUILTIN_PENDISPLAY 1
 #define ZUNE_BUILTIN_POPASL 1
 #define ZUNE_BUILTIN_POPFRAME 1
 #define ZUNE_BUILTIN_POPIMAGE 1
+#define ZUNE_BUILTIN_POPLIST 1
 #define ZUNE_BUILTIN_POPPEN 1
+#define ZUNE_BUILTIN_POPSCREEN 1
 #define ZUNE_BUILTIN_RADIO 1
 #define ZUNE_BUILTIN_SCALE 1
 #define ZUNE_BUILTIN_SCROLLGROUP 1
+#define ZUNE_BUILTIN_SETTINGS 1
 #define ZUNE_BUILTIN_SETTINGSGROUP 1
 #define ZUNE_BUILTIN_VIRTGROUP 1
+#define ZUNE_BUILTIN_VOLUMELIST 1
 
 #ifdef __SASC
 #include <dos.h>
 #endif
 
-#ifndef PI
-#define PI 3.1415
-#endif
-
-#ifndef M_PI
-#define M_PI PI
-#endif
+/*
+ * PI used to be defined here as 3.1415 and M_PI as PI.  PI itself is gone:
+ * nothing referred to it - classes/knob.c and classes/levelmeter.c write
+ * 3.14159265358979323846 out in full - and SAS/C's own <math.h> defines PI
+ * without an #ifndef guard, so whichever header came second produced a
+ * redefinition warning.  It also reached the generated <libraries/mui.h>,
+ * where a four-digit PI would have shadowed the real one for applications.
+ *
+ * M_PI has to stay: imspec_gradientdraw.c uses it for the gradient angle, and
+ * SAS/C's <math.h> does not provide it.  Written out in full rather than
+ * derived from PI, so the gradient maths no longer silently depends on a
+ * constant that was only accurate to four decimal places.  It is marked
+ * private so buildincludes.c keeps it out of the generated <libraries/mui.h>:
+ * it is the library's own business, and an application that includes both that
+ * header and <math.h> should get whichever of the two it asked for.
+ */
 
 #define AROS_STACKSIZE 65536
 
@@ -97,6 +136,15 @@ char *StrDup(const char *x);
 Object *DoSuperNewTagList(struct IClass *cl, Object *obj,void *dummy, struct TagItem *tags);
 Object *VARARGS68K DoSuperNewTags(struct IClass *cl, Object *obj, void *dummy, ...);
 int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
+
+/*
+ * Declared here because support_amigaos.c supplies both of these on m68k
+ * (SAS/C 6.x has no C99 snprintf, and its sprintf would drag stdio into a
+ * library that has no startup code).  Without the prototypes IGNORE=63 in the
+ * smakefile silently accepted every call as an undeclared function.
+ * See the comment at the head of support_amigaos.c: these implement the
+ * RawDoFmt format dialect, so all integer conversions need the 'l' modifier.
+ */
 
 
 
@@ -151,13 +199,24 @@ VOID FreeVecPooled(APTR pool, APTR memory);
 #define AROS_ASMSYMNAME(a) a
 
 #define LC_BUILDNAME(x) x
+#define LC_LIBHEADERTYPEPTR struct Library *
 #define LIBBASETYPEPTR struct Library *
 
 /*** AROS types *************************************************************/
 #ifndef __AROS_TYPES_DEFINED__
 #   define __AROS_TYPES_DEFINED__
     typedef unsigned long IPTR;
-    typedef signed long SIPTR;
+    /*
+     * The signed counterpart of IPTR, used wherever a tag value or a method
+     * argument carries a number that can go negative - classes/list.c,
+     * classes/menuitem.c, classes/popobject.c, classes/scrollgroup.c and
+     * classes/palette.c all cast through it.  It was missing here, and those
+     * sources only ever compiled because they reached the generated
+     * <libraries/mui.h>, which still carries a copy from an older revision of
+     * this header.  font.c had worked around it with a local
+     * "#define SIPTR LONG".
+     */
+    typedef signed long   SIPTR;
     typedef long          STACKLONG;
     typedef unsigned long STACKULONG;
     typedef void (*VOID_FUNC)();
@@ -172,6 +231,10 @@ for                                            \
     ((struct Node *)(n))->ln_Succ;             \
     n=(void *)(((struct Node *)(n))->ln_Succ)  \
 )
+
+/* ForeachNodeSafe() was added here for classes/panelgroup.c, the only thing in
+   the library that ever used it, and went with that file.  AROS defines it in
+   <exec/lists.h> if it is ever needed again. */
 
 /*** AROS register definitions **********************************************/
 #define __REG_D0 __d0
@@ -302,7 +365,7 @@ for                                            \
 #define _MUI_IDENTIFIERS_H
 
 /*
-    Copyright ï¿½ 2003, The AROS Development Team. All rights reserved.
+    Copyright © 2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -316,7 +379,21 @@ for                                            \
 #endif /* _MUI_IDENTIFIERS_H */
 
 #ifndef __AROS__
+/*
+ * Must agree with LIBNAME in zunemaster_lib.c, which is what goes into the
+ * RomTag - OpenLibrary() matches the requested name against the RomTag name,
+ * so a mismatch fails the open outright.  MUIMASTER_DROPIN selects the
+ * drop-in build; see the comment in zunemaster_lib.c.
+ *
+ * Existing MUI applications do not use this symbol at all - they pass the
+ * literal "muimaster.library" to OpenLibrary() - so the drop-in build serves
+ * them whatever this header happens to say.
+ */
+#ifdef MUIMASTER_DROPIN
+#define MUIMASTER_NAME "muimaster.library"
+#else
 #define MUIMASTER_NAME "zunemaster.library"
+#endif
 #define MUIMASTER_VMIN    0
 #define MUIMASTER_VLATEST 0
 #else
@@ -615,8 +692,8 @@ enum
 #define _CLASSES_FAMILY_H
 
 /* 
-    Copyright ï¿½ 1999, David Le Corfec.
-    Copyright ï¿½ 2002-2012, The AROS Development Team.
+    Copyright © 1999, David Le Corfec.
+    Copyright © 2002-2012, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -708,6 +785,7 @@ struct MUIP_Family_GetChild
 
 #ifndef _MUI_CLASSES_APPLICATION_H
 #define _MUI_CLASSES_APPLICATION_H
+
 
 #ifndef EXEC_SEMAPHORES_H
 #include <exec/semaphores.h>
@@ -1292,6 +1370,7 @@ struct MUI_AlphaData
     $Id$
 */
 
+
 /*** Name *******************************************************************/
 #define MUIC_Window                 "Window.mui"
 
@@ -1380,6 +1459,7 @@ struct MUIP_Window_ToFront
     (MUIB_Window | 0x00000004)   /* Zune: V1 - free the GadgetID for
                                   * BOOPSI gadgets */
 
+
 struct MUIP_Window_AddControlCharHandler
 {
     STACKED ULONG MethodID;
@@ -1435,43 +1515,45 @@ struct MUIP_Window_UpdateMenu
     STACKED ULONG MethodID;
 };
 
-#ifdef MUI_OBSOLETE
+/* Move menu methods outside MUI_OBSOLETE since they're used in the code */
 #define MUIM_Window_GetMenuCheck    (MUIB_MUI | 0x00420414)     /* MUI: V4  */
-#define MUIM_Window_GetMenuState    (MUIB_MUI | 0x00420d2f)     /* MUI: V4  */
-#define MUIM_Window_SetCycleChain   (MUIB_MUI | 0x00426510)     /* MUI: V4  */
 #define MUIM_Window_SetMenuCheck    (MUIB_MUI | 0x00422243)     /* MUI: V4  */
+#define MUIM_Window_GetMenuState    (MUIB_MUI | 0x00420d2f)     /* MUI: V4  */
 #define MUIM_Window_SetMenuState    (MUIB_MUI | 0x00422b5e)     /* MUI: V4  */
 
 struct MUIP_Window_GetMenuCheck
 {
-    STACKULONG MethodID;
+    STACKED ULONG MethodID;
     STACKED ULONG MenuID;
-};
-
-struct MUIP_Window_GetMenuState
-{
-    STACKULONG MethodID;
-    STACKED ULONG MenuID;
-};
-
-struct MUIP_Window_SetCycleChain
-{
-    STACKULONG MethodID;
-    STACKED Object *obj[1];
 };
 
 struct MUIP_Window_SetMenuCheck
 {
-    STACKULONG MethodID;
+    STACKED ULONG MethodID;
     STACKED ULONG MenuID;
     STACKED LONG stat;
 };
 
+struct MUIP_Window_GetMenuState
+{
+    STACKED ULONG MethodID;
+    STACKED ULONG MenuID;
+};
+
 struct MUIP_Window_SetMenuState
 {
-    STACKULONG MethodID;
+    STACKED ULONG MethodID;
     STACKED ULONG MenuID;
     STACKED LONG stat;
+};
+
+#ifdef MUI_OBSOLETE
+#define MUIM_Window_SetCycleChain   (MUIB_MUI | 0x00426510)     /* MUI: V4  */
+
+struct MUIP_Window_SetCycleChain
+{
+    STACKED ULONG MethodID;
+    STACKED Object *obj[1];
 };
 #endif /* MUI_OBSOLETE */
 
@@ -1567,6 +1649,8 @@ struct MUIP_Window_SetMenuState
     (MUIB_Window | 0x00000002)
 #define MUIA_Window_ToolBox \
     (MUIB_Window | 0x00000003)
+#define MUIA_Window_RecreateMenus \
+#define MUIA_Window_WandererBackdrop \
 
 #define MUIV_Window_ActiveObject_None       0
 #define MUIV_Window_ActiveObject_Next       (-1)
@@ -2231,6 +2315,19 @@ struct MUI_AreaData
 // only 148 bytes for the struct in MUI !
 };
 
+/*
+ * NOTE: do not define MUI_AREADATA_DEFINED here.  That macro means
+ * "struct __dummyAreaData__ has been declared", and it is owned by macros.h /
+ * area_macros.h.  This header only declares struct MUI_AreaData itself.
+ *
+ * Defining it here used to break the build in a way the compiler could not
+ * report: macros.h includes this file *before* it tests the guard, so the test
+ * always failed and muiAreaData/muiGlobalInfo/_left/_rp/_pens/_flags and the
+ * rest were never defined at all in any file that got its macros through
+ * macros.h.  That is why so many sources ended up with hand-expanded
+ * ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left instead of _left(obj).
+ */
+
 /* Flags during MUIM_Draw */
 #define MADF_DRAWOBJECT        (1<< 0)  /* draw object completely */
 #define MADF_DRAWUPDATE        (1<< 1)  /* update object */
@@ -2239,35 +2336,7 @@ struct MUI_AreaData
 
 
 /* mad_Flags, private one */
-#define MADF_DRAW_XXX          (1<< 2)  /* PRIV - mui verified, what use ? */
-#define MADF_DRAGGABLE         (1<< 3)  /* PRIV - mui verified */
-#define MADF_MAXHEIGHT         (1<< 4)  /* PRIV - share bit 6 in mui */
-#define MADF_CYCLECHAIN        (1<< 5)  /* PRIV - mui verified */
-#define MADF_MAXWIDTH          (1<< 6)  /* PRIV - share bit 6 in mui */
-#define MADF_DRAGGING          (1<< 7)  /* PRIV - zune-specific ? */
-#define MADF_OWNBG             (1<< 8)  /* PRIV - zune-specific ? */
-#define MADF_SHOWME            (1<< 9)  /* PRIV - mui verified */
-#define MADF_BORDERGADGET      (1<< 10) /* PRIV - is a border gadget; zune-specific ? */
-#define MADF_DRAWFRAME         (1<< 11) /* PRIV - nearly mui verified */
-#define MADF_DRAW_XXX_2        (1<< 12) /* PRIV - mui verified, what use ? */
-#define MADF_DROPABLE          (1<< 13) /* PRIV - mui verified */
-#define MADF_CANDRAW           (1<< 14) /* PRIV - roughly mui equivalent */
-#define MADF_DISABLED          (1<< 15) /* PRIV - mui verified */
-#define MADF_SHOWSELSTATE      (1<< 16) /* PRIV - mui verified */
-#define MADF_SELECTED          (1<< 17) /* PRIV - mui verified */
-#define MADF_ACTIVE            (1<< 18) /* PRIV - mui verified */
-#define MADF_FOCUS             (1<< 19) /* PRIV - mui verified */
-#define MADF_HOVER             (1<< 20) /* PRIV - mui verified */
-#define MADF_DRAG              (1<< 21) /* PRIV - mui verified */
-#define MADF_DROP              (1<< 22) /* PRIV - mui verified */
-#define MADF_DRAGOVER          (1<< 23) /* PRIV - mui verified */
-#define MADF_DRAGOUT           (1<< 24) /* PRIV - mui verified */
-#define MADF_DRAGENTER         (1<< 25) /* PRIV - mui verified */
-#define MADF_DRAGLEAVE         (1<< 26) /* PRIV - mui verified */
-#define MADF_FRAMEPHANTOM      (1<< 27) /* PRIV - mui verified */
-#define MADF_SETUP             (1<< 28) /* PRIV - zune-specific */
-#define MADF_INVIRTUALGROUP    (1<<29) /* PRIV UNDOC: The object is inside a virtual group */
-#define MADF_ISVIRTUALGROUP    (1<<30) /* PRIV UNDOC: The object is a virtual group */
+
 
 #define MADF_DRAWFLAGS (MADF_DRAWOBJECT | MADF_DRAWUPDATE | MADF_DRAW_XXX \
     | MADF_DRAWFRAME | MADF_DRAW_XXX_2 | MADF_DRAWALL)
@@ -2342,8 +2411,8 @@ enum
 #define _MUI_CLASSES_GROUP_H
 
 /* 
-    Copyright ï¿½ 1999, David Le Corfec.
-    Copyright ï¿½ 2002-2012, The AROS Development Team.
+    Copyright © 1999, David Le Corfec.
+    Copyright © 2002-2012, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2486,8 +2555,8 @@ enum
 #define _MUI_CLASSES_RECTANGLE_H
 
 /* 
-    Copyright ï¿½ 1999, David Le Corfec.
-    Copyright ï¿½ 2002-2003, The AROS Development Team.
+    Copyright © 1999, David Le Corfec.
+    Copyright © 2002-2003, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2513,8 +2582,8 @@ enum
 #define _MUI_CLASSES_TEXT_H
 
 /* 
-    Copyright ï¿½ 1999, David Le Corfec.
-    Copyright ï¿½ 2002-2003, The AROS Development Team.
+    Copyright © 1999, David Le Corfec.
+    Copyright © 2002-2003, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2565,7 +2634,7 @@ enum
 #define _MUI_CLASSES_NUMERIC_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2660,8 +2729,8 @@ struct MUIP_Numeric_ValueToScaleExt
 #define _MUI_CLASSES_SLIDER_H
 
 /* 
-    Copyright ï¿½ 1999, David Le Corfec.
-    Copyright ï¿½ 2002-2003, The AROS Development Team.
+    Copyright © 1999, David Le Corfec.
+    Copyright © 2002-2003, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2694,7 +2763,7 @@ struct MUIP_Numeric_ValueToScaleExt
 #define _MUI_CLASSES_STRING_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2793,10 +2862,22 @@ struct MUIP_String_Insert
 #ifndef _MUI_CLASSES_BOOPSI_H
 #define _MUI_CLASSES_BOOPSI_H
 
+/* Internal header.  buildincludes.c inlines quoted includes and already has
+   "mui.h" on its list, so this line simply disappears from the generated
+   <libraries/mui.h>; the angle form used to be copied through verbatim and
+   left the generated header including itself. */
+
 /*** Name *******************************************************************/
 #define MUIC_Boopsi             "Boopsi.mui"
 
 /*** Identifier base (for Zune extensions) **********************************/
+/*
+ * This was a comment claiming the base lived in libraries/mui.h, which was
+ * only true of the generated copy of that header: a stale revision of it still
+ * carries a definition that no file in this tree produces any more.  Restored
+ * here, where every other class keeps its own base and where AROS keeps this
+ * one, so that MUIA_Boopsi_OnlyTrigger below resolves.
+ */
 #define MUIB_Boopsi             (MUIB_ZUNE | 0x00000600)
 
 /*** Attributes *************************************************************/
@@ -2836,7 +2917,7 @@ struct MUIP_String_Insert
 #define _MUI_CLASSES_PROP_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2900,7 +2981,7 @@ enum
 #define _MUI_CLASSES_SCROLLBAR_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2931,7 +3012,7 @@ enum
 #define _MUI_CLASSES_REGISTER_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2957,7 +3038,7 @@ enum
 #define _MUI_CLASSES_MENUITEM_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3029,7 +3110,7 @@ enum
 #define _MUI_CLASSES_DATASPACE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3107,7 +3188,7 @@ struct MUIP_Dataspace_WriteIFF
 #define _MUI_CLASSES_VIRTGROUP_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3135,7 +3216,7 @@ struct MUIP_Dataspace_WriteIFF
 #define _MUI_CLASSES_SCROLLGROUP_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3208,7 +3289,7 @@ struct MUIP_Dataspace_WriteIFF
 #define _MUI_CLASSES_SEMAPHORE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3329,7 +3410,7 @@ struct MUIP_Semaphore_Release
 #define _MUI_CLASSES_CHUNKYIMAGE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3359,7 +3440,7 @@ struct MUIP_Semaphore_Release
 #define _CLASSES_LISTVIEW_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3421,7 +3502,7 @@ enum
 #define _MUI_CLASSES_LIST_H
 
 /*
-    Copyright ï¿½ 2002-2013, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2013, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3774,7 +3855,7 @@ enum
 #define _MUI_CLASSES_FLOATTEXT_H
 
 /*
-    Copyright ï¿½ 2002-2014, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2014, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3813,7 +3894,7 @@ struct MUIP_Floattext_Append
 #define _MUI_CLASSES_POPSTRING_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3860,7 +3941,7 @@ struct MUIP_Popstring_Open
 #define _MUI_CLASSES_POPOBJECT_H
 
 /*
-    Copyright ï¿½ 2002-2006, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2006, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3897,7 +3978,7 @@ struct MUIP_Popstring_Open
 #define _MUI_CLASSES_CYCLE_H
 
 /*
-    Copyright ï¿½ 2002-2013, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2013, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3926,7 +4007,7 @@ enum
 #define _MUI_CLASSES_GAUGE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3986,6 +4067,7 @@ enum
     (MUIB_MUI | 0x00424f3d)       /* MUI: V4  i.. struct Image *      */
 #define MUIA_Image_Spec \
     (MUIB_MUI | 0x004233d5)       /* MUI: V4  i.. char *              */
+#define MUIA_Image_Prop \
 #define MUIA_Image_State \
     (MUIB_MUI | 0x0042a3ad)       /* MUI: V4  is. LONG                */
 
@@ -3999,7 +4081,7 @@ enum
 #define _MUI_CLASSES_IMAGEDISPLAY_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4030,7 +4112,7 @@ enum
 #define _MUI_CLASSES_POPASL_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4061,7 +4143,7 @@ enum
 #define _MUI_CLASSES_SETTINGSGROUP_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4099,7 +4181,7 @@ struct MUIP_Settingsgroup_GadgetsToConfig
 #define _MUI_CLASSES_SETTINGS_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4143,6 +4225,7 @@ struct MUIP_Settingsgroup_GadgetsToConfig
 
 #ifndef _MUI_CLASSES_CONFIGDATA_H
 #define _MUI_CLASSES_CONFIGDATA_H
+
 
 /*** Name *******************************************************************/
 #define MUIC_Configdata  "Configdata.mui"
@@ -4418,7 +4501,7 @@ struct MUIP_Configdata_SetString
 #define _MUI_CLASSES_IMAGEADJUST_H
 
 /* 
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4455,7 +4538,7 @@ enum
 #define _MUI_CLASSES_POPIMAGE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4479,7 +4562,7 @@ enum
 #define _MUI_CLASSES_SCALE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4502,7 +4585,7 @@ enum
 #define _MUI_CLASSES_RADIO_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4551,7 +4634,7 @@ enum
 #define _MUI_CLASSES_PENDISPLAY_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4606,7 +4689,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_PENADJUST_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4631,7 +4714,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_POPPEN_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4726,7 +4809,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_FRAMEADJUST_H
 
 /* 
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4750,7 +4833,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_FRAMEDISPLAY_H
 
 /*
-    Copyright ï¿½ 2003, The AROS Development Team. All rights reserved.
+    Copyright © 2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4773,7 +4856,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_POPFRAME_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4797,7 +4880,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_VOLUMELIST_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4816,7 +4899,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_DIRLIST_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4901,7 +4984,7 @@ enum
 #define _MUI_CLASSES_NUMERICBUTTON_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4920,7 +5003,7 @@ enum
 #define _MUI_CLASSES_POPLIST_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4944,7 +5027,7 @@ enum
 #define _MUI_CLASSES_POPSCREEN_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4965,7 +5048,7 @@ enum
 #define _MUI_CLASSES_CRAWLING_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4985,7 +5068,7 @@ enum
 #define _MUI_CLASSES_LEVELMETER_H
 
 /*
-    Copyright ï¿½ 2002-2006, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2006, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5008,7 +5091,7 @@ enum
 #define _MUI_CLASSES_KNOB_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5027,7 +5110,7 @@ enum
 #define _MUI_CLASSES_DTPIC_H
 
 /*
-    Copyright ï¿½ 2002-2014, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2014, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5055,7 +5138,7 @@ enum
 #define _MUI_CLASSES_PALETTE_H
 
 /*
-    Copyright ï¿½ 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5093,7 +5176,7 @@ struct MUI_Palette_Entry
 #define _MUI_CLASSES_TITLE_H
 
 /*
-    Copyright ï¿½ 2012, The AROS Development Team. All rights reserved.
+    Copyright © 2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5115,7 +5198,7 @@ struct MUI_Palette_Entry
 #define _MUI_CLASSES_PROCESS_H
 
 /*
-    Copyright ï¿½ 2012, The AROS Development Team. All rights reserved.
+    Copyright © 2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5180,8 +5263,8 @@ struct MUIP_Process_Signal
 #define _MUI_CLASSES_PIXMAP_H
 
 /*
-    Copyright ï¿½ 2011, Thore Bï¿½ckelmann. All rights reserved.
-    Copyright ï¿½ 2012, The AROS Development Team. All rights reserved.
+    Copyright © 2011, Thore Böckelmann. All rights reserved.
+    Copyright © 2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5238,172 +5321,17 @@ struct MUIP_Pixmap_DrawSection
 #endif
 #endif
 
-#ifndef _MUI_CLASSES_PANEL_H
-#ifndef _MUI_CLASSES_PANEL_H
-#define _MUI_CLASSES_PANEL_H
-
 /*
-    Copyright (C) 2025, The AROS Development Team. All rights reserved.
-
-    Panel class public interface
-*/
-
-#ifndef LIBRARIES_MUI_H
-#include <libraries/mui.h>
-#endif
-
-/*
- * Panel Class
+ * classes/panel.h and classes/panelgroup.h used to be included here.  They
+ * declared AROS' Panel, PanelGroup, PanelTitle and DragHandle - a collapsible
+ * titled container with drag handles, written for the AROS desktop and present
+ * in no release of MUI.  Real MUI does document a Panel class, but it is an
+ * abstract base class for ASL-style selectors with a single method,
+ * MUIM_Panel_Run, and Filepanel/Fontpanel/Screenmodepanel derive from it.
+ * Both claim the class name "Panel.mui", so shipping the AROS one from a
+ * library that answers to muimaster.library would hand applications asking
+ * for MUI's Panel something entirely unrelated.
  */
-
-/* Panel class identifier */
-#define MUIC_Panel "Panel.mui"
-
-/* Panel attributes */
-#define MUIA_Panel_Padding              (TAG_USER | 0x40000004)
-#define MUIA_Panel_Title                (TAG_USER | 0x40000007)
-#define MUIA_Panel_TitlePosition        (TAG_USER | 0x40000008)
-#define MUIA_Panel_TitleTextPosition    (TAG_USER | 0x40000009)
-#define MUIA_Panel_TitleVertical        (TAG_USER | 0x4000000A)
-#define MUIA_Panel_Collapsible          (TAG_USER | 0x4000000B)
-#define MUIA_Panel_Collapsed            (TAG_USER | 0x4000000C)
-#define MUIA_Panel_DrawSeparator        (TAG_USER | 0x4000000D)
-#define MUIA_Panel_TitleClickedHook     (TAG_USER | 0x4000000E)
-#define MUIA_Panel_Draggable            (TAG_USER | 0x4000000F)
-#define MUIA_Panel_DrawStateIndicator   (TAG_USER | 0x40000010)
-
-/* Title position values */
-#define MUIV_Panel_Title_None       0
-#define MUIV_Panel_Title_Top        1
-#define MUIV_Panel_Title_Left       2
-
-/* Title text position values */
-#define MUIV_Panel_Title_Text_Centered 0
-#define MUIV_Panel_Title_Text_Left     1
-#define MUIV_Panel_Title_Text_Right    2
-
-
-/*
- * DragHandle Class
- */
-
-/*** Name *******************************************************************/
-#define MUIC_DragHandle "DragHandle.mui"
-
-/*** Identifier base ********************************************************/
-#define MUIB_DragHandle (MUIB_ZUNE | 0x00002100)
-
-/*** Attributes *************************************************************/
-#define MUIA_DragHandle_Vertical (MUIB_DragHandle | 0x0000) /* [ISG] Object * - How to render draghandle */
-
-/*** Methods ****************************************************************/
-
-/*** Special method IDs *****************************************************/
-
-/*** Structures *************************************************************/
-
-/*** Private ****************************************************************/
-
-
-/*
- * PanelTitle class
- */
-
-/* PanelTitle class identifier */
-#define MUIC_PanelTitle "PanelTitle.mui"
-
-/* PanelTitle attributes */
-#define MUIA_PanelTitle_Text                (TAG_USER | 0x40001001)
-#define MUIA_PanelTitle_Position            (TAG_USER | 0x40001002)
-#define MUIA_PanelTitle_TextPosition        (TAG_USER | 0x40001003)
-#define MUIA_PanelTitle_Vertical            (TAG_USER | 0x40001004)
-#define MUIA_PanelTitle_Collapsible         (TAG_USER | 0x40001005)
-#define MUIA_PanelTitle_Collapsed           (TAG_USER | 0x40001006)
-#define MUIA_PanelTitle_ShowSeparator       (TAG_USER | 0x40001007)
-#define MUIA_PanelTitle_ClickHook           (TAG_USER | 0x40001008)
-#define MUIA_PanelTitle_DrawStateIndicator  (TAG_USER | 0x40001009)
-
-/* Position values */
-#define MUIV_PanelTitle_Position_Top        1
-#define MUIV_PanelTitle_Position_Left       2
-
-/* Text position values */
-#define MUIV_PanelTitle_TextPosition_Centered   0
-#define MUIV_PanelTitle_TextPosition_Left       1
-#define MUIV_PanelTitle_TextPosition_Right      2
-
-/* Methods */
-#define MUIM_PanelTitle_Toggle              (TAG_USER | 0x40001101)
-
-/* Method structures */
-struct MUIP_PanelTitle_Toggle
-{
-    STACKED ULONG MethodID;
-};
-
-
-#endif /* _MUI_CLASSES_PANEL_H */
-#endif
-
-#ifndef _MUI_CLASSES_PANELGROUP_H
-#ifndef _MUI_CLASSES_PANELGROUP_H
-#define _MUI_CLASSES_PANELGROUP_H
-
-/*
-    Copyright (C) 2025, The AROS Development Team. All rights reserved.
-
-    PanelGroup class public interface
-*/
-
-#ifndef LIBRARIES_MUI_H
-#include <libraries/mui.h>
-#endif
-
-/* PanelGroup class identifier */
-#define MUIC_PanelGroup "PanelGroup.mui"
-
-/* PanelGroup attributes */
-#define MUIA_PanelGroup_CollapseAll     (TAG_USER | 0x41000001)
-#define MUIA_PanelGroup_ExpandAll       (TAG_USER | 0x41000002)
-#define MUIA_PanelGroup_AllowMultiple   (TAG_USER | 0x41000003)
-#define MUIA_PanelGroup_ExpandedPanel   (TAG_USER | 0x41000005)
-#define MUIA_PanelGroup_DragReordering  (TAG_USER | 0x41000006)
-
-/* PanelGroup methods */
-#define MUIM_PanelGroup_CollapsePanel   (TAG_USER | 0x41000101)
-#define MUIM_PanelGroup_ExpandPanel     (TAG_USER | 0x41000102)
-#define MUIM_PanelGroup_TogglePanel     (TAG_USER | 0x41000103)
-#define MUIM_PanelGroup_GetPanelState   (TAG_USER | 0x41000104)
-#define MUIM_PanelGroup_ScanPanels      (TAG_USER | 0x41000105)
-
-/* Method parameter structures */
-struct MUIP_PanelGroup_CollapsePanel {
-    STACKED ULONG MethodID;
-    STACKED Object *panel;
-};
-
-struct MUIP_PanelGroup_ExpandPanel {
-    STACKED ULONG MethodID;
-    STACKED Object *panel;
-};
-
-struct MUIP_PanelGroup_TogglePanel {
-    STACKED ULONG MethodID;
-    STACKED Object *panel;
-};
-
-struct MUIP_PanelGroup_GetPanelState {
-    STACKED ULONG MethodID;
-    STACKED Object *panel;
-};
-
-/* Notification values */
-#define MUIV_PanelGroup_Panel_Collapsed 0
-#define MUIV_PanelGroup_Panel_Expanded  1
-
-
-#endif /* _MUI_CLASSES_PANELGROUP_H */
-#endif
 
 /**************************************************************************
  Zune/MUI Image and Background definition
@@ -5564,28 +5492,26 @@ struct MUI_Command
 #define KeyentryObject      MUIOBJMACRO_START(MUIC_Keyentry)
 #define VGroup              MUIOBJMACRO_START(MUIC_Group)
 #define HGroup \
-    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Horiz, TRUE
+    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Horiz, 1L
 #define ColGroup(columns) \
     MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Columns, (columns)
 #define RowGroup(rows) \
     MUIOBJMACRO_START(MUIC_Group), MUIA_Group_Rows   , (rows)
 #define PageGroup \
-    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_PageMode, TRUE
+    MUIOBJMACRO_START(MUIC_Group), MUIA_Group_PageMode, 1L
 #define VGroupV             MUIOBJMACRO_START(MUIC_Virtgroup)
 #define HGroupV \
-    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Horiz, TRUE
+    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Horiz, 1L
 #define ColGroupV(columns) \
     MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Columns, (columns)
 #define RowGroupV(rows) \
     MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_Rows   , (rows)
 #define PageGroupV \
-    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_PageMode, TRUE
+    MUIOBJMACRO_START(MUIC_Virtgroup), MUIA_Group_PageMode, 1L
 #define RegisterGroup(ts) \
     MUIOBJMACRO_START(MUIC_Register), MUIA_Register_Titles, ((IPTR) (ts))
-#define Panel              MUIOBJMACRO_START(MUIC_Panel)
-#define HPanelGroup \
-    MUIOBJMACRO_START(MUIC_PanelGroup), MUIA_Group_Horiz, TRUE
-#define VPanelGroup         MUIOBJMACRO_START(MUIC_PanelGroup)
+/* Panel, HPanelGroup and VPanelGroup are gone along with the AROS-only Panel
+   family they built; see the note where mui.h used to include their headers. */
 
 #define End                 OBJMACRO_END
 
@@ -5890,33 +5816,39 @@ struct MUI_Command
 #ifndef _MUI_CLASSES_NOTIFY_H
 #endif
 
+#ifndef _MUI_CLASSES_AREA_H
+#endif
 
 #ifdef __SASC
 #define CLASS_INSTANCE_ALIGN
-#define INTUITION_CLASSALIGN_H
-#endif
-
+#else
 #ifndef INTUITION_CLASSALIGN_H
 #include <intuition/classalign.h>
 #endif
-
-/* The __dummyAreaData__ struct is now defined in area_macros.h */
-#ifndef MUI_AREADATA_DEFINED
-#define muiNotifyData(obj) (&(((struct __dummyAreaData__ *)(obj))->mnd))
-#define muiAreaData(obj)   (&(((struct __dummyAreaData__ *)(obj))->mad))
 #endif
 
+/* MUI_AREADATA_DEFINED guards the struct only; area_macros.h declares the
+   same struct under the same guard for translation units that pick up their
+   macros from the generated <libraries/mui.h> instead of this file. */
 #ifndef MUI_AREADATA_DEFINED
+#define MUI_AREADATA_DEFINED
+struct __dummyAreaData__
+{
+    struct MUI_NotifyData mnd;
+    struct MUI_AreaData   mad CLASS_INSTANCE_ALIGN;
+};
+#endif
+
+#define muiNotifyData(obj) (&(((struct __dummyAreaData__ *)(obj))->mnd))
+#define muiAreaData(obj)   (&(((struct __dummyAreaData__ *)(obj))->mad))
+
 #define muiGlobalInfo(obj) \
     (((struct __dummyAreaData__ *)(obj))->mnd.mnd_GlobalInfo)
 #define muiUserData(obj)   \
     (((struct __dummyAreaData__ *)(obj))->mnd.mnd_UserData)
 #define muiRenderInfo(obj) \
     (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo)
-#endif
 
-
-#ifndef MUI_AREADATA_DEFINED
 /* the following macros are only valid inbetween MUIM_Setup and MUIM_Cleanup */
 #define _app(obj)          (muiGlobalInfo(obj)->mgi_ApplicationObject)
 #define _win(obj)          (muiRenderInfo(obj)->mri_WindowObject)
@@ -5953,9 +5885,6 @@ struct MUI_Command
 #define _defwidth(obj)     (muiAreaData(obj)->mad_MinMax.DefWidth)
 #define _defheight(obj)    (muiAreaData(obj)->mad_MinMax.DefHeight)
 #define _flags(obj)        (muiAreaData(obj)->mad_Flags)
-#endif
-
-
 
 #endif /* _MUI_MACROS_H */
 #endif

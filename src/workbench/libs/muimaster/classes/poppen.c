@@ -21,26 +21,29 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing method definitions */
-#ifndef MUIM_Poppen_OpenWindow
-#define MUIM_Poppen_OpenWindow (MUIB_Poppen | 0x00000001)
-#endif
-
-#ifndef MUIM_Poppen_CloseWindow
-#define MUIM_Poppen_CloseWindow (MUIB_Poppen | 0x00000002)
-#endif
-
-/* Missing attribute definition */
-#ifndef MUIA_Penadjust_Spec
-#define MUIA_Penadjust_Spec (MUIB_Penadjust | 0x00000001)
-#endif
-
-/* Missing struct definition */
-struct MUIP_Poppen_CloseWindow
-{
-    ULONG MethodID;
-    BOOL ok;
-};
+/*
+ * Local stand-ins for MUIM_Poppen_OpenWindow, MUIM_Poppen_CloseWindow,
+ * MUIA_Penadjust_Spec and struct MUIP_Poppen_CloseWindow used to sit here.
+ * All four are declared properly - the first three in classes/poppen.h and
+ * classes/penadjust.h, both of which mui.h above pulls in - but every one of
+ * those declarations carries a PRIV marker, so buildincludes.c had dropped
+ * them from the generated <libraries/mui.h> that this file used to reach.
+ *
+ * The stand-ins had guessed at the values and guessed wrong, so this was not
+ * merely redundant:
+ *
+ *   MUIM_Poppen_OpenWindow   guessed  MUIB_Poppen | 0x1,  really | 0x0
+ *   MUIM_Poppen_CloseWindow  guessed  MUIB_Poppen | 0x2,  really | 0x1
+ *   MUIA_Penadjust_Spec      guessed  MUIB_Penadjust | 0x1, really | 0x0
+ *
+ * The guessed OpenWindow identifier is the real CloseWindow identifier, so
+ * asking the pop-up to open was sending it the close method instead, and the
+ * penadjust object inside the window was being configured through an
+ * attribute nothing listens to.  The local struct also declared the method's
+ * result as BOOL, which is 16 bits here, where poppen.h correctly declares a
+ * 32-bit STACKED LONG: Poppen__MUIM_CloseWindow() was reading the wrong half
+ * of the word and so could not tell OK from Cancel.
+ */
 
 
 IPTR Poppen__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)

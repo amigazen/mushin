@@ -37,7 +37,6 @@
         return;
 
     EndRefresh(w, TRUE);
-    UnlockLayerInfo(&w->WScreen->LayerInfo);
     mri->mri_Flags &= ~MUIMRI_REFRESHMODE;
     return;
 } /* MUI_EndRefresh */

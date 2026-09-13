@@ -72,22 +72,25 @@ struct ListEntry
 #define ENTRY_SELECTED   (1<<0)
 #define ENTRY_RENDER     (1<<1)
 
-/* Missing attribute definitions */
-#ifndef MUIA_List_VertProp_Visible
-#define MUIA_List_VertProp_Visible (MUIB_List | 0x00000001)
-#endif
-#ifndef MUIA_List_VertProp_First
-#define MUIA_List_VertProp_First (MUIB_List | 0x00000002)
-#endif
-#ifndef MUIA_List_VertProp_Entries
-#define MUIA_List_VertProp_Entries (MUIB_List | 0x00000003)
-#endif
-#ifndef MUIA_List_ListArea
-#define MUIA_List_ListArea (MUIB_List | 0x00000004)
-#endif
-#ifndef MUIM_List_SelectChange
-#define MUIM_List_SelectChange (MUIB_List | 0x00000005)
-#endif
+/*
+ * Local stand-ins for the five private List identifiers used to sit here.  All
+ * five are declared in classes/list.h, this class's own header, but every one
+ * of those declarations carries a PRIV marker and so had been dropped from the
+ * generated <libraries/mui.h> that this file used to reach instead.
+ *
+ * The stand-ins were numbered from 1 where list.h numbers from 0, so each was
+ * shifted one place along and landed on the identifier belonging to the next
+ * attribute:
+ *
+ *   MUIA_List_VertProp_Entries  guessed | 0x3, which is MUIA_List_ListArea
+ *   MUIA_List_ListArea          guessed | 0x4, which is MUIM_List_SelectChange
+ *   MUIM_List_SelectChange      guessed | 0x5, which is nothing
+ *
+ * Reading the entry count therefore returned the list area object pointer, so
+ * the attached scrollbar was being given a pointer as its total.  Only Visible
+ * and First happened to land on their own values.  classes/listview.c carried
+ * the same three wrong guesses, which is why the two agreed with each other.
+ */
 
 
 struct ColumnInfo
@@ -1793,11 +1796,11 @@ IPTR List__MUIM_Setup(struct IClass *cl, Object *obj,
     if (!DoSuperMethodA(cl, obj, (Msg) msg))
         return 0;
 
-    data->prefs_refresh = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_refresh;
+    data->prefs_refresh = (muiGlobalInfo(obj))->mgi_Prefs->list_refresh;
     data->prefs_linespacing =
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_linespacing;
-    data->prefs_smoothed = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_smoothed;
-    data->prefs_smoothval = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_smoothval;
+        (muiGlobalInfo(obj))->mgi_Prefs->list_linespacing;
+    data->prefs_smoothed = (muiGlobalInfo(obj))->mgi_Prefs->list_smoothed;
+    data->prefs_smoothval = (muiGlobalInfo(obj))->mgi_Prefs->list_smoothval;
 
     data->list_cursor =
         zune_imspec_setup(MUII_ListCursor, muiRenderInfo(obj));
@@ -1806,7 +1809,7 @@ IPTR List__MUIM_Setup(struct IClass *cl, Object *obj,
     data->list_selcur =
         zune_imspec_setup(MUII_ListSelCur, muiRenderInfo(obj));
 
-    data->prefs_multi = ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->list_multi;
+    data->prefs_multi = (muiGlobalInfo(obj))->mgi_Prefs->list_multi;
     if (data->multiselect == MUIV_Listview_MultiSelect_Default)
     {
         if (data->prefs_multi == LISTVIEW_MULTI_SHIFTED)
@@ -2054,7 +2057,7 @@ IPTR List__MUIM_Draw(struct IClass *cl, Object *obj, struct MUIP_Draw *msg)
 
     if ((msg->flags & MADF_DRAWUPDATE) == 0 || data->update == UPDATEMODE_ALL)
     {
-        DoMethod(obj, MUIM_DrawBackground, _mleft(data->area),
+        ZuneDrawBackground(obj, _mleft(data->area),
             _mtop(data->area), _mwidth(data->area), _mheight(data->area),
             0, data->entries_first * data->entry_maxheight, 0);
     }
@@ -2117,7 +2120,7 @@ IPTR List__MUIM_Draw(struct IClass *cl, Object *obj, struct MUIP_Draw *msg)
         top = y;
         bottom = y + (end - start) * data->entry_maxheight;
 
-        DoMethod(obj, MUIM_DrawBackground, _mleft(data->area), top,
+        ZuneDrawBackground(obj, _mleft(data->area), top,
             _mwidth(data->area), bottom - top + 1, 0,
             top - _mtop(data->area) + data->entries_first
             * data->entry_maxheight, 0);
@@ -2162,7 +2165,7 @@ IPTR List__MUIM_Draw(struct IClass *cl, Object *obj, struct MUIP_Draw *msg)
             ((msg->flags & MADF_DRAWUPDATE) && data->update == UPDATEMODE_NEEDED
                 && (entry->flags & ENTRY_RENDER)))
             {
-                DoMethod(obj, MUIM_DrawBackground, _mleft(data->area), y,
+                ZuneDrawBackground(obj, _mleft(data->area), y,
                     _mwidth(data->area), data->entry_maxheight, 0,
                     y - _mtop(data->area) +
                     data->entries_first * data->entry_maxheight, 0);
@@ -3821,7 +3824,7 @@ IPTR List__MUIM_DragReport(struct IClass *cl, Object *obj,
             * data->entry_maxheight;
         if (y != data->drop_mark_y)
         {
-            DoMethod(obj, MUIM_DrawBackground, _mleft(data->area),
+            ZuneDrawBackground(obj, _mleft(data->area),
                 data->drop_mark_y, _mwidth(data->area), 1, 0, 0, 0);
 
             /* Draw new drop mark and store its position */
@@ -3944,7 +3947,7 @@ static IPTR List__MUIM_CreateDragImage(struct IClass *cl, Object *obj,
     {
         /* Get drag frame */
         zframe = zune_zframe_get(obj,
-            (const struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Drag]);
+            (const struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Drag]);
 
         /* Allocate drag image buffer */
         img->width = width + zframe->ileft + zframe->iright;

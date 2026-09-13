@@ -9,6 +9,7 @@
 #include <intuition/classes.h>
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
+#include <proto/dos.h>
 #include <proto/intuition.h>
 #include <proto/graphics.h>
 #include <proto/keymap.h>
@@ -20,6 +21,35 @@
 #include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
+extern struct Library *KeymapBase;
+
+void ZuneTrace(CONST_STRPTR fmt, ...)
+{
+    BPTR fh;
+    static BPTR logfh;
+
+    fh = Output();
+    /*
+     * Workbench-started programs (MUI prefs, demos) have Output()==0, so
+     * traces would vanish.  Append to T:zune.log in that case.
+     */
+    if (fh == 0)
+    {
+        if (logfh == 0)
+        {
+            logfh = Open("T:zune.log", MODE_READWRITE);
+            if (logfh == 0)
+                logfh = Open("T:zune.log", MODE_NEWFILE);
+        }
+        fh = logfh;
+        if (fh != 0)
+            Seek(fh, 0, OFFSET_END);
+    }
+    if (fh == 0)
+        return;
+    VFPrintf(fh, fmt, (APTR) (&fmt + 1));
+    Flush(fh);
+}
 
 /**************************************************************************
  check if region is entirely within given bounds
@@ -41,15 +71,35 @@ int isRegionWithinBounds(struct Region *r, int left, int top, int width,
 ULONG ConvertKey(struct IntuiMessage * imsg)
 {
     struct InputEvent event;
-    UBYTE code = 0;
+    UBYTE code;
+    WORD actual;
+
+    code = 0;
     event.ie_NextEvent = NULL;
     event.ie_Class = IECLASS_RAWKEY;
     event.ie_SubClass = 0;
     event.ie_Code = imsg->Code;
     event.ie_Qualifier = imsg->Qualifier;
-    event.ie_EventAddress = (APTR *) * ((IPTR *) imsg->IAddress);
-    MapRawKey(&event, &code, 1, NULL);
-    return code;
+    /*
+     * keymap.library/MapRawKey + RKM maprawkey.c:
+     *   eventptr = imsg->IAddress;
+     *   ie_EventAddress = *eventptr;
+     * Intuition stores prev dead-key ULONG in the message and points
+     * IAddress at it (always non-NULL for RAWKEY on OS3/AROS).  Still
+     * guard NULL — a bad IAddress lockups the machine.
+     */
+    if (imsg->IAddress != NULL)
+        event.ie_EventAddress = (APTR)(*(ULONG *)imsg->IAddress);
+    else
+        event.ie_EventAddress = NULL;
+
+    if (KeymapBase == NULL)
+        return 0;
+
+    actual = MapRawKey(&event, (STRPTR)&code, 1, NULL);
+    if (actual <= 0)
+        return 0;
+    return (ULONG)code;
 }
 
 /**************************************************************************
@@ -72,17 +122,23 @@ IPTR XGET(Object * obj, Tag attr)
 **************************************************************************/
 IPTR DoSetupMethod(Object * obj, struct MUI_RenderInfo * info)
 {
+    struct MUIP_Setup smsg;
+
     /* MUI set the correct render info *before* it calls MUIM_Setup so please
      * only use this function instead of DoMethodA() */
     muiRenderInfo(obj) = info;
-    return DoMethod(obj, MUIM_Setup, (IPTR) info);
+    smsg.MethodID = MUIM_Setup;
+    smsg.RenderInfo = info;
+    return DoMethodA(obj, (Msg)&smsg);
 }
 
 IPTR DoShowMethod(Object * obj)
 {
+    struct MUIP_Show smsg;
     IPTR ret;
 
-    ret = DoMethod(obj, MUIM_Show);
+    smsg.MethodID = MUIM_Show;
+    ret = DoMethodA(obj, (Msg)&smsg);
     if (ret)
         ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags |= MADF_CANDRAW;
     return ret;
@@ -90,10 +146,33 @@ IPTR DoShowMethod(Object * obj)
 
 IPTR DoHideMethod(Object * obj)
 {
+    struct MUIP_Hide hmsg;
+
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags &= ~MADF_CANDRAW;
-    return DoMethod(obj, MUIM_Hide);
+    hmsg.MethodID = MUIM_Hide;
+    return DoMethodA(obj, (Msg)&hmsg);
 }
 
+
+Object *ZuneNextObject(Object **state)
+{
+    struct _Object *node;
+    struct _Object *succ;
+
+    if (state == NULL)
+        return NULL;
+
+    node = (struct _Object *)(*state);
+    if (node == NULL)
+        return NULL;
+
+    succ = (struct _Object *)node->o_Node.mln_Succ;
+    if (succ == NULL)
+        return NULL;
+
+    *state = (Object *)succ;
+    return (Object *)BASEOBJECT(node);
+}
 
 void *Node_Next(APTR node)
 {
@@ -237,4 +316,68 @@ ULONG IsObjectVisible(Object * child, struct Library * MUIMasterBase)
         }
     }
     return TRUE;
+}
+
+IPTR ZuneDrawBackground(Object *obj, LONG left, LONG top, LONG width,
+    LONG height, LONG xoffset, LONG yoffset, LONG flags)
+{
+    struct MUIP_DrawBackground msg;
+
+    if (obj == NULL)
+        return 0;
+    msg.MethodID = MUIM_DrawBackground;
+    msg.left = left;
+    msg.top = top;
+    msg.width = width;
+    msg.height = height;
+    msg.xoffset = xoffset;
+    msg.yoffset = yoffset;
+    msg.flags = flags;
+    return DoMethodA(obj, (Msg) &msg);
+}
+
+IPTR ZuneDrawParentBackground(Object *obj, LONG left, LONG top, LONG width,
+    LONG height, LONG xoffset, LONG yoffset, LONG flags)
+{
+    struct MUIP_DrawParentBackground msg;
+
+    if (obj == NULL)
+        return 0;
+    msg.MethodID = MUIM_DrawParentBackground;
+    msg.left = left;
+    msg.top = top;
+    msg.width = width;
+    msg.height = height;
+    msg.xoffset = xoffset;
+    msg.yoffset = yoffset;
+    msg.flags = flags;
+    return DoMethodA(obj, (Msg) &msg);
+}
+
+IPTR ZuneWindowDrawBackground(Object *obj, LONG left, LONG top, LONG width,
+    LONG height, LONG xoffset, LONG yoffset, LONG flags)
+{
+    struct MUIP_Window_DrawBackground msg;
+
+    if (obj == NULL)
+        return 0;
+    msg.MethodID = MUIM_Window_DrawBackground;
+    msg.left = left;
+    msg.top = top;
+    msg.width = width;
+    msg.height = height;
+    msg.xoffset = xoffset;
+    msg.yoffset = yoffset;
+    msg.flags = flags;
+    return DoMethodA(obj, (Msg) &msg);
+}
+
+IPTR ZuneLayout(Object *obj)
+{
+    struct MUIP_Layout msg;
+
+    if (obj == NULL)
+        return 0;
+    msg.MethodID = MUIM_Layout;
+    return DoMethodA(obj, (Msg) &msg);
 }

@@ -31,48 +31,81 @@
 LONG HexToIPTR(CONST_STRPTR s, ULONG *val);
 LONG HexToLong(CONST_STRPTR s, ULONG *val);
 
-/* CyberGfx function stubs for Amiga */
-ULONG WritePixelArrayAlpha(APTR, UWORD, UWORD, UWORD, struct RastPort *, UWORD, UWORD, UWORD, UWORD, ULONG);
-ULONG WriteLUTPixelArray(APTR, UWORD, UWORD, UWORD, struct RastPort *, APTR, UWORD, UWORD, UWORD, UWORD, UBYTE);
-
-/* SAS/C library function stubs 
-void _XCEXIT(void); */
-
-/* Define all classes as built in...should be moved out to config.h like file */
+/*
+ * Which classes support_classes.c puts into builtins[].
+ *
+ * On AROS these come from mmakefile.src; on AmigaOS the list is maintained by
+ * hand here, and every entry support_classes.h tests MUST appear below.  An
+ * undefined macro is 0 under ANSI #if, so a missing entry silently drops the
+ * class from builtins[] *and* from the guarded descriptor in its own .c file -
+ * no warning, no link error, just MUI_GetClass() failing at runtime.  Fourteen
+ * entries were missing (this is still the case upstream), which is why the
+ * whole list is now spelled out explicitly, zeros included.
+ *
+ * Anything set to 0 below is deliberate; see the note against each one.
+ */
 #define ZUNE_BUILTIN_ABOUTMUI 1
 #define ZUNE_BUILTIN_BALANCE 1
 #define ZUNE_BUILTIN_BOOPSI 1
 #define ZUNE_BUILTIN_COLORADJUST 1
 #define ZUNE_BUILTIN_COLORFIELD 1
+#define ZUNE_BUILTIN_CRAWLING 1
+#define ZUNE_BUILTIN_DIRLIST 1
+#define ZUNE_BUILTIN_DTPIC 1
 #define ZUNE_BUILTIN_FRAMEADJUST 1
 #define ZUNE_BUILTIN_FRAMEDISPLAY 1
 #define ZUNE_BUILTIN_GAUGE 1
+/* No iconlist.c / iconlistview.c in this tree. */
 #define ZUNE_BUILTIN_ICONLISTVIEW 0
 #define ZUNE_BUILTIN_IMAGEADJUST 1
 #define ZUNE_BUILTIN_IMAGEDISPLAY 1
+#define ZUNE_BUILTIN_KNOB 1
+#define ZUNE_BUILTIN_LEVELMETER 1
+#define ZUNE_BUILTIN_NUMERICBUTTON 1
+/* No DRAGHANDLE / PANEL / PANELGROUP / PANELTITLE entries: those four classes
+   are an AROS desktop extension that no MUI release provides, and AROS' Panel
+   even collides with the name of a real, unrelated MUI class.  See the note in
+   mui.h where their headers used to be included. */
+#define ZUNE_BUILTIN_PALETTE 1
 #define ZUNE_BUILTIN_PENADJUST 1
 #define ZUNE_BUILTIN_PENDISPLAY 1
 #define ZUNE_BUILTIN_POPASL 1
 #define ZUNE_BUILTIN_POPFRAME 1
 #define ZUNE_BUILTIN_POPIMAGE 1
+#define ZUNE_BUILTIN_POPLIST 1
 #define ZUNE_BUILTIN_POPPEN 1
+#define ZUNE_BUILTIN_POPSCREEN 1
 #define ZUNE_BUILTIN_RADIO 1
 #define ZUNE_BUILTIN_SCALE 1
 #define ZUNE_BUILTIN_SCROLLGROUP 1
+#define ZUNE_BUILTIN_SETTINGS 1
 #define ZUNE_BUILTIN_SETTINGSGROUP 1
 #define ZUNE_BUILTIN_VIRTGROUP 1
+#define ZUNE_BUILTIN_VOLUMELIST 1
 
 #ifdef __SASC
 #include <dos.h>
 #endif
 
-#ifndef PI
-#define PI 3.1415
-#endif
-
-#ifndef M_PI
-#define M_PI PI
-#endif
+/*
+ * PI used to be defined here as 3.1415 and M_PI as PI.  PI itself is gone:
+ * nothing referred to it - classes/knob.c and classes/levelmeter.c write
+ * 3.14159265358979323846 out in full - and SAS/C's own <math.h> defines PI
+ * without an #ifndef guard, so whichever header came second produced a
+ * redefinition warning.  It also reached the generated <libraries/mui.h>,
+ * where a four-digit PI would have shadowed the real one for applications.
+ *
+ * M_PI has to stay: imspec_gradientdraw.c uses it for the gradient angle, and
+ * SAS/C's <math.h> does not provide it.  Written out in full rather than
+ * derived from PI, so the gradient maths no longer silently depends on a
+ * constant that was only accurate to four decimal places.  It is marked
+ * private so buildincludes.c keeps it out of the generated <libraries/mui.h>:
+ * it is the library's own business, and an application that includes both that
+ * header and <math.h> should get whichever of the two it asked for.
+ */
+#ifndef M_PI                            /* PRIV */
+#define M_PI 3.14159265358979323846     /* PRIV */
+#endif                                  /* PRIV */
 
 #define AROS_STACKSIZE 65536
 
@@ -83,6 +116,19 @@ size_t strlcat(char *buf, const char *src, size_t len); /* PRIV */
 Object *DoSuperNewTagList(struct IClass *cl, Object *obj,void *dummy, struct TagItem *tags);
 Object *VARARGS68K DoSuperNewTags(struct IClass *cl, Object *obj, void *dummy, ...);
 int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
+
+/*
+ * Declared here because support_amigaos.c supplies both of these on m68k
+ * (SAS/C 6.x has no C99 snprintf, and its sprintf would drag stdio into a
+ * library that has no startup code).  Without the prototypes IGNORE=63 in the
+ * smakefile silently accepted every call as an undeclared function.
+ * See the comment at the head of support_amigaos.c: these implement the
+ * RawDoFmt format dialect, so all integer conversions need the 'l' modifier.
+ */
+#ifndef __amigaos4__                                          /* PRIV */
+int snprintf(char *buf, int size, const char *fmt, ...);      /* PRIV */
+int sprintf(char *buf, const char *fmt, ...);                 /* PRIV */
+#endif                                                        /* PRIV */
 
 
 #ifdef __amigaos4__       /* PRIV */
@@ -149,6 +195,17 @@ VOID FreeVecPooled(APTR pool, APTR memory);
 #ifndef __AROS_TYPES_DEFINED__
 #   define __AROS_TYPES_DEFINED__
     typedef unsigned long IPTR;
+    /*
+     * The signed counterpart of IPTR, used wherever a tag value or a method
+     * argument carries a number that can go negative - classes/list.c,
+     * classes/menuitem.c, classes/popobject.c, classes/scrollgroup.c and
+     * classes/palette.c all cast through it.  It was missing here, and those
+     * sources only ever compiled because they reached the generated
+     * <libraries/mui.h>, which still carries a copy from an older revision of
+     * this header.  font.c had worked around it with a local
+     * "#define SIPTR LONG".
+     */
+    typedef signed long   SIPTR;
     typedef long          STACKLONG;
     typedef unsigned long STACKULONG;
     typedef void (*VOID_FUNC)();
@@ -163,6 +220,10 @@ for                                            \
     ((struct Node *)(n))->ln_Succ;             \
     n=(void *)(((struct Node *)(n))->ln_Succ)  \
 )
+
+/* ForeachNodeSafe() was added here for classes/panelgroup.c, the only thing in
+   the library that ever used it, and went with that file.  AROS defines it in
+   <exec/lists.h> if it is ever needed again. */
 
 /*** AROS register definitions **********************************************/
 #define __REG_D0 __d0

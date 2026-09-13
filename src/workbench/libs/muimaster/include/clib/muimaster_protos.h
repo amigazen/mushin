@@ -22,7 +22,31 @@ extern "C" {
 #include <utility/tagitem.h>
 #endif
 #ifndef LIBRARIES_MUI_H
+#ifdef MUIMASTER_LIBRARY_BUILD
+/*
+ * muimaster.library building itself.
+ *
+ * This is the one place the whole library reached the public header from:
+ * every class source includes <proto/muimaster.h> for the libcall pragmas,
+ * and it includes this file, which included <libraries/mui.h> - all of that
+ * before the source got round to its own #include "mui.h".  Since the two
+ * headers share the LIBRARIES_MUI_H guard, the public one won and the
+ * internal one expanded to nothing, so the library compiled against the copy
+ * buildincludes.c had stripped of every line containing "PRIV": no
+ * mgi_Prefs, no mgi_Configdata, no MUIM_Window_RecalcDisplay, no
+ * MUI_EHF_HANDLEINPUT, and so on.
+ *
+ * The quoted form resolves to the library's own header: SAS/C looks in the
+ * directory of the file containing the #include first (include/clib, no match)
+ * and then in the current directory, which for this makefile is the library
+ * source root.  MUIMASTER_LIBRARY_BUILD comes from CFLAGS in the smakefile and
+ * is never set when an application compiles against the installed SDK, so the
+ * shipped behaviour below is unchanged.
+ */
+#include "mui.h"
+#else
 #include <libraries/mui.h>
+#endif
 #endif
 
 /* "muimaster.library"*/

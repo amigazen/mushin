@@ -860,11 +860,19 @@ void dt_put_on_rastport(struct dt_node *node, struct RastPort *rp, int x,
     if (NULL == o)
         return;
 
-#ifdef __mc68000
+#if defined(_M68000) || defined(__M68000) || defined(__mc68000)
     /* WritePixelArrayAlpha is insanely expensive on slow
      * m68k machines in planar graphics modes
+     *
+     * The test was "#ifdef __mc68000" alone, a GCC predefine that SAS/C never
+     * sets (SDI_compiler.h spells the m68k check the way used here), so
+     * doAlpha stayed TRUE for every screen depth.  WritePixelArrayAlpha()
+     * also comes from cybergraphics.library, which is optional on AmigaOS
+     * 3.x, and the generated call is an indirect jsr through CyberGfxBase -
+     * so a missing library jumped through address 0.
      */
-    doAlpha = GetBitMapAttr(rp->BitMap, BMA_DEPTH) > 8;
+    doAlpha = (CyberGfxBase != NULL)
+        && (GetBitMapAttr(rp->BitMap, BMA_DEPTH) > 8);
 #endif
 
     if (doAlpha && node->mask == mskHasAlpha)
@@ -925,12 +933,24 @@ void dt_put_mim_on_rastport(struct dt_node *node, struct RastPort *rp,
 
     Object *o;
     int width;
+    BOOL doAlpha = TRUE;
 
     o = node->o;
     if (NULL == o)
         return;
     width = dt_width(node) >> 1;
-    if (node->mask == mskHasAlpha)
+
+#if defined(_M68000) || defined(__M68000) || defined(__mc68000)
+    /* Same restriction as dt_put_on_rastport() above, which this function
+       lacked entirely: WritePixelArrayAlpha() needs cybergraphics.library
+       (optional on AmigaOS 3.x, and the call is an indirect jsr through
+       CyberGfxBase) and is far too slow on m68k in planar modes.  Falling
+       through leaves the masked BltBitMapRastPort() path below to draw it. */
+    doAlpha = (CyberGfxBase != NULL)
+        && (GetBitMapAttr(rp->BitMap, BMA_DEPTH) > 8);
+#endif
+
+    if (doAlpha && node->mask == mskHasAlpha)
     {
         img =
             (ULONG *) AllocVec(dt_width(node) * dt_height(node) * 4,

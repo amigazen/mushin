@@ -49,7 +49,13 @@
         return 0;
 
     mri->mri_Flags |= MUIMRI_REFRESHMODE;
-    LockLayerInfo(&w->WScreen->LayerInfo);
+    /*
+     * intuition.doc BeginRefresh: only simple gfx between Begin/End.
+     * AROS Zune also LockLayerInfo here; that lock is not recursive on
+     * classic Amiga and deadlocks if input.device already holds it
+     * (or if we still have the IDCMP message).  BeginRefresh itself
+     * locks the layers it needs.
+     */
     BeginRefresh(w);
     return 1;
 } /* MUI_BeginRefresh */

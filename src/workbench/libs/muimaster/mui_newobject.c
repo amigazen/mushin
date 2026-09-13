@@ -8,6 +8,7 @@
 
 #include "mui.h"
 #include "muimaster_intern.h"
+#include "support.h"
 
 /* #define MYDEBUG 1 */
 #include "debug.h"
@@ -50,11 +51,15 @@
 
         if (obj) return obj;
 
-        bug("*** Could not create object of %s\n", classid);
+        ZuneTrace("zune: NewObject failed class=%s\n",
+            classid ? classid : (CONST_STRPTR) "(null)");
         MUI_FreeClass(cl);
     }
-
-    bug("*** Couldn't find %s\n", classid);
+    else
+    {
+        ZuneTrace("zune: GetClass failed class=%s\n",
+            classid ? classid : (CONST_STRPTR) "(null)");
+    }
 
     return NULL;
 } /* MUI_NewObjectA */
@@ -95,7 +100,7 @@
     struct TagItem *tagList;
     Object *retval;
     
-    tagList = (struct TagItem *)&classname;
+    tagList = (struct TagItem *)(&classname + 1);
     retval = MUI_NewObjectA(classname, tagList);
     
     return retval;

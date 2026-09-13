@@ -17,6 +17,7 @@
 #include "debug.h"
 #include "muimaster_intern.h"
 #include "mui.h"
+#include "support.h"
 #include "area_macros.h"
 
 extern struct Library *MUIMasterBase;
@@ -106,7 +107,13 @@ IPTR Family__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             || tag->ti_Tag == MUIA_Group_Child)
         {
             if (tag->ti_Data)   /* add child */
-                DoMethod(obj, MUIM_Family_AddTail, tag->ti_Data);
+            {
+                struct MUIP_Family_AddTail addmsg;
+
+                addmsg.MethodID = MUIM_Family_AddTail;
+                addmsg.obj = (Object *)tag->ti_Data;
+                DoMethodA(obj, (Msg)&addmsg);
+            }
             else                /* fail and dispose children */
             {
                 bad_children = TRUE;
@@ -130,14 +137,25 @@ IPTR Family__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 IPTR Family__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_FamilyData *data = INST_DATA(cl, obj);
-    Object *cstate = (Object *) data->children.lh_Head;
+    Object *cstate;
     Object *child;
 
+    /*
+     * Same walk as older Zune: NextObject saves ln_Succ before we
+     * FreeMem the child.  Remove(_OBJECT) before dispose was corrupting
+     * the header/class pointer; the next NextObject then jumped into
+     * freed memory (crash after the child's Notify DISPOSE super).
+     */
+    cstate = (Object *) data->children.lh_Head;
     while ((child = NextObject(&cstate)))
     {
-/*  g_print("Family_Dispose: dispose child %p\n", child); */
+        ZuneTrace("zune: Family DISPOSE child %lx cstate=%lx\n",
+            (ULONG) child, (ULONG) cstate);
         MUI_DisposeObject(child);
+        ZuneTrace("zune: Family DISPOSE child %lx done cstate=%lx\n",
+            (ULONG) child, (ULONG) cstate);
     }
+    NewList(&data->children);
 
     return DoSuperMethodA(cl, obj, msg);
 }
@@ -220,7 +238,8 @@ IPTR Family__MUIM_AddTail(struct IClass *cl, Object *obj,
     {
         D(bug("Family_AddTail(%p): obj=%p node=%p\n", obj, msg->obj,
                 _OBJECT(msg->obj)));
-        DoMethod(msg->obj, OM_ADDTAIL, (IPTR) & data->children);
+        /* Same node as AddHead/Insert/Sort: the _Object header, not instance. */
+        AddTail(&(data->children), (struct Node *)_OBJECT(msg->obj));
 
         /* if we are in an application tree, propagate pointers */
         if (muiNotifyData(obj)->mnd_GlobalInfo)
@@ -280,10 +299,12 @@ IPTR Family__MUIM_Remove(struct IClass *cl, Object *obj,
 
     if (msg->obj)
     {
-/*          D(bug("Family_Remove(%p): obj=%p\n", obj, msg->obj)); */
-        DoMethod(msg->obj, MUIM_DisconnectParent);
+        struct MUIP_DisconnectParent dmsg;
+
+        dmsg.MethodID = MUIM_DisconnectParent;
+        DoMethodA(msg->obj, (Msg)&dmsg);
         muiNotifyData(msg->obj)->mnd_ParentObject = NULL;
-        DoMethod(msg->obj, OM_REMOVE);
+        Remove((struct Node *)_OBJECT(msg->obj));
         return TRUE;
     }
     else

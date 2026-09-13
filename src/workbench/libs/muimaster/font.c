@@ -6,9 +6,14 @@
 #include <exec/types.h>
 #include <clib/alib_protos.h>
 
-#ifndef SIPTR
-#define SIPTR LONG
-#endif
+/*
+ * SIPTR used to be worked around here with "#define SIPTR LONG", because
+ * support_amigaos.h declared IPTR but not its signed counterpart.  It is a
+ * typedef there now, so the macro would have to go regardless: #ifndef cannot
+ * see a typedef, so the macro would still have been defined and the later
+ * "typedef signed long SIPTR;" would have expanded to a second declaration of
+ * LONG.
+ */
 #include <proto/exec.h>
 #include <proto/diskfont.h>
 #include <proto/dos.h>

@@ -544,11 +544,18 @@ struct MUI_AreaData
 // only 148 bytes for the struct in MUI !
 };
 
-#define MUI_AREADATA_DEFINED
-
-/* Define muiRenderInfo macro since MUI_AREADATA_DEFINED is set */
-#define muiRenderInfo(obj) \
-    (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo)
+/*
+ * NOTE: do not define MUI_AREADATA_DEFINED here.  That macro means
+ * "struct __dummyAreaData__ has been declared", and it is owned by macros.h /
+ * area_macros.h.  This header only declares struct MUI_AreaData itself.
+ *
+ * Defining it here used to break the build in a way the compiler could not
+ * report: macros.h includes this file *before* it tests the guard, so the test
+ * always failed and muiAreaData/muiGlobalInfo/_left/_rp/_pens/_flags and the
+ * rest were never defined at all in any file that got its macros through
+ * macros.h.  That is why so many sources ended up with hand-expanded
+ * ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left instead of _left(obj).
+ */
 
 /* Flags during MUIM_Draw */
 #define MADF_DRAWOBJECT        (1<< 0)  /* draw object completely */

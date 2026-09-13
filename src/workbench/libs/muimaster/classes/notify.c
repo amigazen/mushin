@@ -32,7 +32,13 @@
 extern struct Library *MUIMasterBase;
 
 
-#ifdef __AROS__
+/*
+ * RawDoFmt() passes the character in D0 and the PutChData pointer in A3, so
+ * these two callbacks must be declared with those registers. AROS_UFH2S
+ * expands to the correct "__asm register __d0/__a3" form on SAS/C
+ * (support_amigaos.h), so it is used unconditionally here - a plain
+ * stack-argument C function would read both arguments from the wrong place.
+ */
 AROS_UFH2S(void, cpy_func,
     AROS_UFHA(UBYTE, chr, D0),
     AROS_UFHA(STRPTR *, strPtrPtr, A3))
@@ -43,14 +49,7 @@ AROS_UFH2S(void, cpy_func,
 
     AROS_USERFUNC_EXIT
 }
-#else
-void cpy_func(UBYTE chr, STRPTR **strPtrPtr)
-{
-    *(UBYTE *)(*strPtrPtr)++ = chr;
-}
-#endif
 
-#ifdef __AROS__
 AROS_UFH2S(void, len_func,
     AROS_UFHA(UBYTE, chr, D0),
     AROS_UFHA(LONG *, lenPtr, A3))
@@ -61,12 +60,6 @@ AROS_UFH2S(void, len_func,
 
     AROS_USERFUNC_EXIT
 }
-#else
-void len_func(UBYTE chr, LONG *lenPtr)
-{
-    (*lenPtr)++;
-}
-#endif
 
 
 /*
@@ -270,23 +263,37 @@ IPTR Notify__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
  */
 IPTR Notify__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
-    struct MinNode *node, *tmp;
+    struct MinNode *node;
     struct MUI_NotifyData *data = INST_DATA(cl, obj);
 
-    mui_free(data->mnd_Attributes);
+    ZuneTrace("zune: Notify DISPOSE obj=%lx attrs=%lx nlist=%lx\n",
+        (ULONG) obj, (ULONG) data->mnd_Attributes,
+        (ULONG) data->mnd_NotifyList);
+
+    if (data->mnd_Attributes)
+    {
+        mui_free(data->mnd_Attributes);
+        data->mnd_Attributes = NULL;
+    }
 
     if (data->mnd_NotifyList)
     {
-        for (node = data->mnd_NotifyList->mlh_Head; node->mln_Succ;
-            node = tmp)
+        while ((node = (struct MinNode *)RemHead((struct List *)data->
+                    mnd_NotifyList)))
         {
-            tmp = node->mln_Succ;
             DeleteNNode(data, (struct NotifyNode *)node);
         }
         mui_free(data->mnd_NotifyList);
+        data->mnd_NotifyList = NULL;
     }
 
-    return DoSuperMethodA(cl, obj, msg);
+    ZuneTrace("zune: Notify DISPOSE super obj=%lx\n", (ULONG) obj);
+    {
+        IPTR rc;
+        rc = DoSuperMethodA(cl, obj, msg);
+        ZuneTrace("zune: Notify DISPOSE done obj=%lx\n", (ULONG) obj);
+        return rc;
+    }
 }
 
 static void check_notify(NNode nnode, Object *obj, struct TagItem *tag)
@@ -315,6 +322,13 @@ static void check_notify(NNode nnode, Object *obj, struct TagItem *tag)
     else if (nnode->nn_TrigVal == tag->ti_Data)
     {
         donotify = TRUE;
+    }
+
+    if (nnode->nn_TrigAttr == MUIA_Window_CloseRequest)
+    {
+        ZuneTrace("zune: notify CloseRequest trig=%lx data=%lx fire=%ld dest=%lx\n",
+            (ULONG) nnode->nn_TrigVal, (ULONG) tag->ti_Data,
+            donotify ? 1L : 0L, (ULONG) nnode->nn_DestObj);
     }
 
     /* Is the notification already being performed? */
@@ -492,7 +506,7 @@ IPTR Notify__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
     {
     case MUIA_ApplicationObject:
         if (data->mnd_GlobalInfo)
-            STORE = (IPTR) ((struct MUI_GlobalInfo_Private *)data->mnd_GlobalInfo)->mgi_ApplicationObject;
+            STORE = (IPTR) (data->mnd_GlobalInfo)->mgi_ApplicationObject;
         else
             STORE = 0;
         return TRUE;
@@ -823,7 +837,7 @@ IPTR Notify__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
     struct MUIP_GetConfigItem *msg)
 {
     IPTR found =
-        DoMethod(((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Configdata, MUIM_Dataspace_Find,
+        DoMethod((muiGlobalInfo(obj))->mgi_Configdata, MUIM_Dataspace_Find,
         msg->id);
 
     if (found)
@@ -838,7 +852,16 @@ IPTR Notify__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
 }
 
 
-#ifdef __AROS__
+/*
+ * Notify is the root of the whole MUI class hierarchy, so every object's
+ * OM_NEW/OM_SET/OM_GET chain ends up here via DoSuperMethodA.
+ *
+ * BOOPSI_DISPATCHER must be used unconditionally: support_classes.c installs
+ * this function in cl_Dispatcher.h_SubEntry and metaDispatcher calls it
+ * through a pointer typed "register __a0/__a2/__a1". On SAS/C the macro
+ * expands to exactly that signature, whereas a plain C function would take
+ * all three arguments on the stack and dereference garbage for msg->MethodID.
+ */
 BOOPSI_DISPATCHER(IPTR, Notify_Dispatcher, cl, obj, msg)
 {
     switch (msg->MethodID)
@@ -895,63 +918,6 @@ BOOPSI_DISPATCHER(IPTR, Notify_Dispatcher, cl, obj, msg)
     return DoSuperMethodA(cl, obj, msg);
 }
 BOOPSI_DISPATCHER_END
-#else
-IPTR Notify_Dispatcher(struct IClass *cl, Object *obj, Msg msg)
-{
-    switch (msg->MethodID)
-    {
-    case OM_NEW:
-        return Notify__OM_NEW(cl, obj, (struct opSet *)msg);
-    case OM_DISPOSE:
-        return Notify__OM_DISPOSE(cl, obj, msg);
-    case OM_SET:
-        return Notify__OM_SET(cl, obj, (struct opSet *)msg);
-    case OM_GET:
-        return Notify__OM_GET(cl, obj, (struct opGet *)msg);
-    case MUIM_CallHook:
-        return Notify__MUIM_CallHook(cl, obj, (APTR) msg);
-    case MUIM_Export:
-        return TRUE;
-    case MUIM_FindUData:
-        return Notify__MUIM_FindUData(cl, obj, (APTR) msg);
-    case MUIM_GetUData:
-        return Notify__MUIM_GetUData(cl, obj, (APTR) msg);
-    case MUIM_Import:
-        return TRUE;
-    case MUIM_KillNotify:
-        return Notify__MUIM_KillNotify(cl, obj, (APTR) msg);
-    case MUIM_KillNotifyObj:
-        return Notify__MUIM_KillNotifyObj(cl, obj, (APTR) msg);
-    case MUIM_MultiSet:
-        return Notify__MUIM_MultiSet(cl, obj, (APTR) msg);
-    case MUIM_NoNotifySet:
-        return Notify__MUIM_NoNotifySet(cl, obj, (APTR) msg);
-    case MUIM_Notify:
-        return Notify__MUIM_Notify(cl, obj, (APTR) msg);
-    case MUIM_Set:
-        return Notify__MUIM_Set(cl, obj, (APTR) msg);
-    case MUIM_SetAsString:
-        return Notify__MUIM_SetAsString(cl, obj, (APTR) msg);
-    case MUIM_SetUData:
-        return Notify__MUIM_SetUData(cl, obj, (APTR) msg);
-    case MUIM_SetUDataOnce:
-        return Notify__MUIM_SetUData(cl, obj, (APTR) msg);
-            /* use Notify_SetUData */
-    case MUIM_WriteLong:
-        return Notify__MUIM_WriteLong(cl, obj, (APTR) msg);
-    case MUIM_WriteString:
-        return Notify__MUIM_WriteString(cl, obj, (APTR) msg);
-    case MUIM_ConnectParent:
-        return Notify__MUIM_ConnectParent(cl, obj, (APTR) msg);
-    case MUIM_DisconnectParent:
-        return Notify__MUIM_DisconnectParent(cl, obj, (APTR) msg);
-    case MUIM_GetConfigItem:
-        return Notify__MUIM_GetConfigItem(cl, obj, (APTR) msg);
-    }
-
-    return DoSuperMethodA(cl, obj, msg);
-}
-#endif
 
 /*
  * Class descriptor.

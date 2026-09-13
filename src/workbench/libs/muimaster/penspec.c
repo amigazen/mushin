@@ -100,24 +100,24 @@ BOOL zune_pen_intern_to_spec(const struct MUI_PenSpec_intern *intern,
     {
     case PST_MUI:
         spec->buf[0] = 'm';
-        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_mui);
+        snprintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_mui);
         break;
 
     case PST_CMAP:
         spec->buf[0] = 'p';
-        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_cmap);
+        snprintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_cmap);
         break;
 
     case PST_RGB:
         spec->buf[0] = 'r';
-        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%08lx,%08lx,%08lx",
+        snprintf(spec->buf + 1, sizeof(spec->buf) - 1, "%08lx,%08lx,%08lx",
             (long)intern->p_rgb.red, (long)intern->p_rgb.green,
             (long)intern->p_rgb.blue);
         break;
 
     case PST_SYS:
         spec->buf[0] = 's';
-        SNPrintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_sys);
+        snprintf(spec->buf + 1, sizeof(spec->buf) - 1, "%ld", (long)intern->p_sys);
         break;
 
     default:

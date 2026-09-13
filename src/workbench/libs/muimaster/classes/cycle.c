@@ -24,7 +24,6 @@
 #include "area_macros.h"
 #include <utility/tagitem.h>
 
-/* MUI_GlobalInfo_Private is defined in muimaster_intern.h */
 
 extern struct Library *MUIMasterBase;
 
@@ -410,7 +409,7 @@ static void RenderPopupItem(Object *obj, struct MUI_CycleData *data,
     {
         WORD off = 0;
 
-        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
+        if ((muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
         {
             SetAPen(data->popwin->RPort, _pens(obj)[MPEN_SHADOW]);
             RectFill(data->popwin->RPort, x1, y1, x1, y2);
@@ -443,7 +442,7 @@ static void RenderPopupItem(Object *obj, struct MUI_CycleData *data,
     SetAPen(data->popwin->RPort, _pens(obj)[MPEN_TEXT]);
 
     y1 += POPITEM_EXTRAHEIGHT / 2;
-    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
+    if ((muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
     {
         y1++;
     }
@@ -478,7 +477,7 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
     data->popitemwidth += POPITEM_EXTRAWIDTH;
     data->popitemheight += POPITEM_EXTRAHEIGHT;
 
-    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
+    if ((muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
     {
         data->popitemwidth += 2;
         data->popitemheight += 2;
@@ -486,22 +485,22 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
 
     zframe =
         zune_zframe_get(obj,
-        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp]);
+        &(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp]);
 
     data->popitemoffx =
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerLeft +
+        (muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerLeft +
         zframe->ileft;
 
     data->popitemoffy =
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerTop +
+        (muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerTop +
         zframe->itop;
 
     winw = data->popitemwidth + data->popitemoffx +
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerRight +
+        (muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].innerRight +
         zframe->iright;
 
     winh = data->popitemheight * data->entries_num + data->popitemoffy +
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].
+        (muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_PopUp].
         innerBottom + zframe->ibottom;
 
     if ((winw > _screen(obj)->Width) || (winh > _screen(obj)->Height))
@@ -536,7 +535,7 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
     winx = _window(obj)->LeftEdge + _mleft(data->pageobj) -
         data->popitemoffx - POPITEM_EXTRAWIDTH / 2;
 
-    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_position ==
+    if ((muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_position ==
         CYCLE_MENU_POSITION_BELOW)
     {
         winy = _window(obj)->TopEdge + _bottom(obj) + 1;
@@ -587,7 +586,7 @@ static BOOL MakePopupWin(Object *obj, struct MUI_CycleData *data)
     x = data->popitemoffx;
     y = data->popitemoffy + POPITEM_EXTRAHEIGHT / 2;
 
-    if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
+    if ((muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_recessed_entries)
     {
         y++;
     }
@@ -645,7 +644,7 @@ IPTR Cycle__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
         case MUIKEY_PRESS:
             if (data->entries_num <
-                ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_min_entries)
+                (muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_min_entries)
             {
                 /* fall through to MUIKEY_DOWN */
             }
@@ -743,7 +742,7 @@ IPTR Cycle__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
     if (!msg->imsg ||
         data->entries_num <
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_min_entries)
+        (muiGlobalInfo(obj))->mgi_Prefs->cycle_menu_min_entries)
     {
         return 0;
     }

@@ -191,9 +191,9 @@ IPTR Radio__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
         return FALSE;
 
     set(obj, MUIA_Group_HorizSpacing,
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->radiobutton_hspacing);
+        (muiGlobalInfo(obj))->mgi_Prefs->radiobutton_hspacing);
     set(obj, MUIA_Group_VertSpacing,
-        ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->radiobutton_vspacing);
+        (muiGlobalInfo(obj))->mgi_Prefs->radiobutton_vspacing);
 
     return TRUE;
 }

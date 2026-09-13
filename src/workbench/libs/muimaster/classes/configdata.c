@@ -31,10 +31,13 @@ extern struct Library *MUIScreenBase;
 #include "prefs.h"
 #include "imspec.h"
 
-/* Define missing constants if not found */
-#ifndef MUIA_Configdata_ZunePrefs
-#define MUIA_Configdata_ZunePrefs (MUIB_Configdata | 0x00000001)
-#endif
+/*
+ * A local copy of MUIA_Configdata_ZunePrefs used to sit here.  It is declared
+ * in classes/configdata.h, which mui.h pulls in, but the declaration carries a
+ * PRIV marker and so had been dropped from the generated <libraries/mui.h>
+ * that this file used to reach instead.  This copy happened to hold the right
+ * value; several of its counterparts in other classes did not.
+ */
 
 #include <proto/muiscreen.h>
 
@@ -204,7 +207,7 @@ const static struct def_ulval DefULValues[] = {
     {MUICFG_Window_Buttons, 0},
     {MUICFG_Window_Spacing_Bottom, 3},
     {MUICFG_Window_Positions, WINDOW_POSITION_FORGET_ON_EXIT},
-    {MUICFG_Window_Redraw, WINDOW_REDRAW_WITHOUT_CLEAR},
+    {MUICFG_Window_Redraw, WINDOW_REDRAW_WITH_CLEAR},
     {MUICFG_Window_Refresh, WINDOW_REFRESH_SIMPLE},
     {MUICFG_Radio_HSpacing, 4},
     {MUICFG_Radio_VSpacing, 1},
@@ -369,8 +372,18 @@ IPTR Configdata__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 
     data->fsNotifyPort = CreateMsgPort();
     if (data->fsNotifyPort) {
-        /* Setup filesystem notification handler ---------------------------*/
-        data->fsNotifyIHN.ihn_Signals = 1UL << data->fsNotifyPort->mp_SigBit;
+        ULONG nmask;
+        UBYTE nbit;
+
+        /* Build signal masks in ULONG; avoid int-width shift surprises. */
+        nmask = 0;
+        nbit = data->fsNotifyPort->mp_SigBit;
+        if (nbit < 32)
+        {
+            nmask = 1L;
+            nmask <<= nbit;
+        }
+        data->fsNotifyIHN.ihn_Signals = nmask;
         data->fsNotifyIHN.ihn_Object  = obj;
         data->fsNotifyIHN.ihn_Method  = MUIM_Configdata_LoadPubScreens;
 

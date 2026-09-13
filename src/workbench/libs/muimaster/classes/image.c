@@ -36,6 +36,7 @@
 #include "imspec_intern.h"
 
 extern struct Library *MUIMasterBase;
+extern struct Library *CyberGfxBase;
 
 
 #define MIF_FREEVERT         (1<<0)
@@ -45,9 +46,13 @@ extern struct Library *MUIMasterBase;
 
 #define SCROLLBAR_TYPE_CUSTOM 1
 
-#ifndef MUIA_Image_Prop
-#define MUIA_Image_Prop (MUIB_MUI | 0x004233d6)
-#endif
+/*
+ * A local copy of MUIA_Image_Prop used to sit here.  It is declared in
+ * classes/image.h, which mui.h pulls in, but the declaration carries a PRIV
+ * marker and so had been dropped from the generated <libraries/mui.h> that
+ * this file used to reach instead.  This copy held the right value, unlike the
+ * one classes/scrollbar.c had been carrying for the same attribute.
+ */
 
 struct MUI_ImageData
 {
@@ -288,7 +293,7 @@ IPTR Image__MUIM_Setup(struct IClass *cl, Object *obj, struct MUIP_Setup *msg)
 
     if (data->prop)
     {
-        if (((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type == SCROLLBAR_TYPE_CUSTOM)
+        if ((muiGlobalInfo(obj))->mgi_Prefs->scrollbar_type == SCROLLBAR_TYPE_CUSTOM)
         {
             struct NewImage *ni = GetPropImage(data, data->prop);
             if (ni)
@@ -502,7 +507,14 @@ void DrawAlphaStateImageToRP(struct RastPort *rp, struct NewImage *ni, ULONG sta
                 break;
         }
 
-        if (depth >= 15)
+        /*
+         * WritePixelArrayAlpha is cybergraphics.library V45+.  Calling it
+         * with CyberGfxBase==NULL (or a too-old library) is an indirect
+         * jsr through a bad LVO (hard crash).  Same pitfall BetterString
+         * and MUI5 mastergfx documented for OS3.
+         */
+        if (depth >= 15 && CyberGfxBase != NULL
+            && CyberGfxBase->lib_Version >= 45)
         {
             WritePixelArrayAlpha(d, 0 , 0, ix*4, rp, xp, yp, ix >> 2, iy, 0xffffffff);
         }
@@ -540,7 +552,7 @@ IPTR Image__MUIM_Draw(struct IClass *cl, Object *obj,struct MUIP_Draw *msg)
         //get(obj, MUIA_Parent, &p);
         //if (p) DoMethod(p, MUIM_DrawParentBackground, _left(obj), _top(obj), _width(obj), _height(obj), _left(obj), _top(obj), 0);
         //else
-        DoMethod(obj, MUIM_DrawParentBackground, _left(obj), _top(obj), _width(obj), _height(obj), _left(obj), _top(obj), 0);
+        ZuneDrawParentBackground(obj, _left(obj), _top(obj), _width(obj), _height(obj), _left(obj), _top(obj), 0);
 
         DrawAlphaStateImageToRP(_rp(obj), data->propimage, data->state, _left(obj), _top(obj));
     }

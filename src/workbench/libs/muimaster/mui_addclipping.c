@@ -5,13 +5,43 @@
 #include <proto/graphics.h>
 #include <proto/layers.h>
 
+#define MUIMASTER_DEFINING_CLIPPING
 #include "support.h"
 
 #include "mui.h"
 #include "muimaster_intern.h"
 
-/* Forward declarations for internal functions */
-APTR MUI_AddClipRegion(struct MUI_RenderInfo *mri, struct Region *r);
+APTR ZuneAddClipping(struct MUI_RenderInfo *mri, LONG left, LONG top,
+    LONG width, LONG height)
+{
+    struct Region *r;
+    struct Rectangle rect;
+    APTR handle;
+
+    if ((width >= MUI_MAXMAX) || (height >= MUI_MAXMAX))
+        return (APTR)-1;
+
+    if (mri->mri_rCount > 0)
+    {
+        if (isRegionWithinBounds(mri->mri_rArray[mri->mri_rCount-1],
+            (WORD)left, (WORD)top, (WORD)width, (WORD)height))
+            return (APTR)-1;
+    }
+
+    if ((r = NewRegion()) == NULL)
+        return (APTR)-1;
+
+    rect.MinX = (WORD)left;
+    rect.MinY = (WORD)top;
+    rect.MaxX = (WORD)(left + width  - 1);
+    rect.MaxY = (WORD)(top  + height - 1);
+    OrRectRegion(r, &rect);
+
+    /* Always the C body — never the asm LVO via a stack call. */
+    handle = ZuneAddClipRegion(mri, r);
+
+    return handle;
+}
 
 /*****************************************************************************
 
@@ -36,36 +66,6 @@ APTR MUI_AddClipRegion(struct MUI_RenderInfo *mri, struct Region *r);
 
 *****************************************************************************/
 {
-    struct Region *r;
-    struct Rectangle rect;
-    APTR handle;
-
-    if ((width >= MUI_MAXMAX) || (height >= MUI_MAXMAX))
-        return (APTR)-1;
-
-    if (mri->mri_rCount > 0)
-    {
-        if (isRegionWithinBounds(mri->mri_rArray[mri->mri_rCount-1],
-            left, top, width, height))
-            return (APTR)-1;
-    }
-
-    if ((r = NewRegion()) == NULL)
-        return (APTR)-1;
-
-    rect.MinX = left;
-    rect.MinY = top;
-    rect.MaxX = left + width  - 1;
-    rect.MaxY = top  + height - 1;
-    OrRectRegion(r, &rect);
-
-    handle = MUI_AddClipRegion(mri, r);
-
-#if 0 /* MUI_AddClipRegion frees region itself upon failure */
-    if (handle == (APTR)-1)
-    {
-        DisposeRegion(r);
-    }
-#endif
-    return handle;
+    return ZuneAddClipping(mri, (LONG)left, (LONG)top, (LONG)width,
+        (LONG)height);
 } /* MUI_AddClipping */

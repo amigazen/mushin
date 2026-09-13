@@ -81,7 +81,7 @@ static void DrawTileToImage(BOOL alpha, BOOL tc, struct RastPort *rp,
                 dw = width;
             width -= dw;
 
-            if (tc) {
+            if (tc && CyberGfxBase != NULL && CyberGfxBase->lib_Version >= 45) {
                 if (dest != NULL) {
                     DrawPartToImage(ni, dest, _sx, _sy, dw, dh, dx, dy);
                 } else {
@@ -276,7 +276,7 @@ void WindowPatternBackFillFunc(struct Hook *Hook, struct BackFillMsg *BFM, struc
     if (!truecolor)
         direct = TRUE;
 
-    if (!direct) {
+    if (!direct && CyberGfxBase != NULL && CyberGfxBase->lib_Version >= 45) {
         struct NewImage *dest = NewImageContainer(width, height);
         if (dest != NULL) {
             draw_tile_frame(NULL, truecolor, FALSE, alpha, FFI->fi, FFI->ni, dest,
@@ -292,6 +292,8 @@ void WindowPatternBackFillFunc(struct Hook *Hook, struct BackFillMsg *BFM, struc
             DisposeImageContainer(dest);
         } else
             direct = TRUE;
+    } else if (!direct) {
+        direct = TRUE;
     }
 
     if (direct) {
@@ -1413,7 +1415,11 @@ BOOL zune_frame_intern_to_spec(const struct MUI_FrameSpec_intern *intern,
 
     /* Must cast to LONG because on AmigaOS SNPrintf() is used which is like
      * RawDoFmt() 16 bit */
-    snprintf(&spec[0], 2, "%c", sp);
+    /* Assigned directly rather than via snprintf("%c"): RawDoFmt reads only
+       16 bits for %c, so it took the high half of the promoted char and
+       stored 0 here.  The snprintf() also wrote a terminator into spec[1],
+       which the next line overwrites anyway. */
+    spec[0] = (char)sp;
     snprintf(tmpSpec, 3, "%lx", (ULONG)intern->state);
     spec[1] = tmpSpec[0];
     snprintf(tmpSpec, 3, "%lx", (ULONG)intern->innerLeft);

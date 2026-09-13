@@ -14,7 +14,9 @@
 #include <proto/muimaster.h>
 
 #include "debug.h"
-#include <libraries/mui.h>
+/* Internal header, not the PRIV-stripped generated <libraries/mui.h>; the two
+   share the LIBRARIES_MUI_H guard so only the first one seen takes effect. */
+#include "mui.h"
 #include "support_classes.h"
 #include "muimaster_intern.h"
 #include "boopsi_private.h"
@@ -22,13 +24,14 @@
 #include "classes/area.h"
 #include "area_macros.h"
 
-/* Define MUIA_Boopsi_OnlyTrigger directly */
-#define MUIA_Boopsi_OnlyTrigger (MUIB_Boopsi | 0x00000000)
-
-/* Ensure MADF_ISVIRTUALGROUP is defined */
-#ifndef MADF_ISVIRTUALGROUP
-#define MADF_ISVIRTUALGROUP (1<<30)
-#endif
+/*
+ * Local copies of MUIA_Boopsi_OnlyTrigger and MADF_ISVIRTUALGROUP used to sit
+ * here.  Both are declared in the headers included above - boopsi.h and
+ * area.h - but both carry a PRIV marker, so they were absent from the
+ * generated <libraries/mui.h> that this file used to reach instead.  Now that
+ * the internal headers are in scope the real declarations apply, and keeping
+ * second copies here would just be somewhere for the two to drift apart.
+ */
 
 extern struct Library *MUIMasterBase;
 

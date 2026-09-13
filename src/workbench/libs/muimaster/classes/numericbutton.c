@@ -322,7 +322,7 @@ static BOOL MakePopupWin(Object *obj, struct Numericbutton_DATA *data)
 
     zframe =
         zune_zframe_get_with_state(obj,
-        (const struct MUI_FrameSpec_intern *)&((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Slider],
+        (const struct MUI_FrameSpec_intern *)&(muiGlobalInfo(obj))->mgi_Prefs->frames[MUIV_Frame_Slider],
         0);
 
     data->pop_innerx = zframe->ileft;

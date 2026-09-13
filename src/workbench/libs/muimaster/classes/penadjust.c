@@ -32,10 +32,17 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing attribute definition */
-#ifndef MUIA_Penadjust_Spec
-#define MUIA_Penadjust_Spec (MUIB_Penadjust | 0x00000001)
-#endif
+/*
+ * A local stand-in for MUIA_Penadjust_Spec used to sit here.  The attribute is
+ * declared in classes/penadjust.h, this class's own header, but the
+ * declaration carries a PRIV marker and so had been dropped from the generated
+ * <libraries/mui.h> that this file used to reach instead.
+ *
+ * The stand-in had guessed MUIB_Penadjust | 0x1 where the real attribute is
+ * | 0x0, so this class was not answering the attribute its own callers - and
+ * classes/poppen.c and classes/imageadjust.c, which carried the same wrong
+ * guess - were asking for.
+ */
 
 static void UpdateState(Object *obj, struct Penadjust_DATA *data)
 {
@@ -116,7 +123,7 @@ static IPTR MuipenDisplayFunc(struct Hook *hook, char **array, char *entry)
     line = (SIPTR) array[-1];
     if (line < 0 || line > 7)
         line = 0;
-    snprintf(buf, sizeof(buf), "\033I[2:m%d]", (int)line);
+    snprintf(buf, sizeof(buf), "\033I[2:m%ld]", (LONG)line);
 
     *array++ = buf;
     *array++ = "";

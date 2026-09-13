@@ -32,17 +32,21 @@
 #include "penadjust.h"
 #include "popimage.h"
 
-#ifndef MUIA_Penadjust_Spec
-#define MUIA_Penadjust_Spec (MUIB_Penadjust | 0x00000001)
-#endif
-
-#ifndef MUIM_Imageadjust_ReadExternal
-#define MUIM_Imageadjust_ReadExternal (MUIB_Imageadjust | 0x00000001)
-#endif
-
-#ifndef MUIM_Popimage_CloseWindow
-#define MUIM_Popimage_CloseWindow (MUIB_Popimage | 0x00000001)
-#endif
+/*
+ * Local stand-ins for MUIA_Penadjust_Spec, MUIM_Imageadjust_ReadExternal and
+ * MUIM_Popimage_CloseWindow used to sit here.  All three are declared in
+ * classes/penadjust.h, classes/imageadjust.h and classes/popimage.h, which
+ * mui.h pulls in, but each declaration carries a PRIV marker and so had been
+ * dropped from the generated <libraries/mui.h> that this file used to reach.
+ *
+ * Two of the three had guessed wrong:
+ *
+ *   MUIA_Penadjust_Spec            guessed | 0x1, really | 0x0
+ *   MUIM_Imageadjust_ReadExternal  guessed | 0x1, really | 0x0
+ *
+ * so this class was reading its external image spec through a method the
+ * object does not implement.
+ */
 #include "support.h"
 #include "support_classes.h"
 #include "imageadjust_private.h"
@@ -110,14 +114,14 @@ static void Gradient_Function(struct Hook *hook, Object *obj, APTR msg)
         MUIA_Pendisplay_RGBcolor);
 
     snprintf(data->gradient_imagespec, sizeof(data->gradient_imagespec),
-        "%s:%d,%08x,%08x,%08x-%08x,%08x,%08x",
+        "%s:%ld,%08lx,%08lx,%08lx-%08lx,%08lx,%08lx",
         is_tiled ? "8" : "7",
-        (int)angle,
-        (unsigned int)start_rgb->red,
-        (unsigned int)start_rgb->green,
-        (unsigned int)start_rgb->blue,
-        (unsigned int)end_rgb->red,
-        (unsigned int)end_rgb->green, (unsigned int)end_rgb->blue);
+        (LONG)angle,
+        (ULONG)start_rgb->red,
+        (ULONG)start_rgb->green,
+        (ULONG)start_rgb->blue,
+        (ULONG)end_rgb->red,
+        (ULONG)end_rgb->green, (ULONG)end_rgb->blue);
 
     set(data->gradient_imagedisplay, MUIA_Imagedisplay_Spec,
         data->gradient_imagespec);
@@ -775,7 +779,7 @@ IPTR Imageadjust__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
             {
                 char spec[10];
 
-                snprintf(spec, sizeof(spec), "1:%d", (int)i);
+                snprintf(spec, sizeof(spec), "1:%ld", (LONG)i);
                 data->vector_image[i] = (Object *) ImageObject,
                     ButtonFrame,
                     InnerSpacing(4, 4),
@@ -984,8 +988,8 @@ IPTR Imageadjust__OM_GET(struct IClass *cl, Object *obj,
                     if ((data->imagespec = AllocVec(40, 0)))
                     {
                         if (data->last_pattern_selected != -1)
-                            snprintf(data->imagespec, 40, "0:%d",
-                                (int)data->last_pattern_selected + 128);
+                            snprintf(data->imagespec, 40, "0:%ld",
+                                (LONG)data->last_pattern_selected + 128);
                         else
                             strcpy(data->imagespec, "0:128");
                     }
@@ -995,8 +999,8 @@ IPTR Imageadjust__OM_GET(struct IClass *cl, Object *obj,
                     if ((data->imagespec = AllocVec(20, 0)))
                     {
                         if (data->last_vector_selected != -1)
-                            snprintf(data->imagespec, 20, "1:%d",
-                                (int)data->last_vector_selected);
+                            snprintf(data->imagespec, 20, "1:%ld",
+                                (LONG)data->last_vector_selected);
                         else
                             strcpy(data->imagespec, "0:128");
                     }

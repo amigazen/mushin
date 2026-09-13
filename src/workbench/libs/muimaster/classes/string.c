@@ -811,29 +811,35 @@ IPTR String__MUIM_Setup(struct IClass *cl, Object *obj,
 
     data->is_active = FALSE;
     set(obj, MUIA_Background,
-        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
+        (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
 
     zune_pen_spec_to_intern(
-        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive, &data->inactive_text);
+        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive, &data->inactive_text);
     zune_penspec_setup(&data->inactive_text, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_text_active, &data->active_text);
+        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_active, &data->active_text);
     zune_penspec_setup(&data->active_text, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_text_marked, &data->marked_text);
+        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_marked, &data->marked_text);
     zune_penspec_setup(&data->marked_text, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
+        &(muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
     zune_penspec_setup(&data->marked_bg, muiRenderInfo(obj));
 
     zune_pen_spec_to_intern(
-        &((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
+        &(muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
     zune_penspec_setup(&data->cursor, muiRenderInfo(obj));
 
-    DoMethod(_win(obj), MUIM_Window_AddEventHandler, (IPTR) & data->ehn);
+    {
+        struct MUIP_Window_AddEventHandler amsg;
+
+        amsg.MethodID = MUIM_Window_AddEventHandler;
+        amsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&amsg);
+    }
     return TRUE;
 }
 
@@ -846,7 +852,13 @@ IPTR String__MUIM_Cleanup(struct IClass *cl, Object *obj,
     struct MUI_StringData *data = INST_DATA(cl, obj);
 
     D(bug("[MUI:String] Cleanup %p\n", obj));
-    DoMethod(_win(obj), MUIM_Window_RemEventHandler, (IPTR) & data->ehn);
+    {
+        struct MUIP_Window_RemEventHandler rmsg;
+
+        rmsg.MethodID = MUIM_Window_RemEventHandler;
+        rmsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&rmsg);
+    }
 
     zune_penspec_cleanup(&data->inactive_text);
     zune_penspec_cleanup(&data->active_text);
@@ -1237,13 +1249,13 @@ IPTR String__MUIM_Draw(struct IClass *cl, Object *obj,
         text_left += TextLength(_rp(obj), dispstr, data->BufferPos - 1);
         dispstr += data->BufferPos - 1;
         dispstrlen -= data->BufferPos - 1;
-        DoMethod(obj, MUIM_DrawBackground, text_left, _mtop(obj),
+        ZuneDrawBackground(obj, text_left, _mtop(obj),
             _mwidth(obj) - text_left + _mleft(obj), _mheight(obj),
             text_left, _mtop(obj), 0);
     }
     else if (msg->flags & MADF_DRAWUPDATE)
     {
-        DoMethod(obj, MUIM_DrawBackground, _mleft(obj), _mtop(obj),
+        ZuneDrawBackground(obj, _mleft(obj), _mtop(obj),
             _mwidth(obj), _mheight(obj), _mleft(obj), _mtop(obj), 0);
     }
 
@@ -1458,9 +1470,10 @@ static int String_HandleVanillakey(struct IClass *cl, Object *obj,
     {
         STRPTR text;
         int retval;
-        struct Locale *locale = OpenLocale(NULL);
+        struct Locale *locale;
 
         retval = Buffer_KillMarked(data);
+        locale = (LocaleBase != NULL) ? OpenLocale(NULL) : NULL;
         if ((text = clipboard_read_text()))
         {
             STRPTR text2 = text;
@@ -1468,7 +1481,12 @@ static int String_HandleVanillakey(struct IClass *cl, Object *obj,
 
             while ((c = *text2++))
             {
-                if (!IsPrint(locale, c))
+                if (locale != NULL)
+                {
+                    if (!IsPrint(locale, c))
+                        break;
+                }
+                else if (c < 32 || c == 127)
                     break;
                 if (!(Buffer_AddChar(data, c)))
                     break;
@@ -1479,7 +1497,8 @@ static int String_HandleVanillakey(struct IClass *cl, Object *obj,
             clipboard_free_text(text);
         }
 
-        CloseLocale(locale);
+        if (locale != NULL)
+            CloseLocale(locale);
 
         return retval;
     }
@@ -1508,19 +1527,30 @@ static int String_HandleVanillakey(struct IClass *cl, Object *obj,
 
     if (doinput)
     {
-        struct Locale *locale = OpenLocale(NULL);
+        struct Locale *locale;
+        int printable;
 
-        if (!(code >= 0x09 && code <= 0x0D) && IsPrint(locale, code))
+        locale = (LocaleBase != NULL) ? OpenLocale(NULL) : NULL;
+        if (locale != NULL)
+            printable = (!(code >= 0x09 && code <= 0x0D)
+                && IsPrint(locale, code));
+        else
+            printable = (code >= 32 && code < 127);
+
+        if (printable)
         {
             Buffer_KillMarked(data);
             if (Buffer_AddChar(data, code))
             {
                 data->msd_RedrawReason = DO_ADDCHAR;
+                if (locale != NULL)
+                    CloseLocale(locale);
                 return 2;
             }
         }
 
-        CloseLocale(locale);
+        if (locale != NULL)
+            CloseLocale(locale);
     }
 
     data->msd_RedrawReason = DO_UNKNOWN;
@@ -1751,7 +1781,7 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
         case MUIKEY_WINDOW_CLOSE:
             data->is_active = FALSE;
             set(obj, MUIA_Background,
-                (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
+                (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
             DoMethod(obj, MUIM_GoInactive);
             retval = 0;
             break;
@@ -1808,7 +1838,7 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                         data->msd_RedrawReason = WENT_ACTIVE;
                         // redraw
                         set(obj, MUIA_Background,
-                            (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->
+                            (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->
                             string_bg_active);
 
                         //DoMethod(obj, MUIM_GoActive);
@@ -1819,11 +1849,16 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
                     if (!(data->ehn.ehn_Events & IDCMP_MOUSEMOVE))
                     {
-                        DoMethod(_win(obj), MUIM_Window_RemEventHandler,
-                            (IPTR) & data->ehn);
+                        struct MUIP_Window_RemEventHandler rmsg;
+                        struct MUIP_Window_AddEventHandler amsg;
+
+                        rmsg.MethodID = MUIM_Window_RemEventHandler;
+                        rmsg.ehnode = &data->ehn;
+                        DoMethodA(_win(obj), (Msg)&rmsg);
                         data->ehn.ehn_Events |= IDCMP_MOUSEMOVE;
-                        DoMethod(_win(obj), MUIM_Window_AddEventHandler,
-                            (IPTR) & data->ehn);
+                        amsg.MethodID = MUIM_Window_AddEventHandler;
+                        amsg.ehnode = &data->ehn;
+                        DoMethodA(_win(obj), (Msg)&amsg);
                     }
 
                     PrepareVisualBuffer(data);
@@ -1898,7 +1933,7 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                 {
                     data->is_active = FALSE;
                     set(obj, MUIA_Background,
-                        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->
+                        (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->
                         string_bg_inactive);
                     //DoMethod(obj, MUIM_GoInactive);
                     // let other objects a chance to get activated
@@ -1909,11 +1944,16 @@ IPTR String__MUIM_HandleEvent(struct IClass *cl, Object *obj,
             {
                 if (data->ehn.ehn_Events & IDCMP_MOUSEMOVE)
                 {
-                    DoMethod(_win(obj), MUIM_Window_RemEventHandler,
-                        (IPTR) & data->ehn);
+                    struct MUIP_Window_RemEventHandler rmsg;
+                    struct MUIP_Window_AddEventHandler amsg;
+
+                    rmsg.MethodID = MUIM_Window_RemEventHandler;
+                    rmsg.ehnode = &data->ehn;
+                    DoMethodA(_win(obj), (Msg)&rmsg);
                     data->ehn.ehn_Events &= ~IDCMP_MOUSEMOVE;
-                    DoMethod(_win(obj), MUIM_Window_AddEventHandler,
-                        (IPTR) & data->ehn);
+                    amsg.MethodID = MUIM_Window_AddEventHandler;
+                    amsg.ehnode = &data->ehn;
+                    DoMethodA(_win(obj), (Msg)&amsg);
                 }
             }
             break;
@@ -2107,15 +2147,24 @@ IPTR String__MUIM_GoActive(struct IClass *cl, Object *obj, Msg msg)
         (struct MUI_StringData *)INST_DATA(cl, obj);
 
     //D(bug("String_GoActive %p\n", obj));
-    DoMethod(_win(obj), MUIM_Window_RemEventHandler, (IPTR) & data->ehn);
-    data->ehn.ehn_Events = IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY;
-    DoMethod(_win(obj), MUIM_Window_AddEventHandler, (IPTR) & data->ehn);
+    {
+        struct MUIP_Window_RemEventHandler rmsg;
+        struct MUIP_Window_AddEventHandler amsg;
+
+        rmsg.MethodID = MUIM_Window_RemEventHandler;
+        rmsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&rmsg);
+        data->ehn.ehn_Events = IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY;
+        amsg.MethodID = MUIM_Window_AddEventHandler;
+        amsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&amsg);
+    }
     data->is_active = TRUE;
     data->msd_Flags &= ~MSDF_KEYMARKING;
     data->msd_RedrawReason = WENT_ACTIVE;
     // redraw
     set(obj, MUIA_Background,
-        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_active);
+        (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->string_bg_active);
 
     return 0;
 }
@@ -2130,16 +2179,25 @@ IPTR String__MUIM_GoInactive(struct IClass *cl, Object *obj, Msg msg)
 
     //D(bug("String_GoInactive %p\n", obj));
 
-    DoMethod(_win(obj), MUIM_Window_RemEventHandler, (IPTR) & data->ehn);
-    data->ehn.ehn_Events = IDCMP_MOUSEBUTTONS;
-    DoMethod(_win(obj), MUIM_Window_AddEventHandler, (IPTR) & data->ehn);
+    {
+        struct MUIP_Window_RemEventHandler rmsg;
+        struct MUIP_Window_AddEventHandler amsg;
+
+        rmsg.MethodID = MUIM_Window_RemEventHandler;
+        rmsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&rmsg);
+        data->ehn.ehn_Events = IDCMP_MOUSEBUTTONS;
+        amsg.MethodID = MUIM_Window_AddEventHandler;
+        amsg.ehnode = &data->ehn;
+        DoMethodA(_win(obj), (Msg)&amsg);
+    }
     data->is_active = FALSE;
     data->msd_RedrawReason = WENT_INACTIVE;
     data->MultiClick = 0;
 
     // redraw
     set(obj, MUIA_Background,
-        (IPTR) ((struct MUI_GlobalInfo_Private *)muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
+        (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
 
     return 0;
 }

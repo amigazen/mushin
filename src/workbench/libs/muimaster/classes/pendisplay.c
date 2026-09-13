@@ -47,8 +47,8 @@ IPTR Pendisplay__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 
     /* Format identifiers need to be long enforced because of RawDoFmt()
      * limits */
-    snprintf(data->penspec.buf, sizeof(data->penspec.buf), "%lc%d",
-        (int)PST_MUI, (int)MPEN_TEXT);
+    snprintf(data->penspec.buf, sizeof(data->penspec.buf), "%lc%ld",
+        (int)PST_MUI, (LONG)MPEN_TEXT);
     data->pen = -1;
 
     /* parse initial taglist */
@@ -68,9 +68,9 @@ IPTR Pendisplay__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
                 struct MUI_RGBcolor *rgb =
                     (struct MUI_RGBcolor *)tag->ti_Data;
                 snprintf(data->penspec.buf, sizeof(data->penspec.buf),
-                    "%lc%08x,%08x,%08x", (int)PST_RGB,
-                    (unsigned int)rgb->red, (unsigned int)rgb->green,
-                    (unsigned int)rgb->blue);
+                    "%lc%08lx,%08lx,%08lx", (int)PST_RGB,
+                    (ULONG)rgb->red, (ULONG)rgb->green,
+                    (ULONG)rgb->blue);
             }
             break;
 
@@ -149,9 +149,9 @@ IPTR Pendisplay__OM_SET(struct IClass *cl, Object *obj,
                     (struct MUI_RGBcolor *)tag->ti_Data;
 
                 snprintf(data->penspec.buf, sizeof(data->penspec.buf),
-                    "%lc%08x,%08x,%08x", (int)PST_RGB,
-                    (unsigned int)rgb->red, (unsigned int)rgb->green,
-                    (unsigned int)rgb->blue);
+                    "%lc%08lx,%08lx,%08lx", (int)PST_RGB,
+                    (ULONG)rgb->red, (ULONG)rgb->green,
+                    (ULONG)rgb->blue);
             }
             newcol = TRUE;
             extra_tags[0].ti_Tag = MUIA_Pendisplay_Pen;
@@ -361,8 +361,8 @@ IPTR Pendisplay__MUIM_Pendisplay_SetColormap(struct IClass *cl,
 {
     struct MUI_PenSpec penspec;
 
-    snprintf(penspec.buf, sizeof(penspec.buf), "%lc%d", (int)PST_CMAP,
-        (int)msg->colormap);
+    snprintf(penspec.buf, sizeof(penspec.buf), "%lc%ld", (int)PST_CMAP,
+        (LONG)msg->colormap);
     set(obj, MUIA_Pendisplay_Spec, (IPTR) &penspec);
 
     return 0;
@@ -373,9 +373,9 @@ IPTR Pendisplay__MUIM_Pendisplay_SetRGB(struct IClass *cl, Object *obj,
 {
     struct MUI_PenSpec penspec;
 
-    snprintf(penspec.buf, sizeof(penspec.buf), "%lc%08x,%08x,%08x",
-        (int)PST_RGB, (unsigned int)msg->r, (unsigned int)msg->g,
-        (unsigned int)msg->b);
+    snprintf(penspec.buf, sizeof(penspec.buf), "%lc%08lx,%08lx,%08lx",
+        (int)PST_RGB, (ULONG)msg->r, (ULONG)msg->g,
+        (ULONG)msg->b);
     set(obj, MUIA_Pendisplay_Spec, (IPTR) &penspec);
 
     return 0;
@@ -386,8 +386,8 @@ IPTR Pendisplay__MUIM_Pendisplay_SetMUIPen(struct IClass *cl, Object *obj,
 {
     struct MUI_PenSpec penspec;
 
-    snprintf(penspec.buf, sizeof(penspec.buf), "%lc%d", (int)PST_MUI,
-        (int)msg->muipen);
+    snprintf(penspec.buf, sizeof(penspec.buf), "%lc%ld", (int)PST_MUI,
+        (LONG)msg->muipen);
     set(obj, MUIA_Pendisplay_Spec, (IPTR) &penspec);
 
     return 0;

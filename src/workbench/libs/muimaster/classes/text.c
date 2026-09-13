@@ -129,11 +129,30 @@ OM_DISPOSE
 IPTR Text__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_TextData *data = INST_DATA(cl, obj);
+    IPTR rc;
 
-    FreeVec(data->contents);
-    FreeVec((APTR) data->preparse);
+    ZuneTrace("zune: Text DISPOSE obj=%lx ztext=%lx\n",
+        (ULONG) obj, (ULONG) data->ztext);
+    if (data->ztext)
+    {
+        zune_text_destroy(data->ztext);
+        data->ztext = NULL;
+    }
+    if (data->contents)
+    {
+        FreeVec(data->contents);
+        data->contents = NULL;
+    }
+    if (data->preparse)
+    {
+        FreeVec((APTR) data->preparse);
+        data->preparse = NULL;
+    }
 
-    return DoSuperMethodA(cl, obj, msg);
+    ZuneTrace("zune: Text DISPOSE super obj=%lx\n", (ULONG) obj);
+    rc = DoSuperMethodA(cl, obj, msg);
+    ZuneTrace("zune: Text DISPOSE done obj=%lx\n", (ULONG) obj);
+    return rc;
 }
 
 /**************************************************************************
@@ -326,8 +345,11 @@ IPTR Text__MUIM_AskMinMax(struct IClass *cl, Object *obj,
 
     DoSuperMethodA(cl, obj, (Msg) msg);
 
+    if (data->ztext == NULL)
+        return TRUE;
+
     height = data->ztext->height;
-    if (_font(obj)->tf_YSize > height)
+    if (_font(obj) != NULL && _font(obj)->tf_YSize > height)
         height = _font(obj)->tf_YSize;
 /*      D(bug("YSize=%ld\n", _font(obj)->tf_YSize)); */
 
@@ -384,25 +406,33 @@ IPTR Text__MUIM_Draw(struct IClass *cl, Object *obj,
 
     if (msg->flags & MADF_DRAWUPDATE && data->update == 1)
     {
-        DoMethod(obj, MUIM_DrawBackground, _mleft(obj), _mtop(obj),
+        ZuneDrawBackground(obj, _mleft(obj), _mtop(obj),
             _mwidth(obj), _mheight(obj), _mleft(obj), _mtop(obj), 0);
     }
 
+    ZuneTrace("zune: Text Draw clip obj=%lx\n", (ULONG)obj);
     clip = MUI_AddClipping(muiRenderInfo(obj), _mleft(obj), _mtop(obj),
         _mwidth(obj), _mheight(obj));
+    ZuneTrace("zune: Text Draw clip handle=%lx\n", (ULONG)clip);
 
     SetAPen(_rp(obj), _pens(obj)[MPEN_TEXT]);
 
+    if (data->ztext != NULL && _font(obj) != NULL)
     {
-        get(_win(obj), MUIA_Window_ActiveObject, &act);
-        {
-            int y = (_mheight(obj) - data->ztext->height) / 2;
-            zune_text_draw(data->ztext, obj,
-                _mleft(obj), _mright(obj), _mtop(obj) + y);
-        }
+        int y;
+
+        if (_win(obj) != NULL)
+            get(_win(obj), MUIA_Window_ActiveObject, &act);
+
+        y = (_mheight(obj) - data->ztext->height) / 2;
+        ZuneTrace("zune: Text Draw ztext\n");
+        zune_text_draw(data->ztext, obj,
+            _mleft(obj), _mright(obj), _mtop(obj) + y);
+        ZuneTrace("zune: Text Draw ztext done\n");
     }
 
     MUI_RemoveClipping(muiRenderInfo(obj), clip);
+    ZuneTrace("zune: Text Draw done obj=%lx\n", (ULONG)obj);
     data->update = 0;
     return TRUE;
 }

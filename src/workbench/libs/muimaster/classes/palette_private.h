@@ -2,7 +2,10 @@
 #define _PALETTE_PRIVATE_H_
 
 #include <utility/hooks.h>
-#include <libraries/mui.h>
+/* Internal header, not the PRIV-stripped generated <libraries/mui.h>: both
+   use the LIBRARIES_MUI_H guard, so whichever is seen first suppresses the
+   other, and the private instance data below needs the full declarations. */
+#include "mui.h"
 
 /*** Instance data **********************************************************/
 struct MUI_PaletteData

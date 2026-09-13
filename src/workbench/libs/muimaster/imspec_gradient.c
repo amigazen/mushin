@@ -132,27 +132,27 @@ BOOL zune_gradient_string_to_intern(CONST_STRPTR str,
 VOID zune_scaled_gradient_intern_to_string(struct MUI_ImageSpec_intern *
     spec, STRPTR buf)
 {
-    sprintf(buf, "7:%d,%08x,%08x,%08x-%08x,%08x,%08x",
-        (int)spec->u.gradient.angle,
-        (unsigned int)spec->u.gradient.start_rgb[0] * 0x01010101,
-        (unsigned int)spec->u.gradient.start_rgb[1] * 0x01010101,
-        (unsigned int)spec->u.gradient.start_rgb[2] * 0x01010101,
-        (unsigned int)spec->u.gradient.end_rgb[0] * 0x01010101,
-        (unsigned int)spec->u.gradient.end_rgb[1] * 0x01010101,
-        (unsigned int)spec->u.gradient.end_rgb[2] * 0x01010101);
+    sprintf(buf, "7:%ld,%08lx,%08lx,%08lx-%08lx,%08lx,%08lx",
+        (LONG)spec->u.gradient.angle,
+        (ULONG)spec->u.gradient.start_rgb[0] * 0x01010101,
+        (ULONG)spec->u.gradient.start_rgb[1] * 0x01010101,
+        (ULONG)spec->u.gradient.start_rgb[2] * 0x01010101,
+        (ULONG)spec->u.gradient.end_rgb[0] * 0x01010101,
+        (ULONG)spec->u.gradient.end_rgb[1] * 0x01010101,
+        (ULONG)spec->u.gradient.end_rgb[2] * 0x01010101);
 }
 
 VOID zune_tiled_gradient_intern_to_string(struct MUI_ImageSpec_intern *spec,
     STRPTR buf)
 {
-    sprintf(buf, "8:%d,%08x,%08x,%08x-%08x,%08x,%08x",
-        (int)spec->u.gradient.angle,
-        (unsigned int)spec->u.gradient.start_rgb[0] * 0x01010101,
-        (unsigned int)spec->u.gradient.start_rgb[1] * 0x01010101,
-        (unsigned int)spec->u.gradient.start_rgb[2] * 0x01010101,
-        (unsigned int)spec->u.gradient.end_rgb[0] * 0x01010101,
-        (unsigned int)spec->u.gradient.end_rgb[1] * 0x01010101,
-        (unsigned int)spec->u.gradient.end_rgb[2] * 0x01010101);
+    sprintf(buf, "8:%ld,%08lx,%08lx,%08lx-%08lx,%08lx,%08lx",
+        (LONG)spec->u.gradient.angle,
+        (ULONG)spec->u.gradient.start_rgb[0] * 0x01010101,
+        (ULONG)spec->u.gradient.start_rgb[1] * 0x01010101,
+        (ULONG)spec->u.gradient.start_rgb[2] * 0x01010101,
+        (ULONG)spec->u.gradient.end_rgb[0] * 0x01010101,
+        (ULONG)spec->u.gradient.end_rgb[1] * 0x01010101,
+        (ULONG)spec->u.gradient.end_rgb[2] * 0x01010101);
 }
 
 BOOL zune_gradientspec_setup(struct MUI_ImageSpec_intern *spec,

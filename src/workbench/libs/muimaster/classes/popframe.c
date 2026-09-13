@@ -23,21 +23,19 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing method definitions */
-#ifndef MUIM_Popframe_OpenWindow
-#define MUIM_Popframe_OpenWindow (MUIB_Popframe | 0x00000001)
-#endif
-
-#ifndef MUIM_Popframe_CloseWindow
-#define MUIM_Popframe_CloseWindow (MUIB_Popframe | 0x00000002)
-#endif
-
-/* Missing struct definition */
-struct MUIP_Popframe_CloseWindow
-{
-    ULONG MethodID;
-    BOOL ok;
-};
+/*
+ * Local stand-ins for MUIM_Popframe_OpenWindow, MUIM_Popframe_CloseWindow and
+ * struct MUIP_Popframe_CloseWindow used to sit here.  All three are declared
+ * in classes/popframe.h, which mui.h above pulls in, but each declaration
+ * carries a PRIV marker and so had been dropped from the generated
+ * <libraries/mui.h> that this file used to reach.
+ *
+ * As in classes/poppen.c, the stand-ins had guessed the identifiers wrong:
+ * OpenWindow was given MUIB_Popframe | 0x1, which is the real CloseWindow
+ * identifier, and CloseWindow was given | 0x2, which is nothing at all.  The
+ * local struct also declared the result as a 16-bit BOOL where popframe.h has
+ * a 32-bit STACKED LONG.
+ */
 
 IPTR Popframe__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {

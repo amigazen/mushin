@@ -46,7 +46,7 @@ static void printSize(STRPTR string, size_t bufsize, ULONG size)
         unit = 'K';
     }
 
-    snprintf(string, bufsize, "%u%c", (unsigned int)size, unit);
+    snprintf(string, bufsize, "%lu%lc", (ULONG)size, (ULONG)unit);
     string[bufsize - 1] = '\0';
 }
 

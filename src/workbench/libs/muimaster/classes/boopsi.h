@@ -5,13 +5,24 @@
 #ifndef _MUI_CLASSES_BOOPSI_H
 #define _MUI_CLASSES_BOOPSI_H
 
-#include <libraries/mui.h>
+/* Internal header.  buildincludes.c inlines quoted includes and already has
+   "mui.h" on its list, so this line simply disappears from the generated
+   <libraries/mui.h>; the angle form used to be copied through verbatim and
+   left the generated header including itself. */
+#include "mui.h"
 
 /*** Name *******************************************************************/
 #define MUIC_Boopsi             "Boopsi.mui"
 
 /*** Identifier base (for Zune extensions) **********************************/
-/* MUIB_Boopsi is defined in libraries/mui.h */
+/*
+ * This was a comment claiming the base lived in libraries/mui.h, which was
+ * only true of the generated copy of that header: a stale revision of it still
+ * carries a definition that no file in this tree produces any more.  Restored
+ * here, where every other class keeps its own base and where AROS keeps this
+ * one, so that MUIA_Boopsi_OnlyTrigger below resolves.
+ */
+#define MUIB_Boopsi             (MUIB_ZUNE | 0x00000600)
 
 /*** Attributes *************************************************************/
 #define MUIA_Boopsi_Class \

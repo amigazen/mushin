@@ -199,28 +199,10 @@
 #   define ZUNE_KNOB_DESC
 #endif
 
-#if ZUNE_BUILTIN_PANEL
-#   define ZUNE_PANEL_DESC (&_MUI_Panel_desc),
+#if ZUNE_BUILTIN_SETTINGS
+#   define ZUNE_SETTINGS_DESC (&_MUI_Settings_desc),
 #else
-#   define ZUNE_PANEL_DESC
-#endif
-
-#if ZUNE_BUILTIN_PANELGROUP
-#   define ZUNE_PANELGROUP_DESC (&_MUI_PanelGroup_desc),
-#else
-#   define ZUNE_PANELGROUP_DESC
-#endif
-
-#if ZUNE_BUILTIN_DRAGHANDLE
-#   define ZUNE_DRAGHANDLE_DESC (&_MUI_DragHandle_desc),
-#else
-#   define ZUNE_DRAGHANDLE_DESC
-#endif
-
-#if ZUNE_BUILTIN_PANELTITLE
-#   define ZUNE_PANELTITLE_DESC (&_MUI_PanelTitle_desc),
-#else
-#   define ZUNE_PANELTITLE_DESC
+#   define ZUNE_SETTINGS_DESC
 #endif
 
 #if ZUNE_BUILTIN_DTPIC
@@ -332,7 +314,9 @@ extern const struct __MUIBuiltinClass _MUI_Imageadjust_desc;
 extern const struct __MUIBuiltinClass _MUI_Popimage_desc;
 extern const struct __MUIBuiltinClass _MUI_Scale_desc;
 extern const struct __MUIBuiltinClass _MUI_Radio_desc;
-extern const struct __MUIBuiltinClass _MUI_Iconlistview_desc;
+/* Spelling matches ZUNE_ICONLISTVIEW_DESC above.  There is no
+   classes/iconlistview.c in this tree, so ZUNE_BUILTIN_ICONLISTVIEW is 0. */
+extern const struct __MUIBuiltinClass _MUI_IconListview_desc;
 extern const struct __MUIBuiltinClass _MUI_Balance_desc;
 extern const struct __MUIBuiltinClass _MUI_Colorfield_desc;
 extern const struct __MUIBuiltinClass _MUI_Coloradjust_desc;
@@ -354,10 +338,7 @@ extern const struct __MUIBuiltinClass _MUI_Levelmeter_desc;
 extern const struct __MUIBuiltinClass _MUI_Knob_desc;
 extern const struct __MUIBuiltinClass _MUI_Dtpic_desc;
 extern const struct __MUIBuiltinClass _MUI_Palette_desc;
-extern const struct __MUIBuiltinClass _MUI_Panel_desc;
-extern const struct __MUIBuiltinClass _MUI_Panelgroup_desc;
-extern const struct __MUIBuiltinClass _MUI_Draghandle_desc;
-extern const struct __MUIBuiltinClass _MUI_Paneltitle_desc;
+extern const struct __MUIBuiltinClass _MUI_Settings_desc;
 extern const struct __MUIBuiltinClass _MUI_Virtgroup_desc;
 extern const struct __MUIBuiltinClass _MUI_Scrollgroup_desc;
 extern const struct __MUIBuiltinClass _MUI_Popasl_desc;

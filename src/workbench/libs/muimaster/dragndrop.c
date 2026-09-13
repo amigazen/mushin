@@ -544,12 +544,21 @@ STATIC VOID BltBitMapNode(struct BitMapNode *src_bmn, LONG offx, LONG offy,
         }
         else
         {
-#ifdef __mc68000
+#if defined(_M68000) || defined(__M68000) || defined(__mc68000)
             /* This operation is insanely expensive on slow m68k
              * machines in planar modes.
+             *
+             * The test was "#ifdef __mc68000" alone, which is a GCC predefine
+             * that SAS/C never sets (SDI_compiler.h spells the m68k check the
+             * way used here), so this branch was never compiled and the
+             * planar fallback below was unreachable.  WritePixelArrayAlpha()
+             * also lives in cybergraphics.library, which is optional on
+             * AmigaOS 3.x, so a NULL base has to be excluded too - the
+             * generated call is an indirect jsr through CyberGfxBase.
              */
             IPTR depth = GetBitMapAttr(rp->BitMap, BMA_DEPTH);
-            if (depth > 8 && src_bmn->bmn_BitMapBuffer)
+            if (CyberGfxBase != NULL && depth > 8
+                && src_bmn->bmn_BitMapBuffer)
 #else
             if (src_bmn->bmn_BitMapBuffer)
 #endif

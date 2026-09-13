@@ -303,6 +303,10 @@ struct MUIP_Window_SetCycleChain
     (MUIB_Window | 0x00000002)
 #define MUIA_Window_ToolBox \
     (MUIB_Window | 0x00000003)
+#define MUIA_Window_RecreateMenus \
+    (MUIB_Window | 0x00000004)  /* Zune only .s. BOOL, PRIV */
+#define MUIA_Window_WandererBackdrop \
+    (MUIB_Window | 0x00000005)  /* Zune only is. BOOL, PRIV */
 
 #define MUIV_Window_ActiveObject_None       0
 #define MUIV_Window_ActiveObject_Next       (-1)

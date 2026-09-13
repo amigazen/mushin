@@ -32,6 +32,13 @@ typedef unsigned long IPTR;
 
 #include "mui.h"
 
+/*
+ * Entry layouts for built-in volume/dir lists (replacement for legacy MUI
+ * IconVolumeList / IconDrawerList used only in this standalone test).
+ */
+#include "classes/volumelist_private.h"
+#include "classes/dirlist_private.h"
+
 /* muimaster.library is not yet a library */
 #include "muimaster_intern.h"
 
@@ -172,37 +179,67 @@ void add_function(void)
 
 void add_child_function(void)
 {
-    int act = XGET(list2,MUIA_List_Active);
-
 #ifndef COMPILE_WITH_MUI
-    DoMethod(list2,MUIM_List_InsertSingleAsTree, id++, act /* parent */, MUIV_List_InsertSingleAsTree_Bottom, 0);
+    /*
+     * MUIM_List_InsertSingleAsTree is not implemented in this Zune tree;
+     * append a row like Add so the demo button stays usable.
+     */
+    DoMethod(list2, MUIM_List_InsertSingle, id++, MUIV_List_Insert_Bottom);
 #endif
 }
 
-/* IconList callbacks */
+/* Volume / drawer list callbacks (Zune Volumelist.mui + Dirlist.mui in Listview) */
 void volume_doubleclicked(void)
 {
 #ifndef COMPILE_WITH_MUI
+    Object *vollist;
+    Object *dirlist;
+    struct Volumelist_Entry *ve;
     char buf[200];
-    struct IconList_Entry *ent = (void*)MUIV_IconList_NextSelected_Start;
-    DoMethod(volume_iconlist, MUIM_IconList_NextSelected, &ent);
-    if ((int)ent == MUIV_IconList_NextSelected_End) return;
 
-    strcpy(buf,ent->label);
-    strcat(buf,":");
-    set(drawer_iconlist,MUIA_IconDrawerList_Drawer,buf);
+    vollist = (Object *)XGET(volume_iconlist, MUIA_Listview_List);
+    DoMethod(vollist, MUIM_List_GetEntry, MUIV_List_GetEntry_Active,
+        (IPTR)&ve);
+    if (!ve)
+        return;
+
+    strncpy(buf, ve->name, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+
+    dirlist = (Object *)XGET(drawer_iconlist, MUIA_Listview_List);
+    set(dirlist, MUIA_Dirlist_Directory, buf);
 #endif
 }
 
 void drawer_doubleclicked(void)
 {
 #ifndef COMPILE_WITH_MUI
+    Object *dirlist;
+    struct Dirlist_Entry *de;
+    STRPTR curdir;
     static char buf[1024];
-    struct IconList_Entry *ent = (void*)MUIV_IconList_NextSelected_Start;
+    ULONG len;
 
-    DoMethod(drawer_iconlist, MUIM_IconList_NextSelected, &ent);
-    if ((int)ent == MUIV_IconList_NextSelected_End) return;
-    set(drawer_iconlist,MUIA_IconDrawerList_Drawer,ent->filename);
+    dirlist = (Object *)XGET(drawer_iconlist, MUIA_Listview_List);
+    DoMethod(dirlist, MUIM_List_GetEntry, MUIV_List_GetEntry_Active,
+        (IPTR)&de);
+    if (!de)
+        return;
+    if (de->fib.fib_DirEntryType <= 0)
+        return;
+
+    curdir = (STRPTR)XGET(dirlist, MUIA_Dirlist_Directory);
+    strncpy(buf, curdir, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    len = strlen(buf);
+    if (len + 1 >= sizeof(buf))
+        return;
+    strncat(buf, de->fib.fib_FileName, sizeof(buf) - len - 2);
+    len = strlen(buf);
+    if (len + 1 >= sizeof(buf))
+        return;
+    strcat(buf, "/");
+    set(dirlist, MUIA_Dirlist_Directory, buf);
 #endif
 }
 
@@ -247,7 +284,7 @@ struct MUI_CustomClass *CL_DropText;
 #ifdef __MAXON__
 #define DropTextObject TextObject
 #else
-#define DropTextObject�(Object*)NewObject(CL_DropText->mcc_Class, NULL
+#define DropTextObject NewObject(CL_DropText->mcc_Class, NULL
 #endif
 
 /* Main prog */
@@ -316,7 +353,11 @@ void main(void)
     MUIMasterBase_instance.iffparsebase = OpenLibrary("iffparse.library",37);
     MUIMasterBase_instance.diskfontbase = OpenLibrary("diskfont.library",37);
     MUIMasterBase_instance.iconbase = OpenLibrary("icon.library",44);
-                MUIMasterBase_instance.cybergfxbase = OpenLibrary("cybergraphics.library", 0);
+#if !defined(__AROS__) && !defined(__amigaos4__)
+    MUIMasterBase_instance.cybergfxbase = NULL;
+#else
+    MUIMasterBase_instance.cybergfxbase = OpenLibrary("cybergraphics.library", 0);
+#endif
     InitSemaphore(&MUIMasterBase_instance.ZuneSemaphore);
 
 #ifdef __MAXON__
@@ -575,8 +616,17 @@ End,
 #ifndef COMPILE_WITH_MUI
 
                     Child, HGroup,
-                        Child, volume_iconlist = MUI_NewObject(MUIC_IconVolumeList, GroupFrame, TAG_DONE),
-                        Child, drawer_iconlist = MUI_NewObject(MUIC_IconDrawerList, GroupFrame, MUIA_IconDrawerList_Drawer,"SYS:",TAG_DONE),
+                        Child, volume_iconlist = ListviewObject,
+                            GroupFrame,
+                            MUIA_Listview_List, MUI_NewObject(MUIC_Volumelist,
+                                TAG_DONE),
+                            End,
+                        Child, drawer_iconlist = ListviewObject,
+                            GroupFrame,
+                            MUIA_Listview_List, MUI_NewObject(MUIC_Dirlist,
+                                MUIA_Dirlist_Directory, "SYS:",
+                                TAG_DONE),
+                            End,
                         End,
 #else
                     Child, HGroup,
@@ -672,10 +722,10 @@ End,
         DoMethod(country_radio[0], MUIM_Notify, MUIA_Radio_Active, MUIV_EveryTime, country_radio[1], 3, MUIM_NoNotifySet, MUIA_Radio_Active, MUIV_TriggerValue);
         DoMethod(country_radio[1], MUIM_Notify, MUIA_Radio_Active, MUIV_EveryTime, country_radio[0], 3, MUIM_NoNotifySet, MUIA_Radio_Active, MUIV_TriggerValue);
 
-        /* iconlist */
+        /* volume / drawer lists */
 #ifndef COMPILE_WITH_MUI
-        DoMethod(volume_iconlist, MUIM_Notify, MUIA_IconList_DoubleClick, TRUE, volume_iconlist, 3, MUIM_CallHook, &hook_standard, volume_doubleclicked);
-        DoMethod(drawer_iconlist, MUIM_Notify, MUIA_IconList_DoubleClick, TRUE, drawer_iconlist, 3, MUIM_CallHook, &hook_standard, drawer_doubleclicked);
+        DoMethod(volume_iconlist, MUIM_Notify, MUIA_Listview_DoubleClick, TRUE, volume_iconlist, 3, MUIM_CallHook, &hook_standard, volume_doubleclicked);
+        DoMethod(drawer_iconlist, MUIM_Notify, MUIA_Listview_DoubleClick, TRUE, drawer_iconlist, 3, MUIM_CallHook, &hook_standard, drawer_doubleclicked);
 #endif
 
         set(wnd,MUIA_Window_Open,TRUE);

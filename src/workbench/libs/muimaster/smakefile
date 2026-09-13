@@ -1,4 +1,26 @@
-CFLAGS = NOVERS gst=all.gst idlen=40 IDIR=include IGNORE=63 IGNORE=100 IGNORE=224 NOCHECKABORT
+# Options shared by every compile in this makefile.  CFLAGS adds the
+# precompiled global symbol table on top of them; opentest.c is built from
+# CFLAGS_COMMON alone so that it genuinely compiles against the generated SDK
+# header rather than against the internal declarations that now live in
+# all.gst.
+CFLAGS_COMMON = NOVERS idlen=40 IDIR=include IGNORE=63 \
+  IGNORE=100 IGNORE=224 NOCHECKABORT
+#
+# MUIMASTER_LIBRARY_BUILD tells include/clib/muimaster_protos.h to pull in the
+# library's own "mui.h" rather than the PRIV-stripped <libraries/mui.h> it
+# hands to applications.  Together with "mui.h" being in all.gst this keeps the
+# public header out of the library's own translation units entirely; either
+# mechanism alone is sufficient, which is deliberate.
+CFLAGS = $(CFLAGS_COMMON) gst=all.gst DEFINE=MUIMASTER_LIBRARY_BUILD
+# Deliberately empty (and LIBRARYCODE is gone from SCOPTIONS too).
+# LIBRARYCODE makes a __saveds function derive A4 from the library base in A6
+# instead of loading _LinkerDB absolutely.  That is only correct when each
+# opener gets its own copy of the data segment; LibOpen() in zunemaster_lib.c
+# hands every opener the same base and never copies anything, so this library
+# has exactly one data segment at a fixed address and the absolute form is
+# right.  With LIBRARYCODE on, every BOOPSI dispatcher and every callback hook
+# entered from Intuition - which of course does not set A6 to our base - ran
+# with a garbage near-data pointer.
 LIBCODE =
 
 SUPPORTOBJS = \
@@ -40,6 +62,7 @@ LIBOBJS = \
   objs/mui_makeobject.o\
   objs/mui_newobject.o\
   objs/mui_obtainpen.o\
+  objs/mui_private.o\
   objs/mui_redraw.o\
   objs/mui_rejectidcmp.o\
   objs/mui_releasepen.o\
@@ -65,6 +88,7 @@ CLASSESOBJS= \
   objs/classes/cycle.o \
   objs/classes/dataspace.o \
   objs/classes/dirlist.o \
+  objs/classes/dtpic.o \
   objs/classes/family.o \
   objs/classes/frameadjust.o \
   objs/classes/framedisplay.o \
@@ -82,6 +106,7 @@ CLASSESOBJS= \
   objs/classes/notify.o \
   objs/classes/numeric.o \
   objs/classes/numericbutton.o \
+  objs/classes/palette.o \
   objs/classes/penadjust.o \
   objs/classes/pendisplay.o \
   objs/classes/poppen.o \
@@ -149,36 +174,152 @@ dirs:
     endif
 <
 
-all.gst: headers.c
-  sc headers.c noobjname makegst all.gst
+# headers.c now includes the library's own "mui.h" as well as the system
+# headers, so all.gst carries the internal MUI declarations and, crucially,
+# the LIBRARIES_MUI_H guard.  That stops the PRIV-stripped
+# <libraries/mui.h> - reached from every class source through
+# <proto/muimaster.h> -> <clib/muimaster_protos.h> - from claiming the guard
+# first and hiding every private field and identifier.  See headers.c.
+#
+# Because those declarations are now baked into the GST, the GST has to be
+# rebuilt whenever any of them changes.  The list below is the full transitive
+# closure of the quoted includes reachable from "mui.h"; without it, editing a
+# class header or support_amigaos.h left a stale all.gst in place and the
+# change simply did not reach the compiler - which is how a newly added
+# ForeachNodeSafe() came out as an implicit function call.
+#
+# The GST is built with the same options as the sources that use it,
+# $(CFLAGS_COMMON) in particular for idlen=40.  Without it the GST keeps only
+# the first 32 characters of each name, while a source compiled with idlen=40
+# looks the full name up, so every identifier of 33 characters or more that
+# the GST holds becomes invisible: MUIM_Window_AddControlCharHandler and
+# MUIA_Window_UseBottomBorderScroller among them.  This did not matter while
+# all.gst carried only the system headers, whose names are short, but it does
+# now that "mui.h" is in it.  The longest name in the library is 35
+# characters, so 40 has room to spare.
+#
+# MUIMASTER_LIBRARY_BUILD is passed for the same reason it is in $(CFLAGS):
+# so the GST is built from the same headers the sources see.
+all.gst: headers.c \
+  classes/aboutmui.h classes/application.h classes/area.h \
+  classes/balance.h classes/bitmap.h classes/bodychunk.h \
+  classes/boopsi.h classes/chunkyimage.h classes/coloradjust.h \
+  classes/colorfield.h classes/configdata.h classes/crawling.h \
+  classes/cycle.h classes/dataspace.h classes/dirlist.h \
+  classes/dtpic.h classes/family.h classes/floattext.h \
+  classes/frameadjust.h classes/framedisplay.h classes/gauge.h \
+  classes/group.h classes/image.h classes/imageadjust.h \
+  classes/imagedisplay.h classes/knob.h classes/levelmeter.h \
+  classes/list.h classes/listview.h classes/mccprefs.h \
+  classes/menuitem.h classes/notify.h classes/numeric.h \
+  classes/numericbutton.h classes/palette.h classes/penadjust.h \
+  classes/pendisplay.h \
+  classes/pixmap.h classes/popasl.h classes/popframe.h \
+  classes/popimage.h classes/poplist.h classes/popobject.h \
+  classes/poppen.h classes/popscreen.h classes/popstring.h \
+  classes/process.h classes/prop.h classes/radio.h \
+  classes/rectangle.h classes/register.h classes/scale.h \
+  classes/scrollbar.h classes/scrollbutton.h classes/scrollgroup.h \
+  classes/semaphore.h classes/settings.h classes/settingsgroup.h \
+  classes/slider.h classes/string.h classes/text.h \
+  classes/title.h classes/virtgroup.h classes/volumelist.h \
+  classes/window.h macros.h mui.h \
+  mui_identifiers.h support_amigaos.h
+  sc $(CFLAGS_COMMON) DEFINE=MUIMASTER_LIBRARY_BUILD headers.c noobjname makegst all.gst
 
-zunemaster.library: objs/zunemaster_lib.o objs/muimaster_init.o $(LIBOBJS) $(SUPPORTOBJS) $(CLASSESOBJS)
-  sc to zunemaster.library nostartup link with <<
-lib:debug.lib
-lib:small.lib
-lib:scm.lib
-objs/zunemaster_lib.o
-objs/muimaster_init.o
-$(LIBOBJS)
-$(SUPPORTOBJS)
-objs/classes/aboutmui.o    objs/classes/application.o    objs/classes/area.o    objs/classes/balance.o    objs/classes/bitmap.o
-objs/classes/bodychunk.o    objs/classes/boopsi.o    objs/classes/chunkyimage.o    objs/classes/configdata.o    objs/classes/coloradjust.o
-objs/classes/colorfield.o    objs/classes/crawling.o    objs/classes/cycle.o    objs/classes/dataspace.o    objs/classes/dirlist.o
-objs/classes/family.o    objs/classes/frameadjust.o    objs/classes/framedisplay.o    objs/classes/gauge.o    objs/classes/group.o
-objs/classes/image.o    objs/classes/imageadjust.o    objs/classes/imagedisplay.o    objs/classes/knob.o    objs/classes/levelmeter.o
-objs/classes/list.o    objs/classes/listview.o    objs/classes/mccprefs.o    objs/classes/menuitem.o    objs/classes/notify.o
-objs/classes/numeric.o    objs/classes/numericbutton.o    objs/classes/penadjust.o    objs/classes/pendisplay.o    objs/classes/poppen.o
-objs/classes/popasl.o    objs/classes/popframe.o    objs/classes/popimage.o
-objs/classes/poplist.o    objs/classes/popobject.o    objs/classes/popscreen.o    objs/classes/popstring.o    objs/classes/prop.o
-objs/classes/radio.o    objs/classes/rectangle.o    objs/classes/register.o    objs/classes/semaphore.o    objs/classes/scale.o
-objs/classes/scrollbar.o    objs/classes/scrollbutton.o    objs/classes/scrollgroup.o    objs/classes/settings.o    objs/classes/settingsgroup.o
-objs/classes/slider.o    objs/classes/string.o    objs/classes/text.o    objs/classes/virtgroup.o    objs/classes/volumelist.o
-objs/classes/window.o
-nocheckabort
+# all.gst comes first because every object below is compiled with gst=all.gst.
+# Only the "all" target used to ask for it, so building a library target on its
+# own silently reused whatever all.gst happened to be left in the directory,
+# including one built before a header in its dependency list had changed.
+zunemaster.library: all.gst objs/zunemaster_lib.o objs/muimaster_init.o \
+  $(LIBOBJS) $(SUPPORTOBJS) $(CLASSESOBJS)
+  slink <WITH <
+TO zunemaster.library
+FROM objs/zunemaster_lib.o objs/muimaster_init.o
+FROM objs/mui_addclipregion.o objs/mui_addclipping.o \
+  objs/mui_allocaslrequest.o objs/mui_allocaslrequesttags.o \
+  objs/mui_aslrequest.o objs/mui_aslrequesttags.o \
+  objs/mui_beginrefresh.o objs/mui_getclass.o \
+  objs/mui_createcustomclass.o objs/mui_deletecustomclass.o \
+  objs/mui_disposeobject.o objs/mui_endrefresh.o objs/mui_error.o \
+  objs/mui_freeaslrequest.o objs/mui_freeclass.o objs/mui_layout.o \
+  objs/mui_makeobject.o objs/mui_newobject.o objs/mui_obtainpen.o \
+  objs/mui_private.o objs/mui_redraw.o objs/mui_rejectidcmp.o \
+  objs/mui_releasepen.o \
+  objs/mui_removeclipping.o objs/mui_removeclipregion.o \
+  objs/mui_request.o objs/mui_requestidcmp.o objs/mui_seterror.o
+FROM objs/datatypescache.o objs/dragndrop.o objs/font.o objs/frame.o \
+  objs/imspec.o objs/imspec_vector.o objs/imspec_gradient.o \
+  objs/imspec_gradientdraw.o objs/menu.o objs/penspec.o objs/support.o \
+  objs/support_amigaos.o objs/support_classes.o objs/textengine.o \
+  objs/bubbleengine.o objs/clipboard.o objs/locale.o
+FROM objs/classes/aboutmui.o objs/classes/application.o \
+  objs/classes/area.o objs/classes/balance.o objs/classes/bitmap.o \
+  objs/classes/bodychunk.o objs/classes/boopsi.o \
+  objs/classes/chunkyimage.o objs/classes/configdata.o \
+  objs/classes/coloradjust.o objs/classes/colorfield.o \
+  objs/classes/crawling.o objs/classes/cycle.o objs/classes/dataspace.o \
+  objs/classes/dirlist.o objs/classes/dtpic.o \
+  objs/classes/family.o objs/classes/frameadjust.o \
+  objs/classes/framedisplay.o objs/classes/gauge.o objs/classes/group.o \
+  objs/classes/image.o objs/classes/imageadjust.o \
+  objs/classes/imagedisplay.o objs/classes/knob.o \
+  objs/classes/levelmeter.o objs/classes/list.o objs/classes/listview.o \
+  objs/classes/mccprefs.o objs/classes/menuitem.o objs/classes/notify.o \
+  objs/classes/numeric.o objs/classes/numericbutton.o \
+  objs/classes/palette.o \
+  objs/classes/penadjust.o objs/classes/pendisplay.o objs/classes/poppen.o \
+  objs/classes/popasl.o objs/classes/popframe.o objs/classes/popimage.o \
+  objs/classes/poplist.o objs/classes/popobject.o objs/classes/popscreen.o \
+  objs/classes/popstring.o objs/classes/prop.o objs/classes/radio.o \
+  objs/classes/rectangle.o objs/classes/register.o objs/classes/semaphore.o \
+  objs/classes/scale.o objs/classes/scrollbar.o objs/classes/scrollbutton.o \
+  objs/classes/scrollgroup.o objs/classes/settings.o \
+  objs/classes/settingsgroup.o objs/classes/slider.o objs/classes/string.o \
+  objs/classes/text.o objs/classes/virtgroup.o objs/classes/volumelist.o \
+  objs/classes/window.o
+LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib lib:small.lib sc:lib/scm.lib
+NOICONS
+SC
+SD
+ND
 <
 
 objs/zunemaster_lib.o: zunemaster_lib.c
   sc $(CFLAGS) stringmerge zunemaster_lib.c objname=$@
+
+# Drop-in replacement build: "smake muimaster.library".
+#
+# Identical to zunemaster.library in every object except this one, which is
+# recompiled with MUIMASTER_DROPIN so that LIBNAME, the $VER string and
+# MUIMASTER_NAME all say "muimaster.library".  Nothing else in the library
+# refers to its own name - internally it uses
+# MUIMasterBase->lib_Node.ln_Name at runtime - so one extra object is all the
+# variant costs.
+#
+# The name has to match the installed filename because OpenLibrary() loads
+# LIBS:<requested name> and then looks the RomTag name up in the library list;
+# if the two disagree the open fails even though the file loaded.  Install this
+# one as LIBS:muimaster.library and zunemaster.library as
+# LIBS:zunemaster.library.
+objs/muimaster_lib.o: zunemaster_lib.c
+  sc $(CFLAGS) stringmerge DEFINE=MUIMASTER_DROPIN zunemaster_lib.c objname=$@
+
+# all.gst first, as for zunemaster.library above.
+muimaster.library: all.gst objs/muimaster_lib.o objs/muimaster_init.o \
+  $(LIBOBJS) $(SUPPORTOBJS) $(CLASSESOBJS)
+  slink <WITH <
+TO muimaster.library
+FROM objs/muimaster_lib.o objs/muimaster_init.o
+FROM $(LIBOBJS)
+FROM $(SUPPORTOBJS)
+FROM $(CLASSESOBJS)
+LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib lib:small.lib sc:lib/scm.lib
+NOICONS
+SC
+SD
+ND
+<
 
 objs/muimaster_init.o: muimaster_init.c
   sc $(CFLAGS) muimaster_init.c objname=$@
@@ -217,7 +358,7 @@ objs/support.o: support.c
   sc $(CFLAGS) support.c objname=$@
 
 objs/support_amigaos.o: support_amigaos.c
-  sc $(CFLAGS) support_amigaos.c objname=$@
+  sc $(CFLAGS) $(LIBCODE) support_amigaos.c objname=$@
 
 objs/support_classes.o: support_classes.c
   sc $(CFLAGS) support_classes.c objname=$@
@@ -248,7 +389,8 @@ objs/mui_allocaslrequest.o: mui_allocaslrequest.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_allocaslrequest.c objname=$@
 
 objs/mui_allocaslrequesttags.o: staticlib/mui_allocaslrequesttags.c
-  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) staticlib/mui_allocaslrequesttags.c objname=$@
+  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) \
+    staticlib/mui_allocaslrequesttags.c objname=$@
 
 objs/mui_aslrequest.o: mui_aslrequest.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_aslrequest.c objname=$@
@@ -294,6 +436,9 @@ objs/mui_newobject.o: mui_newobject.c
 
 objs/mui_obtainpen.o: mui_obtainpen.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_obtainpen.c objname=$@
+
+objs/mui_private.o: mui_private.c
+  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_private.c objname=$@
 
 objs/mui_redraw.o: mui_redraw.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_redraw.c objname=$@
@@ -365,6 +510,9 @@ objs/classes/dataspace.o: classes/dataspace.c
 objs/classes/dirlist.o: classes/dirlist.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/dirlist.c objname=$@
 
+objs/classes/dtpic.o: classes/dtpic.c
+  sc $(CFLAGS) $(CLASSESDIRS) classes/dtpic.c objname=$@
+
 objs/classes/family.o: classes/family.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/family.c objname=$@
 
@@ -379,12 +527,6 @@ objs/classes/gauge.o: classes/gauge.c
 
 objs/classes/group.o: classes/group.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/group.c objname=$@
-
-objs/classes/iconlist.o: classes/iconlist.c
-  sc $(CFLAGS) $(CLASSESDIRS) classes/iconlist.c objname=$@
-
-objs/classes/iconlistview.o: classes/iconlistview.c
-  sc $(CFLAGS) $(CLASSESDIRS) classes/iconlistview.c objname=$@
 
 objs/classes/image.o: classes/image.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/image.c objname=$@
@@ -421,6 +563,9 @@ objs/classes/numeric.o: classes/numeric.c
 
 objs/classes/numericbutton.o: classes/numericbutton.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/numericbutton.c objname=$@
+
+objs/classes/palette.o: classes/palette.c
+  sc $(CFLAGS) $(CLASSESDIRS) classes/palette.c objname=$@
 
 objs/classes/penadjust.o: classes/penadjust.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/penadjust.c objname=$@
@@ -492,7 +637,7 @@ objs/classes/volumelist.o: classes/volumelist.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/volumelist.c objname=$@
 
 objs/classes/window.o: classes/window.c
-  sc $(CFLAGS) $(CLASSESDIRS) classes/window.c objname=$@
+  sc $(CFLAGS) $(CLASSESDIRS) NOOPTIMIZE classes/window.c objname=$@
 
 objs/classes/rectangle.o: classes/rectangle.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/rectangle.c objname=$@
@@ -511,9 +656,10 @@ objs/wanderer.o: //wanderer/wanderer.c
 
 muimaster.lib: $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
   -delete muimaster.lib
-  oml muimaster.lib A $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS) #$(NLISTOBJS) ${NLISTVIEWOBJS)
+  oml muimaster.lib A $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS) \
+    #$(NLISTOBJS) ${NLISTVIEWOBJS)
 
-test: objs/test.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
+test: all.gst objs/test.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
   sc link lib lib:debug.lib to test with <<
 objs/test.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
 #//classes/nlist/NListview_mcc/nlistview.mcc.lib
@@ -521,11 +667,11 @@ objs/test.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
 <
 
 opentest: objs/opentest.o
-  sc link to opentest with <<
+  sc link lib lib:amiga.lib to opentest with <<
 objs/opentest.o
 <
 
-wb: objs/wanderer.o  $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
+wb: all.gst objs/wanderer.o  $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
   sc link lib lib:debug.lib lib sc:lib/scm.lib to wb with <<
 objs/wanderer.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
 <
@@ -548,19 +694,39 @@ include: buildincludes zunemaster_lib.sfd
   copy t:zunemaster/protos/zunemaster_protos.h to include/clib
   fd2pragma t:zunemaster/fd/zunemaster_lib.fd special=35 to include/proto
   delete t:zunemaster all
-  execute <<
-    echo "\#ifndef PROTO_MUIMASTER_H" >include/proto/muimaster.h
-    echo "\#define PROTO_MUIMASTER_H" >>include/proto/muimaster.h
-    echo "\#endif" >>include/proto/muimaster.h
-<
+# NOTE: do not overwrite include/proto/muimaster.h here.  An "echo" block used
+# to replace the header generated on the line above with an empty three-line
+# stub.  79 sources in this library include <proto/muimaster.h> purely to pick
+# up <pragmas/muimaster_pragmas.h>, which supplies the register mapping for
+# MUI_GetClass, MUI_NewObject, MUI_Redraw, MUI_Layout and the rest.  With the
+# stub in place those calls compiled as prototype-less stack-argument calls
+# into functions that read their arguments from A0/D0 - and IGNORE=63 below
+# hid the missing-prototype warnings.  It also meant "smake all" and
+# "smake zunemaster.library" produced different binaries.
+# None of the files that *define* the MUI_* entry points include this header,
+# so there is no pragma-versus-definition conflict to work around.
 
 buildincludes: buildincludes.c
   sc link buildincludes.c
 
+# Built without gst=all.gst on purpose.  all.gst carries the library's own
+# "mui.h", and compiling opentest.c with it would defeat the point of the
+# test: opentest exists to prove that the generated include/libraries/mui.h is
+# self-sufficient for an outside caller and that MUIMASTER_NAME in it matches
+# the library actually installed.  With the GST in play its <libraries/mui.h>
+# would expand to nothing and MUIMASTER_NAME would come from the internal
+# header instead.
+#
+# MUIMASTER_DROPIN is deliberately not defined here, so the compiled-in default
+# is "zunemaster.library" - the name an application gets from the public header
+# as shipped.  To test the drop-in build instead, name it on the command line
+# rather than rebuilding:  opentest muimaster.library
 objs/opentest.o: opentest.c
-  sc $(CFLAGS) incdir=include opentest.c objname=objs/opentest.o
+  sc $(CFLAGS_COMMON) incdir=include opentest.c objname=objs/opentest.o
 
 clean:
   -delete objs all
   -delete test
   -delete opentest
+  -delete zunemaster.library
+  -delete muimaster.library

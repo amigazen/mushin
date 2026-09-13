@@ -17,7 +17,11 @@
 #include <gadgets/gradientslider.h>
 #include <intuition/icclass.h>
 #include <intuition/gadgetclass.h>
+/* RAWARG and RAWFMTFUNC_STRING are AROS extensions to RawDoFmt(); there is no
+   <exec/rawfmt.h> on AmigaOS.  See display_func() below for the equivalent. */
+#ifdef __AROS__
 #include <exec/rawfmt.h>
+#endif
 
 #include "debug.h"
 
@@ -28,7 +32,9 @@
 #include "prefs.h"
 #include "palette.h"
 #include "palette_private.h"
-#include "../locale.h"
+/* Plain "locale.h", as in every other class that localises strings: "../" is
+   not a parent directory to AmigaDOS, which spells that "/". */
+#include "locale.h"
 
 #define ColorWheelBase data->colorwheelbase
 
@@ -56,8 +62,27 @@ static LONG display_func(struct Hook *hook, char **array,
     }
     else
     {
+        /*
+         * Build the fallback "Color <n>" label.  array[-1] carries the entry
+         * number, as usual for a list display hook.
+         *
+         * RAWFMTFUNC_STRING, which formats straight into a buffer, is an AROS
+         * addition to RawDoFmt(); on AmigaOS the same job is done by the
+         * library's own snprintf() from support_amigaos.c, which is itself
+         * built on RawDoFmt() and so takes the identical format dialect.  That
+         * matters here: MSG_PALETTE_COLOR is "Color %ld" and the 'l' is
+         * required, because RawDoFmt() reads a bare %d as 16 bits.
+         */
+#ifdef __AROS__
         IPTR colorargs = (IPTR)(long)(array[-1] + 1);
-        RawDoFmt(_(MSG_PALETTE_COLOR), (RAWARG)&colorargs, RAWFMTFUNC_STRING, data->buf);
+
+        RawDoFmt(_(MSG_PALETTE_COLOR), (RAWARG)&colorargs, RAWFMTFUNC_STRING,
+            data->buf);
+#else
+        LONG colornum = (LONG)(SIPTR)(array[-1] + 1);
+
+        snprintf(data->buf, sizeof(data->buf), _(MSG_PALETTE_COLOR), colornum);
+#endif
         *array++ = data->buf;
     }
     return 0;

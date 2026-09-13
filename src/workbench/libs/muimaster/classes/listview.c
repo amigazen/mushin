@@ -14,16 +14,16 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Missing attribute definitions */
-#ifndef MUIA_List_VertProp_Visible
-#define MUIA_List_VertProp_Visible (MUIB_List | 0x00000001)
-#endif
-#ifndef MUIA_List_VertProp_First
-#define MUIA_List_VertProp_First (MUIB_List | 0x00000002)
-#endif
-#ifndef MUIA_List_VertProp_Entries
-#define MUIA_List_VertProp_Entries (MUIB_List | 0x00000003)
-#endif
+/*
+ * Local stand-ins for the three private List prop identifiers used to sit
+ * here.  All three are declared in classes/list.h, which mui.h pulls in, but
+ * each declaration carries a PRIV marker and so had been dropped from the
+ * generated <libraries/mui.h> that this file used to reach instead.
+ *
+ * As in classes/list.c, the stand-ins were numbered from 1 where list.h
+ * numbers from 0, so MUIA_List_VertProp_Entries was given | 0x3 - the
+ * identifier of MUIA_List_ListArea.  See the fuller note in classes/list.c.
+ */
 
 struct MUI_ListviewData
 {
