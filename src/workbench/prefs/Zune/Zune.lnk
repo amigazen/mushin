@@ -1,0 +1,7 @@
+FROM LIB:c.o "objs/zune.o"+"objs/listview.o"+"objs/zunestuff.o"+"objs/windowp.o"+"objs/buttonsp.o"+"objs/groupsp.o"+"objs/cyclesp.o"+"objs/slidersp.o"+"objs/scrollbarsp.o"+"objs/listviewsp.o"+"objs/stringsp.o"+"objs/specialp.o"+"objs/navigationp.o"+"objs/framesp.o"+"objs/locale.o"+"objs/systemp.o"+"objs/amigasupport.o"
+TO "Zune"
+LIB lib:amiga.lib lib:debug.lib sc:lib/sc.lib LIB:scnb.lib LIB:amiga.lib
+QUIET
+NOICONS
+DEFINE @__chkabort=@__dummy
+

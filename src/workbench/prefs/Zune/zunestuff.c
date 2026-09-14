@@ -8,7 +8,11 @@
 
 #include <libraries/mui.h>
 
+#ifdef __AROS__
 #include <proto/alib.h>
+#else
+#include <clib/alib_protos.h>
+#endif
 #include <proto/asl.h>
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
@@ -30,17 +34,23 @@ long aslfilerequest(char *msg, char *dirpart, char *filepart, char *fullname,
 
   struct FileRequester *fr;
   struct Library *AslBase;
+  struct TagItem frtags[5];
+
   AslBase = OpenLibrary("asl.library", 37L);
 
   if (AslBase) {
-    struct TagItem frtags[] = {
-
-        {ASLFR_TitleText, (IPTR)msg},
-        {ASLFR_InitialDrawer, (IPTR)dirpart},
-        {ASLFR_InitialFile, (IPTR)filepart},
-        {TAG_MORE, (IPTR)tags}
-
-    };
+    /* Filled at runtime: SAS/C rejects TAG_USER (1UL<<31) in static
+       initializers. */
+    frtags[0].ti_Tag = ASLFR_TitleText;
+    frtags[0].ti_Data = (IPTR)msg;
+    frtags[1].ti_Tag = ASLFR_InitialDrawer;
+    frtags[1].ti_Data = (IPTR)dirpart;
+    frtags[2].ti_Tag = ASLFR_InitialFile;
+    frtags[2].ti_Data = (IPTR)filepart;
+    frtags[3].ti_Tag = TAG_MORE;
+    frtags[3].ti_Data = (IPTR)tags;
+    frtags[4].ti_Tag = TAG_DONE;
+    frtags[4].ti_Data = 0;
 
     if ((fr = (struct FileRequester *)AllocAslRequest(ASL_FileRequest,
                                                       frtags))) {

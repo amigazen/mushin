@@ -11,6 +11,20 @@
 #include <libraries/asl.h>
 #include "locale.h"
 
+#ifndef MAXFILENAMELENGTH
+#define MAXFILENAMELENGTH 255
+#endif
+
+#ifndef BNULL
+#define BNULL NULL
+#endif
+
+#ifndef __GNUC__
+/* GCC gets XGET as a statement-expression macro in <libraries/mui.h>;
+   SAS/C uses the function in amigasupport.c. */
+IPTR XGET(Object *obj, Tag attr);
+#endif
+
 /* listview class */
 extern struct MUI_CustomClass *ClassListview_CLASS;
 struct MUI_CustomClass *create_listview_class(void);

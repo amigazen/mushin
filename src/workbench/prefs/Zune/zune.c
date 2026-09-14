@@ -17,6 +17,7 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
+#include <intuition/intuition.h>
 #include <proto/utility.h>
 #include <proto/iffparse.h>
 #include <proto/muimaster.h>
@@ -46,21 +47,31 @@
 
 /************************************************************************/
 
+#ifdef __AROS__
 #define MCC_Query(x) AROS_LVO_CALL1(struct MUI_CustomClass *,          \
                                     AROS_LCA(LONG, (x), D0),           \
                                     struct Library *, mcclib, 5, lib)
+#else
+/* MCP libraries export MCC_Query at LVO -30 (bias 0x1e), D0 = query. */
+struct MUI_CustomClass *MCC_Query(ULONG d0);
+#pragma libcall mcclib MCC_Query 01e 001
+#endif
 
+
+#ifndef NM_BARLABEL
+#define NM_BARLABEL ((STRPTR)~0)
+#endif
 
 #define ZUNEVERSION "$VER: Zune 0.2 (22.02.2006) AROS Dev Team"
 
 APTR *appaddr;
 
-struct TagItem prefstags[] =
-        {
-        { ASLFR_DoPatterns,         (IPTR)TRUE       },
-        { ASLFR_InitialPattern,     (IPTR)"#?.prefs" },
-        { TAG_DONE,                 0                },
-        };
+struct Library *MUIMasterBase;
+struct Library *LocaleBase;
+struct Library *MUIScreenBase;
+
+/* Filled in init_prefstags() - SAS/C rejects TAG_USER bits in static inits. */
+struct TagItem prefstags[3];
 
 /************************************************************************/
 
@@ -70,6 +81,56 @@ void test_prefs(void);
 void main_open_menu(void);
 void main_saveas_menu(void);
 void restore_prefs(CONST_STRPTR name);
+
+static void init_prefstags(void)
+{
+    prefstags[0].ti_Tag = ASLFR_DoPatterns;
+    prefstags[0].ti_Data = (IPTR)TRUE;
+    prefstags[1].ti_Tag = ASLFR_InitialPattern;
+    prefstags[1].ti_Data = (IPTR)"#?.prefs";
+    prefstags[2].ti_Tag = TAG_DONE;
+    prefstags[2].ti_Data = 0;
+}
+
+static int open_libs(void)
+{
+    MUIMasterBase = OpenLibrary(MUIMASTER_NAME, MUIMASTER_VMIN);
+    if (MUIMasterBase == NULL)
+    {
+        /* Fall back to the drop-in name if the Zune-branded library
+           is not installed. */
+        MUIMasterBase = OpenLibrary("muimaster.library", MUIMASTER_VMIN);
+    }
+    if (MUIMasterBase == NULL)
+    {
+        printf("Zune: cannot open %s or muimaster.library\n",
+            MUIMASTER_NAME);
+        return 0;
+    }
+
+    LocaleBase = OpenLibrary("locale.library", 0);
+    MUIScreenBase = OpenLibrary("muiscreen.library", 0);
+    return 1;
+}
+
+static void close_libs(void)
+{
+    if (MUIScreenBase != NULL)
+    {
+        CloseLibrary(MUIScreenBase);
+        MUIScreenBase = NULL;
+    }
+    if (LocaleBase != NULL)
+    {
+        CloseLibrary(LocaleBase);
+        LocaleBase = NULL;
+    }
+    if (MUIMasterBase != NULL)
+    {
+        CloseLibrary(MUIMasterBase);
+        MUIMasterBase = NULL;
+    }
+}
 
 /************************************************************************/
 
@@ -97,6 +158,11 @@ static Object *main_page_list;
 static Object *main_page_group; /* contains the selelected group */
 static Object *main_page_group_displayed; /* The current displayed group */
 static Object *main_page_space; /* a space object */
+
+/* ASL path buffers - file scope so SAS/C near-data limit is not hit */
+static char asl_dirpart[500];
+static char asl_filepart[500];
+static char asl_filename[1000];
 
 char titlebuf[255];
 
@@ -153,9 +219,8 @@ static void main_page_list_display(struct Hook *h, char **strings, struct page_e
 {
     if (entry)
     {
-        sprintf(entry->mcp_imagespec, "\33O[%08lx]", (long unsigned)entry->mcp_listimage);
-        *strings++ = entry->mcp_imagespec;
-        *strings   = entry->name;
+        /* Single-column list keeps the sidebar narrow without icon gutter. */
+        *strings = entry->name;
     }
 }
 
@@ -167,13 +232,17 @@ void main_page_active(void)
 {
     int new_active = XGET(main_page_list,MUIA_List_Active);
     Object *new_group;
+    struct page_entry *entry;
 
     if (new_active == -1)
         new_group = main_page_space;
     else
     {
-        new_group = main_page_entries[new_active].group;
-        if (!new_group)
+        entry = NULL;
+        DoMethod(main_page_list, MUIM_List_GetEntry, new_active, (IPTR)&entry);
+        if (entry && entry->group)
+            new_group = entry->group;
+        else
             new_group = main_page_space;
     }
 
@@ -429,7 +498,7 @@ int init_gui(void)
     main_page_active_hook.h_SubEntry = (HOOKFUNC)main_page_active;
 
     page_display_hook.h_Entry = HookEntry;
-    page_display_hook.h_SubEntry = (APTR)main_page_list_display;
+    page_display_hook.h_SubEntry = (HOOKFUNC)main_page_list_display;
 
     if (!strcmp(appname, "global"))
         wintitle = (STRPTR) _(MSG_WINTITLE1);
@@ -470,22 +539,27 @@ int init_gui(void)
             MUIA_Window_Title, (IPTR)wintitle,
             MUIA_Window_Activate, TRUE,
             MUIA_Window_CloseGadget, FALSE,
-            MUIA_Window_ID, MAKE_ID('Z','W','I','N'),
+            MUIA_Window_ID, MAKE_ID('Z','W','N','3'),
+            /* Tight fit to content; System page no longer SameSize-doubles
+               the wide inspector button across both columns. */
+            MUIA_Window_Width, MUIV_Window_Width_MinMax(0),
+            MUIA_Window_Height, MUIV_Window_Height_MinMax(0),
 
             WindowContents, VGroup,
-                MUIA_Group_VertSpacing, 10,
+                MUIA_Group_VertSpacing, 4,
                 Child, HGroup,
                   Child, VGroup,
+                    MUIA_HorizWeight, 0,
                     Child, (NewObject(ClassListview_CLASS->mcc_Class, NULL,
                         MUIA_CycleChain, 1,
                         MUIA_Listview_List, main_page_list = ListObject,
                             InputListFrame,
                             MUIA_List_AdjustWidth, TRUE,
-                            MUIA_List_Format, ",",
                             MUIA_List_DisplayHook, &page_display_hook,
                             End,
                         TAG_DONE)),
                     Child, HGroup,
+                        MUIA_Weight, 0,
                         Child, MUI_NewObject(MUIC_Popframe,
                                              MUIA_FixHeight, 20,
                                              MUIA_Window_Title, (IPTR) _(MSG_FRAME_CLIPBOARD),
@@ -499,7 +573,7 @@ int init_gui(void)
                     End,
                     Child, VGroup,
                         TextFrame,
-                        InnerSpacing(6,6),
+                        InnerSpacing(4,4),
                         MUIA_Background, MUII_PageBack,
                         Child, main_page_group = VGroup,
                             Child, main_page_group_displayed = main_page_space = HVSpace,
@@ -507,11 +581,13 @@ int init_gui(void)
                         End,
                     End,
                 Child, HGroup,
-                    Child, test_button = ImageButton(_(MSG_GAD_TEST), "THEME:Images/Gadgets/Test"),
+                    /* No THEME: assign on classic AmigaOS; SimpleButton avoids
+                       volume requesters from Lock("THEME:Images/..."). */
+                    Child, test_button = SimpleButton(_(MSG_GAD_TEST)),
                     Child, HVSpace,
-                    Child, save_button = ImageButton(_(MSG_GAD_SAVE), "THEME:Images/Gadgets/Save"),
-                    Child, use_button = ImageButton(_(MSG_GAD_USE), "THEME:Images/Gadgets/Use"),
-                    Child, cancel_button = ImageButton(_(MSG_GAD_CANCEL), "THEME:Images/Gadgets/Cancel"),
+                    Child, save_button = SimpleButton(_(MSG_GAD_SAVE)),
+                    Child, use_button = SimpleButton(_(MSG_GAD_USE)),
+                    Child, cancel_button = SimpleButton(_(MSG_GAD_CANCEL)),
                     End,
                 End,
             End,
@@ -549,10 +625,20 @@ int init_gui(void)
         {
             struct page_entry *p = &main_page_entries[i];
 
-            if (!p->cl) p->cl = create_class(p->desc);
+            if (!p->cl && p->desc)
+                p->cl = create_class(p->desc);
 
             if (!(p->cl && (p->group = NewObject(p->cl->mcc_Class, NULL, TAG_DONE))))
             {
+                /* MCP prefs often need optional MCCs (Textinput, Pophotkey,
+                   etc.). Skip those pages rather than aborting the whole UI. */
+                if (p->mcp_library != NULL)
+                {
+                    printf("Zune: skipping MCP prefs page \"%s\"\n",
+                           p->name ? p->name : "?");
+                    p->group = NULL;
+                    continue;
+                }
                 deinit_gui();
                 return 0;
             }
@@ -628,9 +714,11 @@ void restore_prefs(CONST_STRPTR name)
 
 void main_open_menu(void)
 {
-    static char dirpart[500]="ENVARC:Zune",filepart[500],filename[1000];
+    strcpy(asl_dirpart, "ENVARC:Zune");
+    asl_filepart[0] = '\0';
+    asl_filename[0] = '\0';
 
-    if (aslfilerequest ("Load a Zune Prefs File", (char *)&dirpart, (char *)&filepart, (char *)&filename, prefstags))
+    if (aslfilerequest ("Load a Zune Prefs File", asl_dirpart, asl_filepart, asl_filename, prefstags))
     {
         Object *configdata;
 
@@ -644,7 +732,7 @@ void main_open_menu(void)
 
             /*      D(bug("zune::load_prefs: created configdata %p\n", configdata)); */
             //LastSavedConfigdata = configdata;
-            DoMethod(configdata, MUIM_Configdata_Load,filename);
+            DoMethod(configdata, MUIM_Configdata_Load, asl_filename);
 
             /* Call MUIM_Settingsgroup_ConfigToGadgets for every group */
             for (i=0;main_page_entries[i].name;i++)
@@ -710,9 +798,11 @@ void save_prefs(CONST_STRPTR name, BOOL envarc)
 
 void main_saveas_menu(void)
 {
-    static char dirpart[500]="ENVARC:Zune",filepart[500],filename[1000];
+    strcpy(asl_dirpart, "ENVARC:Zune");
+    asl_filepart[0] = '\0';
+    asl_filename[0] = '\0';
 
-    if (aslfilerequest("Save a Zune Prefs File", (char *)&dirpart, (char *)&filepart, (char *)&filename, prefstags))
+    if (aslfilerequest("Save a Zune Prefs File", asl_dirpart, asl_filepart, asl_filename, prefstags))
     {
         Object *configdata;
 
@@ -721,7 +811,7 @@ void main_saveas_menu(void)
                      TAG_DONE);
 
         /* check for ".prefs" suffix in filename, add if not existing */
-        if ( !strstr( filename, ".prefs") ) strcat(filename, ".prefs");
+        if ( !strstr( asl_filename, ".prefs") ) strcat(asl_filename, ".prefs");
 
         if (configdata != NULL)
         {
@@ -737,7 +827,7 @@ void main_saveas_menu(void)
                 if (p->group) DoMethod(p->group, MUIM_Settingsgroup_GadgetsToConfig, (IPTR)configdata);
             }
 
-            DoMethod(configdata, MUIM_Configdata_Save, filename);
+            DoMethod(configdata, MUIM_Configdata_Save, asl_filename);
 
             MUI_DisposeObject(configdata);
             /*      D(bug("zune::save_prefs: disposed configdata %p\n", configdata)); */
@@ -776,15 +866,22 @@ int main(void)
     BPTR OldDir = BNULL, NewDir;
     int  retval = RETURN_OK;
     struct RDArgs *rda = NULL;
-//    APTR *proc=0;
-    IPTR args[] = { 0,0 };
+    IPTR args[2];
     enum { ARG_APPNAME = 0,ARG_APPADDR=1 };
+
+    args[0] = 0;
+    args[1] = 0;
+
+    init_prefstags();
+
+    if (!open_libs())
+        return RETURN_FAIL;
 
     Locale_Initialize();
 
     if (Cli())
     {
-        rda = ReadArgs("/A,/N", args, NULL);
+        rda = ReadArgs("/A,/N", (LONG *)args, NULL);
         appname=(STRPTR)args[ARG_APPNAME];
         appaddr=(APTR)args[ARG_APPADDR];
         if (appaddr)appaddr=*(appaddr);
@@ -813,9 +910,19 @@ int main(void)
                 {
                     loop();
                 }
+                else
+                {
+                    printf("Zune: failed to open main window\n");
+                    retval = RETURN_FAIL;
+                }
                 if (LastSavedConfigdata)
                     MUI_DisposeObject(LastSavedConfigdata);
                 deinit_gui();
+            }
+            else
+            {
+                printf("Zune: init_gui() failed (MUI object tree)\n");
+                retval = RETURN_FAIL;
             }
             if (NewDir) {
                 CurrentDir(OldDir);
@@ -823,10 +930,16 @@ int main(void)
             }
             close_classes();
         }
+        else
+        {
+            printf("Zune: could not create listview class\n");
+            retval = RETURN_FAIL;
+        }
     }
     
     if (rda) FreeArgs(rda);
 
     Locale_Deinitialize();
+    close_libs();
     return retval;
 }

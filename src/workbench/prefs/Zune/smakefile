@@ -1,0 +1,116 @@
+# SAS/C makefile for the Zune prefs program.
+#
+# Run from this directory:
+#   smake
+#   smake strings.h
+#   smake clean
+#
+# Compiles against the generated public SDK under
+# //libs/muimaster/include, without gst=all.gst - same idea as the
+# opentest / tutorial example targets in the muimaster smakefile.
+#
+# DATA=FAR / CODE=FAR: init_gui() and friends have large automatic
+# frames from nested MUI object macros; NEAR/SMALLDATA cannot hold them.
+# Link with sc.lib (FAR), never scm.lib (NEAR) - mixing them crashes
+# before main does anything useful.
+#
+# Local include/ supplies <aros/debug.h>, <devices/rawkeycodes.h> and
+# <mui/Rawimage_mcc.h>.  Catalog C header is produced with CatComp from
+# catalogs/zune.cd (a checked-in strings.h is used until you regenerate).
+#
+# File list matches mmakefile.src.
+
+CFLAGS = NOVERS idlen=40 DATA=FAR CODE=FAR \
+  IDIR=include \
+  IDIR=//libs/muimaster/include \
+  IGNORE=63 IGNORE=100 IGNORE=224 NOCHECKABORT
+
+LIBS = lib:amiga.lib lib:debug.lib sc:lib/sc.lib
+
+OBJS = \
+  objs/zune.o \
+  objs/listview.o \
+  objs/zunestuff.o \
+  objs/windowp.o \
+  objs/buttonsp.o \
+  objs/groupsp.o \
+  objs/cyclesp.o \
+  objs/slidersp.o \
+  objs/scrollbarsp.o \
+  objs/listviewsp.o \
+  objs/stringsp.o \
+  objs/specialp.o \
+  objs/navigationp.o \
+  objs/framesp.o \
+  objs/locale.o \
+  objs/systemp.o \
+  objs/amigasupport.o
+
+all: dirs Zune
+
+dirs:
+  -makedir objs
+
+# Regenerate the catalog C header with Amiga CatComp when the .cd changes.
+strings.h: catalogs/zune.cd
+  CatComp catalogs/zune.cd CFILE strings.h
+
+Zune: $(OBJS)
+  sc link lib $(LIBS) to Zune with <<
+$(OBJS)
+<
+
+objs/zune.o: zune.c
+  sc $(CFLAGS) zune.c objname=$@
+
+objs/listview.o: listview.c
+  sc $(CFLAGS) listview.c objname=$@
+
+objs/zunestuff.o: zunestuff.c
+  sc $(CFLAGS) zunestuff.c objname=$@
+
+objs/windowp.o: windowp.c
+  sc $(CFLAGS) windowp.c objname=$@
+
+objs/buttonsp.o: buttonsp.c
+  sc $(CFLAGS) buttonsp.c objname=$@
+
+objs/groupsp.o: groupsp.c
+  sc $(CFLAGS) groupsp.c objname=$@
+
+objs/cyclesp.o: cyclesp.c
+  sc $(CFLAGS) cyclesp.c objname=$@
+
+objs/slidersp.o: slidersp.c
+  sc $(CFLAGS) slidersp.c objname=$@
+
+objs/scrollbarsp.o: scrollbarsp.c
+  sc $(CFLAGS) scrollbarsp.c objname=$@
+
+objs/listviewsp.o: listviewsp.c
+  sc $(CFLAGS) listviewsp.c objname=$@
+
+objs/stringsp.o: stringsp.c
+  sc $(CFLAGS) stringsp.c objname=$@
+
+objs/specialp.o: specialp.c
+  sc $(CFLAGS) specialp.c objname=$@
+
+objs/navigationp.o: navigationp.c
+  sc $(CFLAGS) navigationp.c objname=$@
+
+objs/framesp.o: framesp.c
+  sc $(CFLAGS) framesp.c objname=$@
+
+objs/locale.o: locale.c strings.h
+  sc $(CFLAGS) locale.c objname=$@
+
+objs/systemp.o: systemp.c
+  sc $(CFLAGS) systemp.c objname=$@
+
+objs/amigasupport.o: amigasupport.c
+  sc $(CFLAGS) amigasupport.c objname=$@
+
+clean:
+  -delete objs all
+  -delete Zune

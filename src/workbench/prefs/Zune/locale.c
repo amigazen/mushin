@@ -3,6 +3,7 @@
 */
 
 #include <exec/types.h>
+#include <proto/exec.h>
 #include <proto/locale.h>
 
 #define CATCOMP_ARRAY
@@ -13,7 +14,6 @@
 
 /*** Variables **************************************************************/
 struct Catalog *catalog;
-
 
 /*** Functions **************************************************************/
 /* Main *********************************************************************/
