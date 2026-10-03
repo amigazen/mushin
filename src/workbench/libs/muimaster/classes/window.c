@@ -1447,13 +1447,13 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
             {
 		Object                *cstate;
 		Object                *child;
-		struct MinList        *ChildList;
+		struct MinList        *ChildList = NULL;
 
 		get(_app(oWin), MUIA_Application_WindowList, (IPTR *)&(ChildList));
-		cstate = (Object *)ChildList->mlh_Head;
+		cstate = ChildList ? (Object *)ChildList->mlh_Head : NULL;
                 while ((child = NextObject(&cstate)))
                 {
-		    struct Window *wnd;
+		    struct Window *wnd = NULL;
 		    get(child, MUIA_Window_Window,&wnd);
 		    if (!wnd) continue;
 
@@ -1468,7 +1468,7 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
 
             if (dest_wnd)
             {
-		Object *root;
+		Object *root = NULL;
 		get(dest_wnd, MUIA_Window_RootObject, (IPTR *)&root);
 
                 if (root)
@@ -1709,13 +1709,13 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
 
 			    set(item_obj, MUIA_Menuitem_Trigger, (IPTR)item);
 
-                        get(oWin, MUIA_ApplicationObject, &app);
-                        get(item_obj, MUIA_UserData, &udata);
-
-                        set(app, MUIA_Application_MenuAction, udata);
-			   
-                        set(oWin, MUIA_Window_MenuAction, udata);
-                        DoMethod(app, MUIM_Application_ReturnID, udata);
+                        if (get(oWin, MUIA_ApplicationObject, &app) && app
+                            && get(item_obj, MUIA_UserData, &udata))
+                        {
+                            set(app, MUIA_Application_MenuAction, udata);
+                            set(oWin, MUIA_Window_MenuAction, udata);
+                            DoMethod(app, MUIM_Application_ReturnID, udata);
+                        }
                     }
                 }
             }
@@ -1937,7 +1937,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     ULONG                        res;
     LONG                         muikey = MUIKEY_NONE;
     Object                      *active_object = NULL;
-    IPTR                         disabled;
+    IPTR                         disabled = FALSE;
     ULONG                        key;
     ULONG                        deadkey;
     //KillHelpBubble(data, win, BUBBLEHELP_TICKER_FIRST); make problems when scroll with key
@@ -2177,7 +2177,8 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     D(bug("HandleRawkey: try default object handlers\n"));
 
     /* try DefaultObject */
-    
+
+    disabled = FALSE;
     if (data->wd_DefaultObject != NULL)
         get(data->wd_DefaultObject, MUIA_Disabled, &disabled);
 
@@ -2255,7 +2256,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
 
             if (ehn->ehn_Events == key)
             {
-		IPTR disabled;
+		IPTR disabled = FALSE;
                 LONG muikey2 = ehn->ehn_Flags;
 
                 get(ehn->ehn_Object, MUIA_Disabled, &disabled);
@@ -2332,7 +2333,7 @@ static void HandleInputEvent(Object *win, struct MUI_WindowData *data,
 
         if (ehn->ehn_Events & mask)
         {
-	    IPTR disabled;
+	    IPTR disabled = FALSE;
 
             get(ehn->ehn_Object, MUIA_Disabled, &disabled);
             if (disabled)
@@ -2532,10 +2533,9 @@ static Object *GetPrevNextActiveObject (struct ObjNode *old_activenode, objnode_
 	/* let's see if this obj meets cycle requirements (enabled & visible) */
         if (obj)
         {
-	    IPTR is_disabled;
+	    IPTR is_disabled = FALSE;
 
             get(obj, MUIA_Disabled, &is_disabled);
-
             if (!is_disabled && (_flags(obj) & MADF_SHOWME))
             {
                 return obj;
@@ -4188,7 +4188,7 @@ IPTR Window__MUIM_FreeGadgetID(struct IClass *cl, Object *obj, struct MUIP_Windo
 **************************************************************************/
 IPTR Window__MUIM_GetMenuCheck(struct IClass *cl, Object *obj, APTR msg)
 {
-    IPTR stat;
+    IPTR stat = FALSE;
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     Object *item;
     Object *strip = data->wd_ChildMenustrip;
@@ -4226,7 +4226,7 @@ IPTR Window__MUIM_SetMenuCheck(struct IClass *cl, Object *obj, APTR msg)
 **************************************************************************/
 IPTR Window__MUIM_GetMenuState(struct IClass *cl, Object *obj, APTR msg)
 {
-    IPTR stat;
+    IPTR stat = FALSE;
     struct MUI_WindowData *data = INST_DATA(cl, obj);
     Object *item;
     Object *strip = data->wd_ChildMenustrip;

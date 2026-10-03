@@ -2430,6 +2430,7 @@ static IPTR Area__MUIM_QueryFrameCharacteristics(
     msg->characteristics->border_width = frame->border_width;
     msg->characteristics->border_radius = frame->border_radius;
     msg->characteristics->has_rounded_corners = frame->border_radius > 0;
+    return TRUE;
 }
 
 static IPTR Area__MUIM_CreateFrameClippingRegion(
