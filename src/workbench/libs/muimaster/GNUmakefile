@@ -5,6 +5,7 @@
 CROSS ?= m68k-amigaos-
 CC := $(CROSS)gcc
 HOSTCC ?= cc
+PYTHON ?= python3
 SFDC ?= sfdc
 FD2SFD ?= fd2sfd
 BUILD ?= ../../../../build/muimaster
@@ -55,8 +56,12 @@ LDLIBS = -Wl,--start-group -lgcc -lnix20 -lnix -lm -lamiga -ldebug \
 GENERATED = $(BUILD)/include/libraries/mui.h \
   $(BUILD)/include/inline/muimaster.h $(BUILD)/include/inline/muiscreen.h $(BUILD)/gates.h
 
-.PHONY: all clean
+.PHONY: all clean check
 all: $(BUILD)/muimaster.library $(BUILD)/zunemaster.library $(BUILD)/opentest
+
+check: all
+	$(PYTHON) ../../../../tests/check_gcc_library.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 
 $(BUILD)/buildincludes: buildincludes.c GNUmakefile
 	@mkdir -p $(@D)
