@@ -9,7 +9,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds APTR MUI_AllocAslRequest(register __d0 ULONG reqType, register __a0 struct TagItem *tagList)
+        MUI_LIB_ENTRY APTR MUI_AllocAslRequest(MUI_LIB_ARG(d0, ULONG reqType), MUI_LIB_ARG(a0, struct TagItem *tagList))
 
 /*  FUNCTION
         Interface to asl.library.

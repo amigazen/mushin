@@ -26,6 +26,7 @@
 #   define bug DebugPrintF
 #else
 #   define bug kprintf
+void kprintf(char *string, ...);
 #endif
 
 #define ASSERT(x)

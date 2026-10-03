@@ -38,9 +38,12 @@ Each component of **ToolKit** is open source and will have it's own github repo,
 
 ## Building _mushin_
 
-_mushin_ is designed to build against the ToolKit standard. The build process uses SAS/C with smake for Amiga, ensuring compatibility with classic Amiga development workflows.
+_mushin_ supports SAS/C with smake on Amiga and a GNU make cross-build
+with `m68k-amigaos-gcc` on the host. The SAS/C build files remain separate.
 
-Detailed build instructions will be available in the [BUILD.md](BUILD.md) file.
+For the GNU build, put the cross-toolchain on PATH and run `make -j4`
+at the repository root. Outputs go to `build/muimaster/`.
+See [BUILD.md](BUILD.md) for dependencies, options, and runtime limits.
 
 ### Prerequisites
 

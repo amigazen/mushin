@@ -16,7 +16,7 @@ VOID ZuneRemoveClipping(struct MUI_RenderInfo *mri, APTR handle)
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_RemoveClipping(register __a0 struct MUI_RenderInfo *mri, register __a1 APTR handle)
+        MUI_LIB_ENTRY VOID MUI_RemoveClipping(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(a1, APTR handle))
 
 /*  FUNCTION
 

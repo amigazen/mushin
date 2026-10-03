@@ -30,7 +30,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_Redraw(register __a0 Object *objin, register __d0 ULONG flagsin)
+        MUI_LIB_ENTRY VOID MUI_Redraw(MUI_LIB_ARG(a0, Object *objin), MUI_LIB_ARG(d0, ULONG flagsin))
 
 /*  FUNCTION
 

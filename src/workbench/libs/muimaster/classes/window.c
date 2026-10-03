@@ -49,6 +49,7 @@ extern struct Library *MUIMasterBase;
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
 /* Forward declaration for RefreshWindow */
+struct MUI_WindowData;
 void RefreshWindow(Object *obj, struct MUI_WindowData *data);
 #include "area_macros.h"
 #include "imspec.h"

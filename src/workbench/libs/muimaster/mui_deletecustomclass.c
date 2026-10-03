@@ -12,7 +12,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds BOOL MUI_DeleteCustomClass(register __a0 struct MUI_CustomClass *mcc)
+        MUI_LIB_ENTRY BOOL MUI_DeleteCustomClass(MUI_LIB_ARG(a0, struct MUI_CustomClass *mcc))
 
 /*  FUNCTION
         Delete private or public custom classes.

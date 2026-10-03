@@ -12,7 +12,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_ReleasePen(register __a0 struct MUI_RenderInfo *mri, register __d0 LONG pen)
+        MUI_LIB_ENTRY VOID MUI_ReleasePen(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(d0, LONG pen))
 
 /*  FUNCTION
 

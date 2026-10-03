@@ -18,7 +18,7 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_FreeClass(register __a0 Class *cl)
+        MUI_LIB_ENTRY VOID MUI_FreeClass(MUI_LIB_ARG(a0, Class *cl))
 
 /*  FUNCTION
         Frees a class returned by MUI_GetClass(). This function is

@@ -94,6 +94,11 @@ struct Library *MUIMasterBase;
 struct Library **MUIMasterBasePtr = &MUIMasterBase;
 struct Library *CyberGfxBase;
 
+#ifdef MUSHIN_GCC_NATIVE
+BOOL ZuneGccInit(void);
+void ZuneGccCleanup(void);
+#endif
+
 /* Library version constants for clarity */
 #define DOS_MIN_VERSION         37
 #define UTILITY_MIN_VERSION     37
@@ -309,6 +314,11 @@ ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
     pens[MPEN_HALFSHINE].buf[0] = (UBYTE) '\0';
     pens[MPEN_HALFSHADOW].buf[0] = (UBYTE) '\0';
 
+#ifdef MUSHIN_GCC_NATIVE
+    if (!ZuneGccInit())
+        goto fail;
+#endif
+
     return TRUE;
 
 fail:
@@ -359,6 +369,10 @@ void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBas
                 CloseLibrary((struct Library *)_MUIMasterBase);
         }
     }
+
+#ifdef MUSHIN_GCC_NATIVE
+    ZuneGccCleanup();
+#endif
 
     if (libBase->defaultPens)
         FreeMem(libBase->defaultPens,

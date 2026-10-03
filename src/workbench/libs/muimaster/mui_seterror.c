@@ -7,7 +7,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds LONG MUI_SetError(register __d0 LONG num)
+        MUI_LIB_ENTRY LONG MUI_SetError(MUI_LIB_ARG(d0, LONG num))
 
 /*  FUNCTION
 

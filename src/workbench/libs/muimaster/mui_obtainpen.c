@@ -15,7 +15,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds LONG MUI_ObtainPen(register __a0 struct MUI_RenderInfo *mri, register __a1 struct MUI_PenSpec *spec, register __d0 ULONG flags)
+        MUI_LIB_ENTRY LONG MUI_ObtainPen(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(a1, struct MUI_PenSpec *spec), MUI_LIB_ARG(d0, ULONG flags))
 
 /*  FUNCTION
         Turns struct MUI_PenSpec (the result of a Poppen object) into

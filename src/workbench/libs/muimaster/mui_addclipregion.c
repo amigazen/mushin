@@ -91,7 +91,7 @@ APTR ZuneAddClipRegion(struct MUI_RenderInfo *mri, struct Region *r)
 /*****************************************************************************
 
     NAME */
-        __asm __saveds APTR MUI_AddClipRegion(register __a0 struct MUI_RenderInfo *mri, register __a1 struct Region *r)
+        MUI_LIB_ENTRY APTR MUI_AddClipRegion(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(a1, struct Region *r))
 
 /*  FUNCTION
 

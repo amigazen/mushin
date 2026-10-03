@@ -1,6 +1,10 @@
 #ifndef PROTO_MUISCREEN_H
 #define PROTO_MUISCREEN_H
 
+#ifdef __GNUC__
+#include <clib/muiscreen_protos.h>
+#endif
+
 /*
 ** 'C' prototype and compiler specific header file combo
 **

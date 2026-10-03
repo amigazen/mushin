@@ -14,7 +14,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_RequestIDCMP(register __a0 Object *obj, register __d0 ULONG flags)
+        MUI_LIB_ENTRY VOID MUI_RequestIDCMP(MUI_LIB_ARG(a0, Object *obj), MUI_LIB_ARG(d0, ULONG flags))
 
 /*  FUNCTION
         For custom class implementors. Valid between MUIM_Setup/MUIM_Cleanup.

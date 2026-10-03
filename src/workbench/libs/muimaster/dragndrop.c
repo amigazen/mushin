@@ -1267,7 +1267,7 @@ struct TimerStruct
 };
 
 //-------------------------------------
-ASM VOID TIMER_DeleteTimer(register __a0 APTR t)
+ASM VOID TIMER_DeleteTimer(REG(a0, APTR t))
 {
     if (t)
     {
@@ -1328,22 +1328,22 @@ ASM APTR TIMER_CreateTimer()
     return NULL;
 }
 //-------------------------------------
-ASM struct MsgPort *TIMER_GetMsgPort(register __a0 APTR t)
+ASM struct MsgPort *TIMER_GetMsgPort(REG(a0, APTR t))
 {
     if (!t)
         return NULL;
     return ((struct TimerStruct *)t)->msgport;
 }
 //-------------------------------------
-ASM ULONG TIMER_GetSigMask(register __a0 APTR t)
+ASM ULONG TIMER_GetSigMask(REG(a0, APTR t))
 {
     if (!t)
         return NULL;
     return (1UL << (((struct TimerStruct *)t)->msgport->mp_SigBit));
 }
 //-------------------------------------
-ASM APTR TIMER_StartTimer(register __a0 APTR t, register __d0 ULONG secs,
-    register __d1 ULONG mics)
+ASM APTR TIMER_StartTimer(REG(a0, APTR t), REG(d0, ULONG secs),
+    REG(d1, ULONG mics))
 {
     struct TimerStruct *timer;
     struct timerequest *req;
@@ -1364,7 +1364,7 @@ ASM APTR TIMER_StartTimer(register __a0 APTR t, register __d0 ULONG secs,
     return (APTR) 1L;
 }
 //-------------------------------------
-ASM VOID TIMER_StopTimer(register __a0 APTR t)
+ASM VOID TIMER_StopTimer(REG(a0, APTR t))
 {
     struct TimerStruct *timer;
     if (!t)

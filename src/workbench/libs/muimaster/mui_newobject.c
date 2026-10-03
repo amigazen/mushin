@@ -16,7 +16,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds Object *MUI_NewObjectA(register __a0 ClassID classid, register __a1 struct TagItem *tags)
+        MUI_LIB_ENTRY Object *MUI_NewObjectA(MUI_LIB_ARG(a0, CONST_STRPTR classid), MUI_LIB_ARG(a1, struct TagItem *tags))
 
 /*  FUNCTION
         Create object from MUI class.

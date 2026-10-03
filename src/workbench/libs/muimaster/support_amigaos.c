@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -70,14 +71,14 @@ VOID FreeVecPooled(APTR pool, APTR memory)
 
 struct snprintf_msg
 {
-	int size;
+	size_t size;
 	char *buf;
 };
 
 /************************************************************
  Snprintf function for RawDoFmt()
 *************************************************************/
-__asm void snprintf_func(register __d0 UBYTE chr, register __a3 struct snprintf_msg *msg)
+ASM void snprintf_func(REG(d0, UBYTE chr), REG(a3, struct snprintf_msg *msg))
 {
     if (msg->size)
     {
@@ -89,7 +90,7 @@ __asm void snprintf_func(register __d0 UBYTE chr, register __a3 struct snprintf_
 /************************************************************
  Snprintf via RawDoFmt()
 *************************************************************/
-int snprintf(char *buf, int size, const char *fmt, ...)
+int snprintf(char *buf, size_t size, const char *fmt, ...)
 {
     struct snprintf_msg msg;
 		if (!size) return 0;
@@ -161,12 +162,12 @@ int VARARGS68K SPrintf(char *buf, const char *fmt, ...)
 ***************************************************/
 #endif
 
-LONG __saveds HexToIPTR(CONST_STRPTR s, IPTR *val)
+LONG SAVEDS HexToIPTR(CONST_STRPTR s, IPTR *val)
 {
     return HexToLong((STRPTR)s, val);
 }
 
-LONG __saveds HexToLong(CONST_STRPTR s, ULONG *val)
+LONG SAVEDS HexToLong(CONST_STRPTR s, ULONG *val)
 {
     char *end;
     *val = (ULONG)strtoul(s,&end,16);

@@ -5,7 +5,9 @@
 #ifndef _MUIMASTER_SUPPORT_AMIGAOS_H_
 #define _MUIMASTER_SUPPORT_AMIGAOS_H_
 
-#ifdef EXEC_TYPES_H
+#include <stddef.h>
+
+#ifndef EXEC_TYPES_H
 #include <exec/types.h>
 #endif
 
@@ -13,8 +15,25 @@
 #include <intuition/classes.h>
 #endif
 
+#if defined(__GNUC__) && defined(__mc68000__)
+#define ASM
+#define REG(reg, arg) arg __asm(#reg)
+#define SAVEDS
+#define STDARGS __stdargs
+#define VARARGS68K
+#else
 #ifndef AMIGA_COMILER_H
 #include <amiga_compiler.h>
+#endif
+#endif
+
+/* GCC uses generated register gates; SAS/C enters these bodies directly. */
+#ifdef __GNUC__
+#define MUI_LIB_ENTRY
+#define MUI_LIB_ARG(reg, arg) arg
+#else
+#define MUI_LIB_ENTRY __asm __saveds
+#define MUI_LIB_ARG(reg, arg) register __##reg arg
 #endif
 
 #ifndef PROTO_UTILITY_H
@@ -110,7 +129,10 @@ LONG HexToLong(CONST_STRPTR s, ULONG *val);
 #define AROS_STACKSIZE 65536
 
 char *StrDup(const char *x);
-#ifdef __SASC /* PRIV */
+#ifdef __GNUC__
+int stricmp(const char *left, const char *right);
+#endif
+#if defined(__SASC) || defined(__GNUC__) /* PRIV */
 size_t strlcat(char *buf, const char *src, size_t len); /* PRIV */
 #endif /* PRIV */
 Object *DoSuperNewTagList(struct IClass *cl, Object *obj,void *dummy, struct TagItem *tags);
@@ -126,7 +148,7 @@ int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
  * RawDoFmt format dialect, so all integer conversions need the 'l' modifier.
  */
 #ifndef __amigaos4__                                          /* PRIV */
-int snprintf(char *buf, int size, const char *fmt, ...);      /* PRIV */
+int snprintf(char *buf, size_t size, const char *fmt, ...);      /* PRIV */
 int sprintf(char *buf, const char *fmt, ...);                 /* PRIV */
 #endif                                                        /* PRIV */
 
@@ -226,6 +248,25 @@ for                                            \
    <exec/lists.h> if it is ever needed again. */
 
 /*** AROS register definitions **********************************************/
+#ifdef __GNUC__
+#define MUI_REG_A0 "a0"
+#define MUI_REG_A1 "a1"
+#define MUI_REG_A2 "a2"
+#define MUI_REG_A3 "a3"
+#define MUI_REG_A4 "a4"
+#define MUI_REG_A5 "a5"
+#define MUI_REG_A6 "a6"
+#define MUI_REG_A7 "a7"
+#define MUI_REG_D0 "d0"
+#define MUI_REG_D1 "d1"
+#define MUI_REG_D2 "d2"
+#define MUI_REG_D3 "d3"
+#define MUI_REG_D4 "d4"
+#define MUI_REG_D5 "d5"
+#define MUI_REG_D6 "d6"
+#define MUI_REG_D7 "d7"
+#endif
+
 #define __REG_D0 __d0
 #define __REG_D1 __d1
 #define __REG_D2 __d2
@@ -313,6 +354,8 @@ for                                            \
 
 #ifdef __SASC
 #   define AROS_UFHA(type, name, reg) register __REG_##reg type name
+#elif defined(__GNUC__) && defined(__mc68000__)
+#   define AROS_UFHA(type, name, reg) type name __asm(MUI_REG_##reg)
 #else
 #   define AROS_UFHA(type, name, reg) type name
 #endif

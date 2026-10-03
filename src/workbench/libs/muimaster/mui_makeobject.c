@@ -28,7 +28,7 @@ extern struct Library *CoolImagesBase;
 extern struct Library *MUIMasterBase;
 
 /* Forward declaration for MUI_MakeObjectA */
-__asm __saveds Object *MUI_MakeObjectA(register __d0 LONG type, register __a0 IPTR *params);
+MUI_LIB_ENTRY Object *MUI_MakeObjectA(MUI_LIB_ARG(d0, LONG type), MUI_LIB_ARG(a0, IPTR *params));
 
 /*****************************************************************************
 
@@ -258,7 +258,7 @@ Object *INTERNAL_ImageButton(CONST_STRPTR label, CONST_STRPTR imagePath,
 /*****************************************************************************
 
     NAME */
-        __asm __saveds Object *MUI_MakeObjectA(register __d0 LONG type, register __a0 IPTR *params)
+        MUI_LIB_ENTRY Object *MUI_MakeObjectA(MUI_LIB_ARG(d0, LONG type), MUI_LIB_ARG(a0, IPTR *params))
 
 /*  FUNCTION
         Create an object from the builtin object collection.

@@ -7,7 +7,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds LONG MUI_Error(void)
+        MUI_LIB_ENTRY LONG MUI_Error(void)
 
 /*  FUNCTION
         Obsolete function. Use SetIoErr()/IoErr() instead.

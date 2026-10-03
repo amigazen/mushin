@@ -18,6 +18,8 @@
 #include "support_classes.h"
 #include "muimaster_intern.h"
 
+extern struct Library *MUIMasterBase;
+
 /*#define MYDEBUG*/
 #include "debug.h"
 
@@ -301,7 +303,7 @@ AROS_UFH3(IPTR, metaDispatcher,
 }
 
 #else
-#ifdef __SASC
+#if defined(__SASC) || defined(__GNUC__)
 /*
  * A6 is declared as a fourth register parameter of the dispatcher rather than
  * being poked in with putreg() beforehand.  putreg() only guarantees A6 at
@@ -313,16 +315,16 @@ AROS_UFH3(IPTR, metaDispatcher,
  * Dispatchers declared with BOOPSI_DISPATCHER only name three parameters and
  * simply ignore the fourth, which is harmless.
  */
-__asm ULONG metaDispatcher(register __a0 struct IClass * cl,
-    register __a2 Object * obj, register __a1 Msg msg)
+ASM ULONG metaDispatcher(REG(a0, struct IClass * cl),
+    REG(a2, Object * obj), REG(a1, Msg msg))
 {
-    __asm ULONG(*entry) (register __a0 struct IClass * cl,
-        register __a2 Object * obj, register __a1 Msg msg,
-        register __a6 APTR base) =
-        (__asm ULONG(*)(register __a0 struct IClass *,
-            register __a2 Object *,
-            register __a1 Msg,
-            register __a6 APTR))cl->cl_Dispatcher.h_SubEntry;
+    ASM ULONG(*entry) (REG(a0, struct IClass * cl),
+        REG(a2, Object * obj), REG(a1, Msg msg),
+        REG(a6, APTR base)) =
+        (ASM ULONG(*)(REG(a0, struct IClass *),
+            REG(a2, Object *),
+            REG(a1, Msg),
+            REG(a6, APTR)))cl->cl_Dispatcher.h_SubEntry;
 
     return entry(cl, obj, msg, cl->cl_Dispatcher.h_Data);
 }

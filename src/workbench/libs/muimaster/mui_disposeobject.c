@@ -11,7 +11,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_DisposeObject(register __a0 Object *obj)
+        MUI_LIB_ENTRY VOID MUI_DisposeObject(MUI_LIB_ARG(a0, Object *obj))
 
 /*  FUNCTION
         Deletes MUI object and its child objects.

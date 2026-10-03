@@ -20,7 +20,7 @@ extern struct Library *MUIMasterBase;
 /*****************************************************************************
 
     NAME */
-        __asm __saveds struct IClass *MUI_GetClass(register __a0 ClassID classid)
+        MUI_LIB_ENTRY struct IClass *MUI_GetClass(MUI_LIB_ARG(a0, CONST_STRPTR classid))
 
 /*  FUNCTION
         Get a pointer to a MUI Class.

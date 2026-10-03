@@ -268,6 +268,17 @@ AROS_UFP3
         _ret; \
 })
 
+#elif defined(__GNUC__)
+
+#define MCC_Query(x) ({ \
+    register struct Library *base __asm("a6") = mcclib; \
+    register ULONG result __asm("d0") = (x); \
+    __asm volatile ("jsr a6@(-30:W)" \
+        : "+d" (result) : "a" (base) \
+        : "d1", "a0", "a1", "cc", "memory"); \
+    (struct MUI_CustomClass *)result; \
+})
+
 #else /* Must be SAS/C */
 
 struct MUI_CustomClass *MCC_Query(ULONG d0);

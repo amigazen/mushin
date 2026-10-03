@@ -62,7 +62,7 @@ VOID ZuneRemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle)
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_RemoveClipRegion(register __a0 struct MUI_RenderInfo *mri, register __a1 APTR handle)
+        MUI_LIB_ENTRY VOID MUI_RemoveClipRegion(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(a1, APTR handle))
 
 /*  FUNCTION
 

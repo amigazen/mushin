@@ -13,7 +13,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_RejectIDCMP(register __a0 Object *obj, register __d0 ULONG flags)
+        MUI_LIB_ENTRY VOID MUI_RejectIDCMP(MUI_LIB_ARG(a0, Object *obj), MUI_LIB_ARG(d0, ULONG flags))
 
 /*  FUNCTION
 

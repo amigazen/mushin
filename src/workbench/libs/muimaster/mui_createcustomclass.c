@@ -14,13 +14,13 @@
 #include "support_classes.h"
 
 /* Forward declarations for internal functions */
-struct IClass *MUI_GetClass(ClassID classid);
+struct IClass *MUI_GetClass(CONST_STRPTR classid);
 VOID MUI_FreeClass(Class *cl);
 
 /*****************************************************************************
 
     NAME */
-        __asm __saveds struct MUI_CustomClass *MUI_CreateCustomClass(register __a0 struct Library *base, register __a1 ClassID supername, register __a2 struct MUI_CustomClass *supermcc, register __d0 ULONG datasize, register __a3 APTR dispatcher)
+        MUI_LIB_ENTRY struct MUI_CustomClass *MUI_CreateCustomClass(MUI_LIB_ARG(a0, struct Library *base), MUI_LIB_ARG(a1, CONST_STRPTR supername), MUI_LIB_ARG(a2, struct MUI_CustomClass *supermcc), MUI_LIB_ARG(d0, ULONG datasize), MUI_LIB_ARG(a3, APTR dispatcher))
 
 /*  FUNCTION
 

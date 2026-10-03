@@ -123,22 +123,22 @@ LONG ReturnError(void)
  * through the jump table - all of mui_*.c - is declared __asm __saveds already.
  */
 
-__asm __saveds void MUI_Priv1(register __a6 struct Library *MUIMasterBase)
+ASM SAVEDS void MUI_Priv1(REG(a6, struct Library *MUIMasterBase))
 {
         D(bug("MUI_Priv1() called"));
 }
 
-__asm __saveds void MUI_Priv2(register __a6 struct Library *MUIMasterBase)
+ASM SAVEDS void MUI_Priv2(REG(a6, struct Library *MUIMasterBase))
 {
         D(bug("MUI_Priv2() called"));
 }
 
-__asm __saveds void MUI_Priv3(register __a6 struct Library *MUIMasterBase)
+ASM SAVEDS void MUI_Priv3(REG(a6, struct Library *MUIMasterBase))
 {
         D(bug("MUI_Priv3() called"));
 }
 
-__asm __saveds void MUI_Priv4(register __a6 struct Library *MUIMasterBase)
+ASM SAVEDS void MUI_Priv4(REG(a6, struct Library *MUIMasterBase))
 {
         D(bug("MUI_Priv4() called"));
 }
@@ -197,7 +197,11 @@ extern const ULONG LibInitTable[4]; /* the prototype */
 const struct Resident RomTag = {
   RTC_MATCHWORD,                   /* Marker value. */
   (struct Resident *)&RomTag,      /* This points back to itself. */
+#ifdef MUSHIN_GCC_NATIVE
+  (struct Resident *)(&RomTag + 1), /* GCC may reorder the static tables. */
+#else
   (struct Resident *)LibInitTable, /* This points somewhere behind this marker. */
+#endif
   RTF_AUTOINIT,                    /* The Library should be set up according to the given table. */
   VERSION,                         /* The version of this Library. */
   NT_LIBRARY,                      /* This defines this module as a Library. */
@@ -339,40 +343,47 @@ ASM SAVEDS struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct M
    Slot indices 4..32 map to LVO 0x1e..0xc6 (bias 30); Priv1-4 occupy
    0x84..0x96.  No trailing mui38dev/MUI 5 slots until implemented. */
 
+#ifdef __GNUC__
+#include "gates.h"
+#define MUI_VECTOR(name) (APTR) Gate_##name
+#else
+#define MUI_VECTOR(name) (APTR) name
+#endif
+
 static const APTR LibVectors[] = {
   (APTR) LibOpen,
   (APTR) LibClose,
   (APTR) LibExpunge,
   (APTR) LibReserved,
-  (APTR) MUI_NewObjectA,
-  (APTR) MUI_DisposeObject,
-  (APTR) MUI_RequestA,
-  (APTR) MUI_AllocAslRequest,
-  (APTR) MUI_AslRequest,
-  (APTR) MUI_FreeAslRequest,
-  (APTR) MUI_Error,
-  (APTR) MUI_SetError,
-  (APTR) MUI_GetClass,
-  (APTR) MUI_FreeClass,
-  (APTR) MUI_RequestIDCMP,
-  (APTR) MUI_RejectIDCMP,
-  (APTR) MUI_Redraw,
-  (APTR) MUI_CreateCustomClass,
-  (APTR) MUI_DeleteCustomClass,
-  (APTR) MUI_MakeObjectA,
-  (APTR) MUI_Layout,
+  MUI_VECTOR(MUI_NewObjectA),
+  MUI_VECTOR(MUI_DisposeObject),
+  MUI_VECTOR(MUI_RequestA),
+  MUI_VECTOR(MUI_AllocAslRequest),
+  MUI_VECTOR(MUI_AslRequest),
+  MUI_VECTOR(MUI_FreeAslRequest),
+  MUI_VECTOR(MUI_Error),
+  MUI_VECTOR(MUI_SetError),
+  MUI_VECTOR(MUI_GetClass),
+  MUI_VECTOR(MUI_FreeClass),
+  MUI_VECTOR(MUI_RequestIDCMP),
+  MUI_VECTOR(MUI_RejectIDCMP),
+  MUI_VECTOR(MUI_Redraw),
+  MUI_VECTOR(MUI_CreateCustomClass),
+  MUI_VECTOR(MUI_DeleteCustomClass),
+  MUI_VECTOR(MUI_MakeObjectA),
+  MUI_VECTOR(MUI_Layout),
   (APTR) MUI_Priv1,
   (APTR) MUI_Priv2,
   (APTR) MUI_Priv3,
   (APTR) MUI_Priv4,
-  (APTR) MUI_ObtainPen,
-  (APTR) MUI_ReleasePen,
-  (APTR) MUI_AddClipping,
-  (APTR) MUI_RemoveClipping,
-  (APTR) MUI_AddClipRegion,
-  (APTR) MUI_RemoveClipRegion,
-  (APTR) MUI_BeginRefresh,
-  (APTR) MUI_EndRefresh,
+  MUI_VECTOR(MUI_ObtainPen),
+  MUI_VECTOR(MUI_ReleasePen),
+  MUI_VECTOR(MUI_AddClipping),
+  MUI_VECTOR(MUI_RemoveClipping),
+  MUI_VECTOR(MUI_AddClipRegion),
+  MUI_VECTOR(MUI_RemoveClipRegion),
+  MUI_VECTOR(MUI_BeginRefresh),
+  MUI_VECTOR(MUI_EndRefresh),
   (APTR) -1
 };
 
@@ -398,4 +409,3 @@ void __regargs __chkabort(void) { }
 void __regargs _CXBRK(void)     { }
 void __saveds __XCEXIT(void)  { }
 #endif
-

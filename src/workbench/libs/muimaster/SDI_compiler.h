@@ -142,6 +142,10 @@
   #if (defined(_M68000) || defined(__M68000) || defined(__mc68000)) && !defined(__AROS__)
     #define REG(reg,arg) arg __asm(#reg)
     #define LREG(reg,arg) register REG(reg,arg)
+    #ifdef MUSHIN_GCC_NATIVE
+      /* This library uses absolute globals, not GCC base-relative data. */
+      #define SAVEDS
+    #endif
   #else
     #define REG(reg,arg) arg
     #define SAVEDS

@@ -9,7 +9,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds BOOL MUI_AslRequest(register __a0 APTR requester, register __a1 struct TagItem *tagList)
+        MUI_LIB_ENTRY BOOL MUI_AslRequest(MUI_LIB_ARG(a0, APTR requester), MUI_LIB_ARG(a1, struct TagItem *tagList))
 
 /*  FUNCTION
         Interface to asl.library.

@@ -12,7 +12,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_EndRefresh(register __a0 struct MUI_RenderInfo *mri, register __d0 ULONG flags)
+        MUI_LIB_ENTRY VOID MUI_EndRefresh(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(d0, ULONG flags))
 /*  FUNCTION
 
     INPUTS

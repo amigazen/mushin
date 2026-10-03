@@ -25,8 +25,13 @@
 #include <cybergraphx/cybergraphics.h>
 #include <graphics/rpattr.h>
 
+#ifdef __SASC
 #include "/datatypescache.h"
 #include "/imspec_intern.h"
+#else
+#include "../datatypescache.h"
+#include "../imspec_intern.h"
+#endif
 
 #include "mui.h"
 #include "muimaster_intern.h"

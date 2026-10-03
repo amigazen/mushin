@@ -9,7 +9,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds VOID MUI_FreeAslRequest(register __a0 APTR requester)
+        MUI_LIB_ENTRY VOID MUI_FreeAslRequest(MUI_LIB_ARG(a0, APTR requester))
 
 /*  FUNCTION
         Interface to asl.library

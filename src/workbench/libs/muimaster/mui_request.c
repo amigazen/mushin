@@ -59,7 +59,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 /*****************************************************************************
 
     NAME */
-        __asm __saveds LONG MUI_RequestA(register __d0 APTR app, register __d1 APTR win, register __d2 LONGBITS flags, register __a0 CONST_STRPTR title, register __a1 CONST_STRPTR gadgets, register __a2 CONST_STRPTR format, register __a3 APTR params)
+        MUI_LIB_ENTRY LONG MUI_RequestA(MUI_LIB_ARG(d0, APTR app), MUI_LIB_ARG(d1, APTR win), MUI_LIB_ARG(d2, LONGBITS flags), MUI_LIB_ARG(a0, CONST_STRPTR title), MUI_LIB_ARG(a1, CONST_STRPTR gadgets), MUI_LIB_ARG(a2, CONST_STRPTR format), MUI_LIB_ARG(a3, APTR params))
 
 /*  FUNCTION
 

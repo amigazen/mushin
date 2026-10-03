@@ -7,7 +7,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds void MUI_Private(void)
+        MUI_LIB_ENTRY void MUI_Private(void)
 
 /*  FUNCTION
         Private/reserved function slot. This function should not be called

@@ -396,7 +396,7 @@
 #include "classes/area.h"
 #endif
 
-#ifdef __SASC
+#ifndef __AROS__
 #define CLASS_INSTANCE_ALIGN
 #else
 #ifndef INTUITION_CLASSALIGN_H

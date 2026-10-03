@@ -46,7 +46,7 @@ APTR ZuneAddClipping(struct MUI_RenderInfo *mri, LONG left, LONG top,
 /*****************************************************************************
 
     NAME */
-        __asm __saveds APTR MUI_AddClipping(register __a0 struct MUI_RenderInfo *mri, register __d0 WORD left, register __d1 WORD top, register __d2 WORD width, register __d3 WORD height)
+        MUI_LIB_ENTRY APTR MUI_AddClipping(MUI_LIB_ARG(a0, struct MUI_RenderInfo *mri), MUI_LIB_ARG(d0, WORD left), MUI_LIB_ARG(d1, WORD top), MUI_LIB_ARG(d2, WORD width), MUI_LIB_ARG(d3, WORD height))
 
 /*  FUNCTION
 

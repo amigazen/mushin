@@ -22,7 +22,7 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds BOOL MUI_Layout(register __a0 Object *obj, register __d0 LONG left, register __d1 LONG top, register __d2 LONG width, register __d3 LONG height, register __d4 ULONG flags)
+        MUI_LIB_ENTRY BOOL MUI_Layout(MUI_LIB_ARG(a0, Object *obj), MUI_LIB_ARG(d0, LONG left), MUI_LIB_ARG(d1, LONG top), MUI_LIB_ARG(d2, LONG width), MUI_LIB_ARG(d3, LONG height), MUI_LIB_ARG(d4, ULONG flags))
 
 /*  FUNCTION
 
