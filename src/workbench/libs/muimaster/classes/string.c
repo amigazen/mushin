@@ -644,12 +644,14 @@ IPTR String__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
             {
                 char buf[20];
                 IPTR oldval, newval;
+                ULONG have_oldval;
 
-                get(obj, MUIA_String_Integer, &oldval);
+                have_oldval = get(obj, MUIA_String_Integer, &oldval);
                 snprintf(buf, 19, "%ld", tag->ti_Data);
                 set(obj, MUIA_String_Contents, buf);
-                get(obj, MUIA_String_Integer, &newval);
-                if (oldval == newval) tag->ti_Tag = TAG_IGNORE; /* Attribute value not changed */
+                if (get(obj, MUIA_String_Integer, &newval)
+                    && have_oldval && oldval == newval)
+                    tag->ti_Tag = TAG_IGNORE; /* Attribute value not changed */
             }
             break;
 
@@ -813,24 +815,24 @@ IPTR String__MUIM_Setup(struct IClass *cl, Object *obj,
     set(obj, MUIA_Background,
         (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive, &data->inactive_text);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive, &data->inactive_text);
     zune_penspec_setup(&data->inactive_text, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_active, &data->active_text);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_text_active, &data->active_text);
     zune_penspec_setup(&data->active_text, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_marked, &data->marked_text);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_text_marked, &data->marked_text);
     zune_penspec_setup(&data->marked_text, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
     zune_penspec_setup(&data->marked_bg, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
     zune_penspec_setup(&data->cursor, muiRenderInfo(obj));
 
     {
