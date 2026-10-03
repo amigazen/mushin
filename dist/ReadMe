@@ -1,0 +1,65 @@
+Mushin for AmigaOS 3.x / m68k
+============================
+
+Mushin is a MUI-compatible user interface library based on AROS Zune.
+This package contains the core libraries and the opentest application.
+It does not include the preferences editor, extra MCCs, or an SDK.
+
+Requirements
+------------
+AmigaOS 3.1 or newer, a 68000 or better, and Amiga Installer 43 or newer.
+The system IEEE double math libraries must be available; no FPU is needed.
+Installer itself is not included. The Install icon uses
+SYS:System/Installer, the location supplied with AmigaOS 3.2.3. If your
+Installer is elsewhere, change the icon's Default Tool to its path.
+
+Installation
+------------
+Extract the archive and double-click Install inside the Mushin drawer.
+Alternatively, change to that drawer in a Shell and run:
+
+  SYS:System/Installer Install MINUSER AVERAGE
+
+Each library has its own Install/Skip question. Existing and bundled
+versions are shown before anything is replaced. Versions come from the
+actual files, not from the archive filename. Unknown versions are shown
+as unknown. Equal-version replacements and downgrades require the same
+explicit choice as upgrades. The default is Skip.
+
+  zunemaster.library  -> LIBS:zunemaster.library
+    Installs alongside MUI. opentest uses this name by default.
+
+  muimaster.library   -> LIBS:muimaster.library
+    Replaces MUI for applications using the standard library name.
+    Installing this is optional; it can affect other MUI applications.
+
+Before replacing a file, the installer saves the original beside it as
+<library-name>.mushin-old. An existing backup is preserved. Copy or
+rename that backup back to the original name to restore it. A newer
+resident library can remain active until reboot; the installer reports
+the resident version separately and does not expunge libraries in use.
+
+The installer copies only libraries. Tests/opentest remains in the
+extracted package. Nothing changes in S:Startup-Sequence or S:User-Startup.
+Pretend mode displays the choices without copying files.
+
+After installation, close applications and reboot before trying Mushin.
+Run Tests/opentest from the extracted drawer. To exercise the replacement
+name explicitly, run Tests/opentest muimaster.library.
+
+The GNU-built opentest automatically requests at least 65536 bytes of
+stack and frees any replacement stack on exit. For older or SAS/C-built
+test programs, run Stack 65536 in the same Shell first.
+
+Normal builds omit Zune drawing/input traces. The test still prints its
+own progress and results. Source builds can enable tracing with TRACE=1;
+that output is deliberately excluded from performance measurements.
+
+Status and source
+-----------------
+This is a development build. Compiler and binary-interface checks do not
+establish application compatibility or performance on real hardware.
+
+Source: https://github.com/amigazen/mushin/
+The supplied LICENSE contains the AROS Public License. The AROS authors
+are not affiliated with the amigazen project.
