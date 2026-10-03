@@ -6,6 +6,8 @@ CROSS ?= m68k-amigaos-
 CC := $(CROSS)gcc
 HOSTCC ?= cc
 PYTHON ?= python3
+LHA ?= lha
+RELEASE_DIR ?= $(BUILD)/release
 SFDC ?= sfdc
 FD2SFD ?= fd2sfd
 BUILD ?= ../../../../build/muimaster
@@ -56,12 +58,17 @@ LDLIBS = -Wl,--start-group -lgcc -lnix20 -lnix -lm -lamiga -ldebug \
 GENERATED = $(BUILD)/include/libraries/mui.h \
   $(BUILD)/include/inline/muimaster.h $(BUILD)/include/inline/muiscreen.h $(BUILD)/gates.h
 
-.PHONY: all clean check
+.PHONY: all clean check release
 all: $(BUILD)/muimaster.library $(BUILD)/zunemaster.library $(BUILD)/opentest
+
+release: all
+	$(PYTHON) ../../../../tools/release.py --build-dir "$(BUILD)" \
+	  --output-dir "$(RELEASE_DIR)" --lha "$(LHA)"
 
 check: all
 	$(PYTHON) ../../../../tests/check_gcc_library.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_release.py
 
 $(BUILD)/buildincludes: buildincludes.c GNUmakefile
 	@mkdir -p $(@D)
