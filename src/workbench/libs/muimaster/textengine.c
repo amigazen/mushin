@@ -710,6 +710,7 @@ void zune_text_draw(ZText * text, Object * obj, WORD left, WORD right,
             }
             else if (chunk_node->alpha_data)
             {
+#ifndef ZUNE_NO_CYBERGRAPHICS
                 struct MUI_AlphaData *alpha_data = chunk_node->alpha_data;
 
                 /* WritePixelArrayAlpha() is a cybergraphics.library call,
@@ -725,6 +726,7 @@ void zune_text_draw(ZText * text, Object * obj, WORD left, WORD right,
                         alpha_data->width * 4, rp, x, top, alpha_data->width,
                         alpha_data->height, 0);
                 }
+#endif
             }
             else if (chunk_node->str)
             {

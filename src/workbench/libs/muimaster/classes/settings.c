@@ -36,7 +36,6 @@ static IPTR ListDisplayFunc(struct Hook *hook, char **array, char *entry)
 **************************************************************************/
 IPTR Settings__OM_NEW(struct IClass * cl, Object * obj, struct opSet * msg)
 {
-    struct MUI_Settings *data;
     struct TagItem *tag, *tags;
     Object *listobj;
     static const struct Hook list_display_hook =
@@ -72,8 +71,6 @@ IPTR Settings__OM_NEW(struct IClass * cl, Object * obj, struct opSet * msg)
         TAG_MORE, msg->ops_AttrList);
     if (!obj)
         return FALSE;
-
-    data = INST_DATA(cl, obj);
 
     /* parse initial taglist */
 

@@ -332,7 +332,6 @@ IPTR Group__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     struct MUI_GroupData *data;
     struct TagItem *tags, *tag;
     BOOL bad_children = FALSE;
-    IPTR disabled = FALSE;
     IPTR frame = MUIV_Frame_None;
 
     D(bug("[group.mui] OM_NEW, object 0x%p\n", obj));
@@ -1158,57 +1157,6 @@ IPTR Group__MUIM_Cleanup(struct IClass *cl, Object *obj, Msg msg)
         }
     }
     return DoSuperMethodA(cl, obj, (Msg) msg);
-}
-
-static struct Region *group_children_clip_region(struct IClass *cl,
-    Object *obj)
-{
-    struct Region *region = NULL;
-
-    region = NewRegion();
-    if (region)
-    {
-        struct MUI_GroupData *data = INST_DATA(cl, obj);
-        struct Rectangle rect;
-        LONG page = -1;
-        struct MinList *ChildList = NULL;
-        APTR cstate;
-        Object *child;
-
-        rect.MinX = _left(obj);
-        rect.MinY = _top(obj);
-        rect.MaxX = _right(obj);
-        rect.MaxY = _bottom(obj);
-
-        OrRectRegion(region, &rect);
-        get(data->family, MUIA_Family_List, &ChildList);
-        cstate = ChildList->mlh_Head;
-        while ((child = NextObject(&cstate)))
-        {
-            if (child != data->titlegroup)
-                ++page;
-
-            if ((data->flags & GROUP_PAGEMODE) && (page != data->active_page)
-                && (child != data->titlegroup))
-                continue;
-
-            if ((muiAreaData(child)->mad_Flags & MADF_CANDRAW)
-                && (_width(child) > 0) && (_height(child) > 0))
-            {
-                rect.MinX = MAX(_left(child), _mleft(obj));
-                rect.MinY = MAX(_top(child), _mtop(obj));
-                rect.MaxX = MIN(_right(child), _mright(obj));
-                rect.MaxY = MIN(_bottom(child), _mbottom(obj));
-
-                if ((rect.MaxX >= rect.MinX) && (rect.MaxY >= rect.MinY))
-                {
-                    ClearRectRegion(region, &rect);
-                }
-            }
-        }
-    }
-
-    return region;
 }
 
 /**************************************************************************

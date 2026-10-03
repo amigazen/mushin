@@ -118,7 +118,6 @@ IPTR Framedisplay__MUIM_Draw(struct IClass *cl, Object *obj,
     WORD ileft, itop, iright, ibottom;
     int i;
     struct dt_frame_image temp_frame;
-    struct MUI_FrameSpec_intern tempframe;
     struct dt_frame_image *frame_img;
 
     DoSuperMethodA(cl, obj, (Msg)msg);

@@ -2375,7 +2375,6 @@ void _zune_window_message(struct IntuiMessage *imsg)
 
     if (data->wd_SleepCount > 0)
     {
-        BOOL refresh=FALSE;
         /* Window is sleeping, so we just ignore (and reply) all messages.
          * MUI 3.8/AmigaOS3 also receives all messages (IDCMP Flags
          * are not modified during sleeping). MUI refreshes the window
@@ -2391,7 +2390,6 @@ void _zune_window_message(struct IntuiMessage *imsg)
              */
             if (MUI_BeginRefresh(&data->wd_RenderInfo, 0))
                 MUI_EndRefresh(&data->wd_RenderInfo, 0);
-            refresh=TRUE;
         }
         ReplyMsg((struct Message *)imsg);
         return;
@@ -3846,8 +3844,6 @@ static ULONG WindowClose(struct IClass *cl, Object *obj)
 IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Window_RecalcDisplay *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
-    LONG left,top,width,height;
-    BOOL resized;
     Object *current_obj;
 
     if (!(data->wd_Flags & MUIWF_OPENED))
@@ -3895,7 +3891,7 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Wind
         DoHideMethod(current_obj);
     /* resize window ? */
     WindowSelectDimensions(data);
-    resized = WindowResize(data);
+    WindowResize(data);
 
     {
         struct Window *win = data->wd_RenderInfo.mri_Window;

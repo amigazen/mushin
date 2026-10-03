@@ -151,8 +151,7 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
 {
     struct Register_DATA *data = INST_DATA(cl, obj);
     struct RegisterTabItem *ri = &data->items[item];
-    struct TextExtent extent;
-    WORD x, y;
+    WORD x;
     WORD top_item_bar_y;
     WORD bottom_item_bar_y;
     WORD left_item_bar_x;
@@ -164,8 +163,6 @@ static void RenderRegisterTabItem(struct IClass *cl, Object *obj,
 
     if ((item < 0) || (item >= data->numitems))
         return;
-
-    y = data->top + ri->y1;
 
     if (data->active == item)
     {
@@ -400,7 +397,6 @@ static void SetHardCoord(Object *obj, struct Register_DATA *data)
 IPTR Register__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {
     struct Register_DATA *data;
-    int i;
     IPTR tmp = 0;
 
     obj =
@@ -667,7 +663,6 @@ IPTR Register__MUIM_Draw(struct IClass *cl, Object *obj,
     struct MUIP_Draw *msg)
 {
     struct Register_DATA *data = INST_DATA(cl, obj);
-    APTR clip;
     IPTR active;
 
     /*

@@ -2349,8 +2349,6 @@ static void area_update_msizes(Object *obj, struct MUI_AreaData *data,
     /*        zframe->ileft, zframe->itop)); */
     /*      } */
 
-    struct dt_frame_image *fi = zframe->customframe;
-
     data->mad_addleft = data->mad_InnerLeft + zframe->ileft;
     data->mad_subwidth =
         data->mad_addleft + data->mad_InnerRight + zframe->iright;
