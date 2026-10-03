@@ -300,21 +300,30 @@ BOOL GetBool(char *v, char *id)
 void GetIntegers(char *v, int *v1, int *v2)
 {
     char *c;
-    char va1[32], va2[32];
-    int cnt;
+    long first;
     c = SkipChars(v);
     if (c)
     {
-        cnt = sscanf(c, "%s %s", va1, va2);
-        if (cnt == 1)
+        /* Read decimal tokens without stdio startup or fixed-size buffers.
+           Like the old "%s %s" scan, convert each whole token with atol. */
+        while (*c && isspace((unsigned char)*c))
+            c++;
+        if (!*c)
+            return;
+        first = atol(c);
+        while (*c && !isspace((unsigned char)*c))
+            c++;
+        while (*c && isspace((unsigned char)*c))
+            c++;
+        if (!*c)
         {
             *v1 = -1;
-            *v2 = atol(va1);
+            *v2 = first;
         }
-        else if (cnt == 2)
+        else
         {
-            *v1 = atol(va1);
-            *v2 = atol(va2);
+            *v1 = first;
+            *v2 = atol(c);
         }
     }
 }
