@@ -3372,7 +3372,7 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
     {
      //new m 
     case MUIA_Window_Menustrip:                   
-         STORE = (data->wd_Menustrip);
+         STORE = (IPTR)data->wd_Menustrip;
          return TRUE ;              
      //new end m        
     case MUIA_Window_Activate:

@@ -217,8 +217,8 @@
 #   define ZUNE_PALETTE_DESC
 #endif
 
-Class *ZUNE_GetBuiltinClass(ClassID className, struct Library *mb);
-Class *ZUNE_GetExternalClass(ClassID className, struct Library *mb);
+Class *ZUNE_GetBuiltinClass(CONST_STRPTR className, struct Library *mb);
+Class *ZUNE_GetExternalClass(CONST_STRPTR className, struct Library *mb);
 
 
 #define ZUNE_AddBuiltinClass(cl, mb)                                         \

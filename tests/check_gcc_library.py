@@ -106,9 +106,31 @@ def check(path):
         assert [mem.r32(RESULT + i * 4) for i in range(4)] == [cl, obj, msg, base]
         assert cpu.r_reg(14) == 0x76000
         assert cpu.r_reg(0) == 42
+
+        # Exercise the real iterator body, including Intuition's tail sentinel.
+        # Each list node is the 12-byte _Object header preceding an Object.
+        mem.w_block(BASE, data)
+        state, first, second, tail = 0x72000, 0x73000, 0x74000, 0x75000
+        mem.w32(first, second)
+        mem.w32(second, tail)
+        mem.w32(tail, 0)
+        mem.w32(state, first)
+        mem.w32(STACK, state)  # First argument of the stack-ABI helper.
+        for obj, successor in [(first + 12, second), (second + 12, tail),
+                               (0, tail), (0, tail)]:
+            run(symbols['_ZuneNextObject'])
+            assert cpu.r_reg(0) == obj, 'NextObject result'
+            assert mem.r32(state) == successor, 'NextObject iterator'
+        mem.w32(state, 0)
+        run(symbols['_ZuneNextObject'])
+        assert cpu.r_reg(0) == 0, 'NextObject null iterator'
+        mem.w32(STACK, 0)
+        run(symbols['_ZuneNextObject'])
+        assert cpu.r_reg(0) == 0, 'NextObject null storage'
     finally:
         machine.cleanup()
-    print(f'{path.name}: Resident, 33 vectors, 25 gates, CLI and MCC ABI OK; '
+    print(f'{path.name}: Resident, 33 vectors, 25 gates, CLI, MCC ABI and '
+          f'object iterator OK; '
           f'{path.stat().st_size} file bytes, {len(data)} segment bytes')
 
 

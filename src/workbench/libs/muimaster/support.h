@@ -98,7 +98,7 @@ void *List_First(APTR list);
  * chip/fast data.  Empty lists return NULL and survive, which is why
  * Test 4/7 passed.
  */
-Object *ZuneNextObject(Object **state);
+Object *ZuneNextObject(APTR stateptr);
 #ifndef MUIMASTER_DEFINING_REDRAW
 void ZuneRedraw(ULONG obj, ULONG flags);
 #define MUI_Redraw(obj, flags) ZuneRedraw((ULONG)(obj), (ULONG)(flags))

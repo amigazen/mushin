@@ -154,8 +154,10 @@ IPTR DoHideMethod(Object * obj)
 }
 
 
-Object *ZuneNextObject(Object **state)
+Object *ZuneNextObject(APTR stateptr)
 {
+    /* Like intuition.library/NextObject, accept an opaque iterator address. */
+    Object **state = (Object **)stateptr;
     struct _Object *node;
     struct _Object *succ;
 

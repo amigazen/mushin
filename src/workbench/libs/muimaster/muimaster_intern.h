@@ -77,7 +77,7 @@ typedef struct ZunePrefsNew MUI_Prefs;
  */
 
 #ifndef BNULL
-#define BNULL NULL
+#define BNULL ((BPTR)0)
 #endif
 
 
@@ -127,7 +127,7 @@ struct MUIMasterBase_intern
  * return value is garbage. Every child walk in this library goes through
  * ZuneNextObject instead (support.c).
  */
-Object *ZuneNextObject(Object **state);
+Object *ZuneNextObject(APTR stateptr);
 #ifdef NextObject
 #undef NextObject
 #endif

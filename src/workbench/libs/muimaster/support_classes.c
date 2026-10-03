@@ -95,7 +95,7 @@ static const struct __MUIBuiltinClass *const builtins[] = {
         ZUNE_SETTINGS_DESC
 };
 
-Class *ZUNE_GetExternalClass(ClassID classname,
+Class *ZUNE_GetExternalClass(CONST_STRPTR classname,
     struct Library *MUIMasterBase)
 {
     struct Library *mcclib = NULL;
@@ -145,7 +145,7 @@ Class *ZUNE_GetExternalClass(ClassID classname,
 }
 
 /**************************************************************************/
-static Class *ZUNE_FindBuiltinClass(ClassID classid, struct Library *MUIMasterBase)
+static Class *ZUNE_FindBuiltinClass(CONST_STRPTR classid, struct Library *MUIMasterBase)
 {
     struct MUIMasterBase_intern *intZuneBase = (struct MUIMasterBase_intern *)MUIMasterBase;
     Class *cl = NULL, *cl2;
@@ -162,7 +162,7 @@ static Class *ZUNE_FindBuiltinClass(ClassID classid, struct Library *MUIMasterBa
     return cl;
 }
 
-static Class *ZUNE_MakeBuiltinClass(ClassID classid,
+static Class *ZUNE_MakeBuiltinClass(CONST_STRPTR classid,
     struct Library *MUIMasterBase)
 {
     int i;
@@ -249,7 +249,7 @@ static Class *ZUNE_MakeBuiltinClass(ClassID classid,
     return cl;
 }
 
-Class *ZUNE_GetBuiltinClass(ClassID classid, struct Library * mb)
+Class *ZUNE_GetBuiltinClass(CONST_STRPTR classid, struct Library * mb)
 {
     Class *cl;
 

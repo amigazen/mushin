@@ -2121,9 +2121,9 @@ static IPTR Application__MUIM_AboutMUI(struct IClass *cl, Object *obj,
     {
         data->app_AboutWin = AboutmuiObject,
             msg->refwindow ? MUIA_Window_RefWindow : TAG_IGNORE,
-            msg->refwindow, MUIA_Window_LeftEdge,
+            (IPTR)msg->refwindow, MUIA_Window_LeftEdge,
             MUIV_Window_LeftEdge_Centered, MUIA_Window_TopEdge,
-            MUIV_Window_TopEdge_Centered, MUIA_Aboutmui_Application, obj,
+            MUIV_Window_TopEdge_Centered, MUIA_Aboutmui_Application, (IPTR)obj,
             End;
     }
 
