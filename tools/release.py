@@ -13,7 +13,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from components import PLUGINS, EXAMPLES, LANGUAGES, catalog_paths
-from make_icons import icon
 
 LIBRARIES = ('zunemaster.library', 'muimaster.library')
 
@@ -121,9 +120,13 @@ def release(build_dir, output_dir, lha, full=True):
             shutil.copyfile(build_dir / name, target)
             if name.startswith(('Libs/', 'Prefs/', 'Examples/')) and not name.endswith('.info'):
                 target.chmod(0o755)
+        drawers = ['Libs', 'Tests']
         if full:
-            for name in ['Prefs', 'Examples', 'SDK', 'Docs']:
-                (package / (name + '.info')).write_bytes(icon(drawer=True))
+            drawers += ['Prefs', 'Locale', 'Examples', 'SDK', 'Docs']
+        for name in drawers:
+            shutil.copyfile(ROOT / 'dist' / (name + '.info'),
+                            package / (name + '.info'))
+        if full:
             # Ship corresponding sources, including the native build adapters.
             source = stage / 'Source'
             ignore = shutil.ignore_patterns('*.o', '*.a', '*.map', '*.gst',

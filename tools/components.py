@@ -85,12 +85,7 @@ def copy(source, target):
 
 
 def sdk(build):
-    from make_icons import icon
-    target = build / 'Prefs/Zune.info'
-    target.parent.mkdir(parents=True, exist_ok=True)
-    image = icon(tool=True)
-    if not target.exists() or target.read_bytes() != image:
-        target.write_bytes(image)
+    copy(ROOT / 'dist/Zune.info', build / 'Prefs/Zune.info')
     master = ROOT / 'src/workbench/libs/muimaster'
     for directory in ['clib', 'proto', 'pragmas', 'fd', 'libraries', 'inline']:
         for source in (master / 'include' / directory).glob('*'):
