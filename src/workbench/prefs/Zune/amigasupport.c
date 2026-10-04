@@ -19,6 +19,7 @@
 
 #ifndef __AROS__
 
+#ifndef __GNUC__
 IPTR XGET(Object *obj, Tag attr)
 {
     IPTR storage = 0;
@@ -26,6 +27,8 @@ IPTR XGET(Object *obj, Tag attr)
     GetAttr(attr, obj, &storage);
     return storage;
 }
+
+#endif
 
 Object *DoSuperNewTagList(struct IClass *cl, Object *obj, void *dummy,
                           struct TagItem *tags)
@@ -59,6 +62,7 @@ Object *VARARGS68K DoSuperNewTags(struct IClass *cl, Object *obj, void *dummy, .
 }
 #endif
 
+#ifdef __SASC
 int snprintf(char *buf, int size, const char *fmt, ...)
 {
     va_list args;
@@ -80,5 +84,7 @@ int snprintf(char *buf, int size, const char *fmt, ...)
     buf[n] = '\0';
     return n;
 }
+
+#endif /* __SASC */
 
 #endif /* !__AROS__ */

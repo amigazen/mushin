@@ -392,6 +392,8 @@ MSG_KL_POPUP
 MSG_DRAG_DROP
 Drag & Drop
 ; Drag & Drop
+;
+MSG_LEFT_BUTTON
 Левая кнопка:
 ; Left Button:
 ;

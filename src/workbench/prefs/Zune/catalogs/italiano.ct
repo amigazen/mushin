@@ -191,10 +191,10 @@ All'inizio
 MSG_DESIGN
 Design
 ;
-MSG_INPUT_LISTS (//)
+MSG_INPUT_LISTS
 Input \nLists:
 ;
-MSG_READONLY_LISTS (//)
+MSG_READONLY_LISTS
 Readonly \nLists:
 ;
 MSG_CURSOR

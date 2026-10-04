@@ -66,7 +66,8 @@ GENERATED = $(BUILD)/trace-config.h $(BUILD)/include/libraries/mui.h \
   $(BUILD)/include/inline/muimaster.h $(BUILD)/include/inline/muiscreen.h $(BUILD)/gates.h
 
 .PHONY: all clean check release FORCE
-all: $(BUILD)/muimaster.library $(BUILD)/zunemaster.library $(BUILD)/opentest
+all: core
+core: $(BUILD)/muimaster.library $(BUILD)/zunemaster.library $(BUILD)/opentest
 
 release: all
 	$(PYTHON) ../../../../tools/release.py --build-dir "$(BUILD)" \
@@ -153,3 +154,5 @@ clean:
 
 -include $(OBJECTS:.o=.d) $(BUILD)/gates.d \
   $(BUILD)/muimaster_lib.d $(BUILD)/zunemaster_lib.d
+
+include ../../../../tools/components.mk

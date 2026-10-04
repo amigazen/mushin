@@ -41,8 +41,10 @@ Each component of **ToolKit** is open source and will have it's own github repo,
 _mushin_ supports SAS/C with smake on Amiga and a GNU make cross-build
 with `m68k-amigaos-gcc` on the host. The SAS/C build files remain separate.
 
-For the GNU build, put the cross-toolchain on PATH and run `make -j4`
-at the repository root. Outputs go to `build/muimaster/`.
+For the GNU build, put the cross-toolchain, Python 3 and FlexCat on PATH
+and run `make -j4` at the repository root. Outputs go to
+`build/muimaster/`: core libraries, Prefs, bundled native MCC/MCP plugins,
+catalogs, examples, and SDK files. Use `make core` for just the core.
 Run `make release` to create an LHA package with a version-aware Amiga
 Installer script. This additionally requires Python 3 and `lha` on PATH.
 See [BUILD.md](BUILD.md) for dependencies, options, and runtime limits.

@@ -51,6 +51,15 @@
 #define MCC_Query(x) AROS_LVO_CALL1(struct MUI_CustomClass *,          \
                                     AROS_LCA(LONG, (x), D0),           \
                                     struct Library *, mcclib, 5, lib)
+#elif defined(__GNUC__)
+#define MCC_Query(x) ({ \
+    register struct Library *base __asm("a6") = mcclib; \
+    register ULONG result __asm("d0") = (x); \
+    __asm volatile ("jsr a6@(-30:W)" \
+        : "+d" (result) : "a" (base) \
+        : "d1", "a0", "a1", "cc", "memory"); \
+    (struct MUI_CustomClass *)result; \
+})
 #else
 /* MCP libraries export MCC_Query at LVO -30 (bias 0x1e), D0 = query. */
 struct MUI_CustomClass *MCC_Query(ULONG d0);
@@ -63,6 +72,10 @@ struct MUI_CustomClass *MCC_Query(ULONG d0);
 #endif
 
 #define ZUNEVERSION "$VER: Zune 0.2 (22.02.2006) AROS Dev Team"
+
+#if defined(__GNUC__) && defined(__mc68000__)
+ULONG __stack = 65536;
+#endif
 
 APTR *appaddr;
 

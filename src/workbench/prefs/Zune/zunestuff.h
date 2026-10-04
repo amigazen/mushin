@@ -16,7 +16,7 @@
 #endif
 
 #ifndef BNULL
-#define BNULL NULL
+#define BNULL ((BPTR)0)
 #endif
 
 #ifndef __GNUC__

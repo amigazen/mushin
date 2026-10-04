@@ -6,7 +6,7 @@ from pathlib import Path
 DIST = Path(__file__).resolve().parents[1] / 'dist'
 
 
-def icon(drawer=False):
+def icon(drawer=False, tool=False):
     width, height = 32, 24
     pixels = [[0] * width for _ in range(height)]
     for y in range(7, 22):
@@ -34,9 +34,9 @@ def icon(drawer=False):
     struct.pack_into('>HH', header, 0, 0xe310, 1)
     struct.pack_into('>HHH', header, 12, width, height, 4)
     struct.pack_into('>I', header, 22, 1)  # GadgetRender is present
-    header[48] = 2 if drawer else 4       # WBDRAWER / WBPROJECT
-    struct.pack_into('>II', header, 50, 0 if drawer else 1,
-                     0 if drawer else 1)  # DefaultTool / ToolTypes
+    header[48] = 2 if drawer else (3 if tool else 4)  # WBDRAWER / WBTOOL / WBPROJECT
+    struct.pack_into('>II', header, 50, 0 if drawer or tool else 1,
+                     0 if drawer or tool else 1)  # DefaultTool / ToolTypes
     struct.pack_into('>ii', header, 58, -2147483648, -2147483648)
     struct.pack_into('>I', header, 66, 1 if drawer else 0)
     struct.pack_into('>I', header, 74, 65536)
@@ -54,7 +54,7 @@ def icon(drawer=False):
         encoded = value.encode('ascii') + b'\0'
         return struct.pack('>I', len(encoded)) + encoded
 
-    if not drawer:
+    if not drawer and not tool:
         data.extend(string('SYS:System/Installer'))
         tooltypes = ['APPNAME=Mushin', 'MINUSER=AVERAGE', 'DEFUSER=AVERAGE']
         data.extend(struct.pack('>I', 4 * (len(tooltypes) + 1)))
