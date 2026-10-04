@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag, such as v19.50
+        description: Existing version tag, such as v19.51
         required: true
         type: string
 
@@ -39,6 +39,7 @@ jobs:
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           draft: true
+          prerelease: true
           fail_on_unmatched_files: true
           files: |
             artifacts/*.lha

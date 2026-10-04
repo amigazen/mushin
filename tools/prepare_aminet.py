@@ -8,7 +8,7 @@ from pathlib import Path
 
 def prepare(release_dir, output_dir, tag):
     if not re.fullmatch(r'v[0-9]+\.[0-9]+', tag):
-        raise ValueError('expected a library version tag such as v19.50')
+        raise ValueError('expected a library version tag such as v19.51')
     version = tag[1:]
     archive = release_dir / f'Mushin-{version}-amigaos3-m68k.lha'
     readme = archive.with_suffix('.readme')

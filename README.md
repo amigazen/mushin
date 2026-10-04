@@ -51,10 +51,10 @@ See [BUILD.md](BUILD.md) for dependencies, options, and runtime limits.
 
 GitHub Actions builds and checks the full distribution on branch pushes
 and pull requests. A `v<version>` tag matching the libraries creates a
-draft GitHub release with an LHA and Aminet readme. Publishing that release
-(unless marked as a prerelease) uploads the published files to Aminet as
+draft GitHub prerelease with an LHA and Aminet readme. Publishing that
+release, including an alpha prerelease, uploads the published files to Aminet as
 `Mushin.lha` and `Mushin.readme` in `util/libs`. The readme template is
-[`Mushin.readme`](Mushin.readme); `tools/prepare_aminet.py --tag v19.50`
+[`Mushin.readme`](Mushin.readme); `tools/prepare_aminet.py --tag v19.51`
 prepares the same fixed-name pair locally without uploading.
 
 ### Prerequisites
