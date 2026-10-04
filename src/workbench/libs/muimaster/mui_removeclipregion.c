@@ -20,7 +20,7 @@ VOID ZuneRemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle)
     BOOL refreshmode;
     BOOL smartlock;
 
-    if (handle == (APTR)-1)
+    if (handle == (APTR)-1 || mri->mri_rCount == 0)
         return;
 
     w = mri->mri_Window;
@@ -43,8 +43,8 @@ VOID ZuneRemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle)
     else if (smartlock)
         LockLayerInfo(&w->WScreen->LayerInfo);
 
-    InstallClipRegion(l, (mri->mri_rCount > 0)
-        ? mri->mri_rArray[mri->mri_rCount-1] : NULL);
+    /* The handle can belong to an outer non-MUI clip. Restore it too. */
+    InstallClipRegion(l, (struct Region *)handle);
 
     if (refreshmode)
         BeginRefresh(w);

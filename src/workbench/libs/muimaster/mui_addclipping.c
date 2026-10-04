@@ -35,7 +35,12 @@ APTR ZuneAddClipping(struct MUI_RenderInfo *mri, LONG left, LONG top,
     rect.MinY = (WORD)top;
     rect.MaxX = (WORD)(left + width  - 1);
     rect.MaxY = (WORD)(top  + height - 1);
-    OrRectRegion(r, &rect);
+    /* Empty clips are valid; do not hand inverted rectangles to Layers. */
+    if (width > 0 && height > 0 && !OrRectRegion(r, &rect))
+    {
+        DisposeRegion(r);
+        return (APTR)-1;
+    }
 
     /* Always the C body — never the asm LVO via a stack call. */
     handle = ZuneAddClipRegion(mri, r);

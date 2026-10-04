@@ -81,54 +81,52 @@
     {
         Object *wnd = NULL;
         Object *parent;
-        struct Region *region = NULL;
+        struct Rectangle bounds;
+        BOOL have_bounds = FALSE;
+        struct Region *region;
 
-        ZuneTrace(("zune: MUI_Redraw INVIRTUAL clip walk\n"));
-        get(obj,MUIA_WindowObject,&wnd);
+        get(obj, MUIA_WindowObject, &wnd);
         parent = obj;
-
-        while (get(parent,MUIA_Parent,&parent))
+        while (get(parent, MUIA_Parent, &parent))
         {
-            if (!parent) break;
-            if (parent == wnd) break;
+            struct Rectangle rect;
+            if (!parent || parent == wnd) break;
+            if (!(_flags(parent) & MADF_ISVIRTUALGROUP)) continue;
 
-            if (((struct __dummyAreaData__ *)(parent))->mad.mad_Flags & MADF_ISVIRTUALGROUP)
+            rect.MinX = _mleft(parent);
+            rect.MinY = _mtop(parent);
+            rect.MaxX = _mright(parent);
+            rect.MaxY = _mbottom(parent);
+            if (have_bounds)
             {
-                struct Rectangle rect;
-
-                rect.MinX = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft;
-                rect.MinY = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop;
-                rect.MaxX = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Width + ((struct __dummyAreaData__ *)(parent))->mad.mad_subwidth - 1;
-                rect.MaxY = ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Height + ((struct __dummyAreaData__ *)(parent))->mad.mad_subheight - 1;
-
-                /* Inverted rects crash classic layers OrRectRegion/AndRectRegion. */
-                if (rect.MaxX < rect.MinX || rect.MaxY < rect.MinY)
-                {
-                    ZuneTrace(("zune: MUI_Redraw skip bad virt rect %ld,%ld-%ld,%ld\n",
-                        (LONG)rect.MinX, (LONG)rect.MinY,
-                        (LONG)rect.MaxX, (LONG)rect.MaxY));
-                    continue;
-                }
-
-                if (!region)
-                {
-                    if ((region = NewRegion()))
-                    {
-                        OrRectRegion(region, &rect);
-                    }
-                } else
-                {
-                    AndRectRegion(region, &rect);
-                }
+                bounds.MinX = MAX(bounds.MinX, rect.MinX);
+                bounds.MinY = MAX(bounds.MinY, rect.MinY);
+                bounds.MaxX = MIN(bounds.MaxX, rect.MaxX);
+                bounds.MaxY = MIN(bounds.MaxY, rect.MaxY);
             }
+            else
+            {
+                bounds = rect;
+                have_bounds = TRUE;
+            }
+            /* No drawing is visible through an empty ancestor. */
+            if (bounds.MaxX < bounds.MinX || bounds.MaxY < bounds.MinY)
+                return;
         }
-
-            if (region)
+        if (have_bounds)
         {
-            clip = MUI_AddClipRegion(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo,region);
-            ZuneTrace(("zune: MUI_Redraw INVIRTUAL clip handle=%lx\n", (ULONG)clip));
+            /* All ancestors clip to rectangles: intersect on stack, then
+             * construct one Region. No cache or geometry invalidation. */
+            region = NewRegion();
+            if (!region) return;
+            if (!OrRectRegion(region, &bounds))
+            {
+                DisposeRegion(region);
+                return;
+            }
+            clip = MUI_AddClipRegion(muiRenderInfo(obj), region);
+            if (clip == (APTR)-1) return;
         }
-        
     } /* if object is in a virtual group */
 
     if (1)

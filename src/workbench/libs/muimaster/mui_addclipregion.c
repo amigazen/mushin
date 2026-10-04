@@ -64,8 +64,12 @@ APTR ZuneAddClipRegion(struct MUI_RenderInfo *mri, struct Region *r)
         return (APTR)-1;
     }
 
-    if (mri->mri_rCount != 0)
-        AndRegionRegion(mri->mri_rArray[mri->mri_rCount-1], r);
+    if (mri->mri_rCount != 0
+        && !AndRegionRegion(mri->mri_rArray[mri->mri_rCount-1], r))
+    {
+        DisposeRegion(r);
+        return (APTR)-1;
+    }
 
     refreshmode = (BOOL)((w != NULL) && (mri->mri_Flags & MUIMRI_REFRESHMODE));
     smartlock = (BOOL)((w != NULL) && !refreshmode
