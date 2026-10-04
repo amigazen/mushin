@@ -75,6 +75,8 @@ release: all
 check: all
 	$(PYTHON) ../../../../tests/check_gcc_library.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_class_lifetime.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
 	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest
 
