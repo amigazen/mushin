@@ -95,11 +95,11 @@ def plugin(path):
                               ('%*s', [-2147483648, STRING])]:
                 mem.w_block(FORMAT, fmt.encode() + b'\0')
                 assert run(symbols['_snprintf'], BUFFER, 8, FORMAT, *args) == 0xffffffff
-        if '_strlcpy' in symbols:
+        if '_mushin_strlcpy' in symbols:
             mem.w_block(STRING, b'hello\0')
-            assert run(symbols['_strlcpy'], BUFFER, STRING, 4) == 5
+            assert run(symbols['_mushin_strlcpy'], BUFFER, STRING, 4) == 5
             assert mem.r_cstr(BUFFER) == 'hel'
-            assert run(symbols['_strlcat'], BUFFER, STRING, 6) == 8
+            assert run(symbols['_mushin_strlcat'], BUFFER, STRING, 6) == 8
             assert mem.r_cstr(BUFFER) == 'helhe'
     finally:
         machine.cleanup()

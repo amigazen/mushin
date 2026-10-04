@@ -23,6 +23,7 @@ mushin-plugin: $(PLUGIN_OUTPUT)
 RUNTIME_DIR := $(dir $(PLUGIN_MAKEFILE))plugin
 RUNTIME_OBJECTS := $(addprefix $(OBJDIR)/runtime/,format.o strings.o superattrs.o)
 $(RUNTIME_OBJECTS): $(PLUGIN_MAKEFILE)
+$(OBJDIR)/runtime/strings.o: $(RUNTIME_DIR)/runtime.h
 $(OBJDIR)/runtime/%.o: $(RUNTIME_DIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CPUFLAGS) -noixemul $(PLUGIN_CFLAGS) -fno-builtin -c $< -o $@

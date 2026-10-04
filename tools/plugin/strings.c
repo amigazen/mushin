@@ -1,6 +1,5 @@
-/* Small BSD string helpers missing from the installed libnix. */
-#include <stddef.h>
-#include <string.h>
+/* Private BSD string helpers independent of the installed libnix version. */
+#include "runtime.h"
 
 size_t strlcpy(char *dst, const char *src, size_t size)
 {
