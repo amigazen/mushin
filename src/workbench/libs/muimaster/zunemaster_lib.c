@@ -254,7 +254,8 @@ ASM SAVEDS struct Library *LibOpen(REG(a6, struct MUIMasterBase_intern * MUIMast
 /* Expunge the library, remove it from memory */
 ASM SAVEDS SEGLISTPTR LibExpunge(REG(a6, struct MUIMasterBase_intern *mb))
 {
-  if (!mb->library.lib_OpenCnt)
+  if (!mb->library.lib_OpenCnt &&
+      ZUNE_FreeBuiltinClasses(&mb->library))
   {
     SEGLISTPTR seglist;
 

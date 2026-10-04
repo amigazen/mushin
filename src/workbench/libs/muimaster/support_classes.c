@@ -167,7 +167,6 @@ static Class *ZUNE_MakeBuiltinClass(CONST_STRPTR classid,
 {
     int i;
     Class *cl = NULL;
-    struct Library *mb = NULL;
 
     D(bug("Makeing Builtinclass %s\n", classid));
 
@@ -178,20 +177,8 @@ static Class *ZUNE_MakeBuiltinClass(CONST_STRPTR classid,
             Class *supercl;
             ClassID superclid;
 
-            /* This may seem strange, but opening muimaster.library here is
-               done in order to increase muimaster.library's open count, so
-               that it doesn't get expunged while some of its internal
-               classes are still in use. We don't use muimaster.library
-               directly but the name of the library stored inside the base,
-               because the library can be compiled also as zunemaster.library
-             */
-
-            mb = OpenLibrary(MUIMasterBase->lib_Node.ln_Name, 0);
-
-            /* It can't possibly fail, but well... */
-            if (!mb)
-                break;
-
+            /* Cached classes do not own library opens. Expunge checks
+               references, objects and subclasses before reclaiming them. */
             if (strcmp(builtins[i]->supername, ROOTCLASS) == 0)
             {
                 superclid = ROOTCLASS;
@@ -208,6 +195,10 @@ static Class *ZUNE_MakeBuiltinClass(CONST_STRPTR classid,
 
             cl = MakeClass(builtins[i]->name, superclid, supercl,
                 builtins[i]->datasize, 0);
+            /* MakeClass owns the subclass link on success. The temporary
+               lookup reference is no longer needed, including on failure. */
+            if (supercl)
+                MUI_FreeClass(supercl);
             if (cl)
             {
 #if defined(__MAXON__) || defined(__amigaos4__)
@@ -243,9 +234,6 @@ static Class *ZUNE_MakeBuiltinClass(CONST_STRPTR classid,
         }
     }
 
-    if (!cl && mb)
-        CloseLibrary(mb);
-
     return cl;
 }
 
@@ -279,6 +267,44 @@ Class *ZUNE_GetBuiltinClass(CONST_STRPTR classid, struct Library * mb)
     ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
     return cl;
+}
+
+/* Reclaim cached classes only at expunge, never from disposal callbacks.
+ * Classes enter the list after their superclasses, so walk backwards.
+ * Keep the library resident if any reference, object or subclass survives.
+ */
+BOOL ZUNE_FreeBuiltinClasses(struct Library *mb)
+{
+    struct MUIMasterBase_intern *base = (struct MUIMasterBase_intern *)mb;
+    struct MinNode *node, *previous;
+    BOOL empty;
+
+    /* Expunge runs under Exec's Forbid. Do not wait and allow another
+       task to reopen the library after LibExpunge checked its open count. */
+    if (!AttemptSemaphore(&base->ZuneSemaphore))
+        return FALSE;
+    node = base->BuiltinClasses.mlh_TailPred;
+    while (node->mln_Pred)
+    {
+        Class *cl = (Class *)node;
+
+        previous = node->mln_Pred;
+        if (!cl->cl_UserData && !cl->cl_ObjectCount && !cl->cl_SubclassCount)
+        {
+            ZUNE_RemoveBuiltinClass(cl, mb);
+            if (!FreeClass(cl))
+            {
+                /* Keep a refused class reachable in its original position. */
+                Insert((struct List *)&base->BuiltinClasses,
+                    (struct Node *)cl, (struct Node *)previous);
+                cl->cl_Flags |= CLF_INLIST;
+            }
+        }
+        node = previous;
+    }
+    empty = base->BuiltinClasses.mlh_Head->mln_Succ == NULL;
+    ReleaseSemaphore(&base->ZuneSemaphore);
+    return empty;
 }
 
 /*

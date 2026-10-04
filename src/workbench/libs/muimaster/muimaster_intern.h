@@ -121,6 +121,8 @@ struct MUIMasterBase_intern
     struct MUI_PenSpec          *defaultPens;
 };
 
+BOOL ZUNE_FreeBuiltinClasses(struct Library *mb);
+
 /*
  * Kickstart NextObject is an intuition register LVO. A missing prototype
  * (IGNORE=63) or lost pragma turns the call into a stack C call and the

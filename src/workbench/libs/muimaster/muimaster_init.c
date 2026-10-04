@@ -351,24 +351,8 @@ void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBas
 
     D(bug("Inside Expunge func of muimaster.library\n"));
 
-    /*
-     * Builtin IClasses used to be FreeClass()'d from MUI_FreeClass when
-     * the last NewObject ref dropped.  That destroyed Notify while
-     * Application was still in OM_DISPOSE.  Tear them down here, newest
-     * first, before Intuition is closed.  Each MakeClass OpenLibrary is
-     * balanced by CloseLibrary.
-     */
-    {
-        Class *cl;
-
-        while ((cl = (Class *) RemTail((struct List *)
-            &libBase->BuiltinClasses)) != NULL)
-        {
-            cl->cl_Flags &= ~CLF_INLIST;
-            if (FreeClass(cl))
-                CloseLibrary((struct Library *)_MUIMasterBase);
-        }
-    }
+    /* LibExpunge has already reclaimed the built-in classes. Initialization
+       failure reaches here before any class can have been created. */
 
 #ifdef MUSHIN_GCC_NATIVE
     ZuneGccCleanup();
