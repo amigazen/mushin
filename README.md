@@ -49,6 +49,14 @@ Run `make release` to create an LHA package with a version-aware Amiga
 Installer script. This additionally requires Python 3 and `lha` on PATH.
 See [BUILD.md](BUILD.md) for dependencies, options, and runtime limits.
 
+GitHub Actions builds and checks the full distribution on branch pushes
+and pull requests. A `v<version>` tag matching the libraries creates a
+draft GitHub release with an LHA and Aminet readme. Publishing that release
+(unless marked as a prerelease) uploads the published files to Aminet as
+`Mushin.lha` and `Mushin.readme` in `util/libs`. The readme template is
+[`Mushin.readme`](Mushin.readme); `tools/prepare_aminet.py --tag v19.50`
+prepares the same fixed-name pair locally without uploading.
+
 ### Prerequisites
 
 - SAS/C compiler (primary target)

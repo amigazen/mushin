@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('release', ROOT / 'tools/release.py')
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
+from prepare_aminet import prepare
 
 
 class ReleaseTests(unittest.TestCase):
@@ -73,6 +74,23 @@ class ReleaseTests(unittest.TestCase):
             release.release(self.build, self.output, '/usr/bin/false', full=False)
         self.assertEqual(archive.read_bytes(), b'previous release')
         self.assertEqual(list(self.output.iterdir()), [archive])
+
+    def test_aminet_pair_and_version_guard(self):
+        archive = self.output / 'Mushin-35.6-amigaos3-m68k.lha'
+        archive.write_bytes(b'archive fixture')
+        readme = archive.with_suffix('.readme')
+        readme.write_text('Short: Mushin\nType: util/libs\nVersion: 35.6\n\nBody\n')
+        destination = self.root / 'aminet'
+        prepare(self.output, destination, 'v35.6')
+        self.assertEqual((destination / 'Mushin.lha').read_bytes(), archive.read_bytes())
+        self.assertEqual((destination / 'Mushin.readme').read_bytes(), readme.read_bytes())
+        original = (destination / 'Mushin.readme').read_bytes()
+        readme.write_text('Type: util/libs\nVersion: 35.5\n')
+        with self.assertRaisesRegex(ValueError, 'version differ'):
+            prepare(self.output, destination, 'v35.6')
+        self.assertEqual((destination / 'Mushin.readme').read_bytes(), original)
+        with self.assertRaisesRegex(ValueError, 'version tag'):
+            prepare(self.output, destination, '../v35.6')
 
 
 if __name__ == '__main__':

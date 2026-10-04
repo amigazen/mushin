@@ -98,6 +98,8 @@ def release(build_dir, output_dir, lha, full=True):
         raise ValueError(f'{lha}: LHA archiver not found; set LHA to its path')
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / f'Mushin-{versions[0]}-amigaos3-m68k.lha'
+    readme = (ROOT / 'Mushin.readme').read_text(encoding='ascii').replace(
+        '[VERSION]', versions[0])
     # Always assemble a fresh tree: removed files must not survive a release.
     # Publish only after archiving and CRC checking complete successfully.
     with tempfile.TemporaryDirectory(prefix='.mushin-', dir=output_dir) as temp:
@@ -111,6 +113,7 @@ def release(build_dir, output_dir, lha, full=True):
         shutil.copyfile(build_dir / 'opentest', package / 'Tests/opentest')
         (package / 'Tests/opentest').chmod(0o755)
         shutil.copyfile(ROOT / 'LICENSE.md', package / 'LICENSE')
+        (package / 'Mushin.readme').write_text(readme, encoding='ascii')
         for name in ('ReadMe', 'ReadMe.info', 'Install.info'):
             shutil.copyfile(ROOT / 'dist' / name, package / name)
         (package / 'Install').write_bytes(install_script(files).encode('latin1'))
@@ -136,7 +139,8 @@ def release(build_dir, output_dir, lha, full=True):
             shutil.copytree(ROOT / 'tools', source / 'tools', ignore=ignore)
             shutil.copytree(ROOT / 'tests', source / 'tests', ignore=ignore)
             shutil.copytree(ROOT / 'dist', source / 'dist', ignore=ignore)
-            for name in ['GNUmakefile', 'LICENSE.md', 'README.md']:
+            shutil.copytree(ROOT / '.github', source / '.github')
+            for name in ['GNUmakefile', 'LICENSE.md', 'README.md', 'Mushin.readme']:
                 shutil.copyfile(ROOT / name, source / name)
             if (ROOT / 'BUILD.md').exists():
                 shutil.copyfile(ROOT / 'BUILD.md', source / 'BUILD.md')
@@ -147,7 +151,10 @@ def release(build_dir, output_dir, lha, full=True):
         subprocess.run([archiver, 'ao5', str(temporary_archive),
                         'Mushin', 'Mushin.info'], cwd=stage, check=True)
         subprocess.run([archiver, 't', str(temporary_archive)], check=True)
+        temporary_readme = stage / archive.with_suffix('.readme').name
+        temporary_readme.write_text(readme, encoding='ascii')
         temporary_archive.replace(archive)
+        temporary_readme.replace(archive.with_suffix('.readme'))
     print(f'Release: {archive}')
     return archive
 

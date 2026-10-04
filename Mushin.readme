@@ -1,0 +1,44 @@
+Short:        MUI-compatible GUI for classic Amigas
+Author:       David Le Corfec, AROS Development Team, Mushin contributors
+Uploader:     stepan@coreboot.org (Stefan Reinauer)
+Type:         util/libs
+Version:      [VERSION]
+Requires:     AmigaOS 3.1 or newer, 68000 or better
+Architecture: m68k-amigaos
+
+Mushin is a free, open source user interface library based on AROS Zune.
+It aims to support classic MUI applications while staying responsive and
+economical on ordinary m68k Amigas. Compatibility work is ongoing; the
+version number does not imply complete MUI compatibility.
+
+The full distribution includes:
+
+- zunemaster.library and the alternative muimaster.library name
+- Zune preferences editor and classic Workbench icons
+- 13 native MCC/MCP plugins from BetterString, NList and TextEditor
+- Preferences and plugin translations
+- Example programs, SDK headers, documentation and corresponding source
+- A version-aware Amiga Installer script with backups
+
+No FPU is required. The system IEEE double math libraries are required.
+Installation requires Amiga Installer 43 or newer, which is not bundled.
+
+Extract the complete archive and double-click Install. The installer lets
+you choose components and shows existing and bundled library versions.
+Replacing muimaster.library affects applications using the standard MUI
+library name. Back up your installation and reboot after replacing loaded
+libraries. See the included ReadMe for installation and usage details.
+
+The libraries use the same source under both names. Bundled third-party
+classes open muimaster.library; using them alongside a different MUI
+implementation has not been established as compatible.
+
+Source builds support m68k-amigaos-gcc and retain the SAS/C build path.
+The GCC build targets 68000 and software floating point. Diagnostic
+tracing is disabled in normal builds. Physical-hardware performance and
+application compatibility still need broader testing.
+
+Mushin and its bundled components retain their original licenses and
+copyright notices. See LICENSE and Docs in the archive.
+
+Project: https://github.com/amigazen/mushin
