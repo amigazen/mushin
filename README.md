@@ -79,7 +79,9 @@ Using the name _mui_ itself was considered, given that in Japanese the word ç„¡æ
 
 ### How compatible is _mushin_ with the original MUI?
 
-To be determined.
+Classic MUI 3.8 behavior is the target; compatibility remains incomplete.
+See [Compatibility](dist/Compatibility) for implemented areas, limitations,
+version policy and repeatable comparison workloads.
 
 ### What is the relationship between _mushin_ and AROS Zune?
 
@@ -97,6 +99,7 @@ _mushin_ on the other hand is intended to be pared back, designed to be a more l
 
 - Voyager
 - iBrowse
+- xSysInfo
 
 ## Contact 
 
