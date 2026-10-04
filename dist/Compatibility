@@ -10,7 +10,7 @@ newer MUI features without an identified application need are deferred.
 
 Version policy
 --------------
-The two native library names share release 19.50. Built-in classes retain
+The two native library names share release 19.51 (Alpha 1). Built-in classes retain
 their implementation version 1.1, including classes which inherit Notify's
 version queries. These numbers identify this implementation; they do not
 promise every feature of a proprietary MUI release with the same number.
@@ -18,8 +18,8 @@ External MCCs retain their own version reporting. Do not raise class
 versions merely to bypass an application's feature checks.
 
 Native release and built-in version definitions are centralized in
-native_version.h, shared by the GCC and SAS/C builds. The historical
-version/date values remain unchanged during this development work.
+native_version.h, shared by the GCC and SAS/C builds. This alpha advances
+the library revision from the historical 19.50 to identify the native port.
 
 Implemented areas with isolated linked-code checks
 -------------------------------------------------

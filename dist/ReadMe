@@ -1,5 +1,5 @@
-Mushin for AmigaOS 3.x / m68k
-============================
+Mushin 19.51 - Alpha 1 for AmigaOS 3.x / m68k
+==========================================
 
 Mushin is a MUI-compatible user interface library based on AROS Zune.
 The full package contains the core libraries, the Zune preferences editor,
@@ -11,9 +11,9 @@ Requirements
 ------------
 AmigaOS 3.1 or newer, a 68000 or better, and Amiga Installer 43 or newer.
 The system IEEE double math libraries must be available; no FPU is needed.
-Installer itself is not included. The Install icon uses
-SYS:System/Installer, the location supplied with AmigaOS 3.2.3. If your
-Installer is elsewhere, change the icon's Default Tool to its path.
+Installer itself is not included. The Install icon uses the default tool
+"installer". If Workbench cannot find it, set the icon's Default Tool to
+its full path, such as SYS:System/Installer on AmigaOS 3.2.3.
 
 Installation
 ------------
@@ -78,7 +78,7 @@ that output is deliberately excluded from performance measurements.
 
 Status and source
 -----------------
-This is a development build. Compiler and binary-interface checks do not
+This is the first alpha release. Compiler and binary-interface checks do not
 establish application compatibility or performance on real hardware.
 Prefs and the additional plugins still need GUI testing on AmigaOS.
 The imported plugins retain compiler warnings; translations are partial.
@@ -90,7 +90,9 @@ muiscreen.library. BetterString uses ordinary text rendering where the
 classic CyberGraphX SDK lacks alpha-text support; NBitmap uses its
 existing software alpha fallback.
 
-Source: https://github.com/amigazen/mushin/
+Source for this release: https://github.com/reinauer/mushin
+Report issues: https://github.com/reinauer/mushin/issues
+Upstream project: https://github.com/amigazen/mushin
 Source.tar.gz contains the corresponding sources and build adapters.
 The supplied LICENSE contains the AROS Public License; plugin licenses
 and authors are under Docs. The AROS authors are not affiliated with the

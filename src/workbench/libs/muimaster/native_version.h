@@ -7,8 +7,8 @@
  * external classes retain their own MUIA_Version/MUIA_Revision handlers.
  */
 #define MUSHIN_LIBRARY_VERSION 19
-#define MUSHIN_LIBRARY_REVISION 50
-#define MUSHIN_LIBRARY_DATE "27.06.2003"
+#define MUSHIN_LIBRARY_REVISION 51
+#define MUSHIN_LIBRARY_DATE "05.10.2026"
 #define MUSHIN_STRINGIFY_(x) #x
 #define MUSHIN_STRINGIFY(x) MUSHIN_STRINGIFY_(x)
 #define MUSHIN_LIBRARY_VERSION_STRING \
