@@ -203,11 +203,16 @@ class ApplicationHarness(NotifyHarness):
 
 def check(path):
     h = ApplicationHarness(path)
+    storage = h.words(0)
+    for attr in [0x80422301, 0x80427eaa]:
+        assert h.dispatch(0x104, attr, storage)
+        assert h.mem.r32(storage) == 1
     h.dispatch(RETURN_ID, 101)
     h.dispatch(RETURN_ID, 102)
-    h.queues[WINDOW_PORT] = [1001, 1002, 1003]
+    messages = [h.blob(bytes(64)) for _ in range(3)]
+    h.queues[WINDOW_PORT] = list(messages)
     h.dispatch(BUFFERED)
-    assert h.deliveries == [('window', n) for n in [1001, 1002, 1003]]
+    assert h.deliveries == [('window', n) for n in messages]
     signals = h.words(0)
     assert h.dispatch(INPUT, signals) == 101 and h.mem.r32(signals) == 0
     assert h.dispatch(INPUT, signals) == 102

@@ -65,15 +65,27 @@ LDLIBS = -Wl,--start-group -lgcc -lnix20 -lnix -lm -lamiga -ldebug \
 GENERATED = $(BUILD)/trace-config.h $(BUILD)/include/libraries/mui.h \
   $(BUILD)/include/inline/muimaster.h $(BUILD)/include/inline/muiscreen.h $(BUILD)/gates.h
 
-.PHONY: all clean check release FORCE
-all: core
+.PHONY: all clean check check-core check-sdk release FORCE
+all: core $(BUILD)/compatcheck
 core: $(BUILD)/muimaster.library $(BUILD)/zunemaster.library $(BUILD)/opentest
 
 release: all
 	$(PYTHON) ../../../../tools/release.py --build-dir "$(BUILD)" \
 	  --output-dir "$(RELEASE_DIR)" --lha "$(LHA)"
 
-check: all
+check-sdk: $(BUILD)/compatcheck
+	@test -n "$(MUI38_SDK)" || { echo 'Set MUI38_SDK to the original MUI/Developer directory'; exit 1; }
+	$(PYTHON) ../../../../tools/check_sdk.py --sdk "$(MUI38_SDK)" \
+	  --output "$(BUILD)/sdk-check" --cc "$(CC)" --sfdc "$(SFDC)" --fd2sfd "$(FD2SFD)"
+	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/compatcheck $(BUILD)/sdk-check/compatcheck-mui38
+
+$(BUILD)/compatcheck: ../../../../tests/native/compatcheck.c $(GENERATED)
+	$(CC) $(CPUFLAGS) $(CRTFLAGS) $(CFLAGS) -DMUIMASTER_YES_INLINE_STDARG= \
+	  -I$(BUILD)/include -Iinclude -Wl,-u,___stkinit -o $@ $< -lmui
+
+check: all check-core
+
+check-core: core $(BUILD)/compatcheck
 	$(PYTHON) ../../../../tests/check_gcc_library.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_class_lifetime.py \
@@ -88,8 +100,16 @@ check: all
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_dynamic_layout.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_resources.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_clipping.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_list_sort.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_trace.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
-	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest
+	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest $(BUILD)/compatcheck
 
 # Changing TRACE in an existing build must also recompile the callers.
 $(BUILD)/trace-config.h: FORCE

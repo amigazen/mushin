@@ -93,6 +93,8 @@ def release(build_dir, output_dir, lha, full=True):
     if not (build_dir / 'opentest').is_file():
         raise ValueError(f'{build_dir}: missing opentest')
     files = component_files(build_dir) if full else []
+    if full and not (build_dir / "compatcheck").is_file():
+        raise ValueError(f"{build_dir}: missing compatcheck")
     archiver = shutil.which(lha)
     if not archiver:
         raise ValueError(f'{lha}: LHA archiver not found; set LHA to its path')
@@ -112,9 +114,12 @@ def release(build_dir, output_dir, lha, full=True):
             (package / 'Libs' / name).chmod(0o755)
         shutil.copyfile(build_dir / 'opentest', package / 'Tests/opentest')
         (package / 'Tests/opentest').chmod(0o755)
+        if full:
+            shutil.copyfile(build_dir / 'compatcheck', package / 'Tests/compatcheck')
+            (package / 'Tests/compatcheck').chmod(0o755)
         shutil.copyfile(ROOT / 'LICENSE.md', package / 'LICENSE')
         (package / 'Mushin.readme').write_text(readme, encoding='ascii')
-        for name in ('ReadMe', 'ReadMe.info', 'Install.info'):
+        for name in ('ReadMe', 'ReadMe.info', 'Install.info', 'Compatibility'):
             shutil.copyfile(ROOT / 'dist' / name, package / name)
         (package / 'Install').write_bytes(install_script(files).encode('latin1'))
         for name in files:

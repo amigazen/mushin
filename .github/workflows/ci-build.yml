@@ -40,6 +40,9 @@ jobs:
       - name: Build and check the full 68000 distribution
         run: make -j2 check release
 
+      - name: Check the diagnostic core
+        run: make -j2 check-core TRACE=1 BUILD="$RUNNER_TEMP/mushin-trace"
+
       - name: Check incremental build
         run: make -j2 all
 
