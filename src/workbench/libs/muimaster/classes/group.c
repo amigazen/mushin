@@ -170,8 +170,7 @@ struct MUI_GroupData
 #define w0_defheight(x) (((struct __dummyAreaData__ *)(x))->mad.mad_VertWeight ? _defheight(x) : _minheight(x))
 #define w0_maxheight(x) (((struct __dummyAreaData__ *)(x))->mad.mad_VertWeight ? _maxheight(x) : _minheight(x))
 
-static const int __version = 1;
-static const int __revision = 1;
+#include "native_version.h"
 
 IPTR Group__MUIM_Show(struct IClass *cl, Object *obj,
     struct MUIP_Show *msg);
@@ -705,10 +704,10 @@ IPTR Group__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
     switch (msg->opg_AttrID)
     {
     case MUIA_Version:
-        STORE = __version;
+        STORE = MUSHIN_BUILTIN_VERSION;
         return 1;
     case MUIA_Revision:
-        STORE = __revision;
+        STORE = MUSHIN_BUILTIN_REVISION;
         return 1;
     case MUIA_Group_ActivePage:
         STORE = data->active_page;

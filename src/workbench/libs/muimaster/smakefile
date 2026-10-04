@@ -287,7 +287,7 @@ SD
 ND
 <
 
-objs/zunemaster_lib.o: zunemaster_lib.c
+objs/zunemaster_lib.o: zunemaster_lib.c native_version.h
   sc $(CFLAGS) stringmerge zunemaster_lib.c objname=$@
 
 # Drop-in replacement build: "smake muimaster.library".
@@ -304,7 +304,7 @@ objs/zunemaster_lib.o: zunemaster_lib.c
 # if the two disagree the open fails even though the file loaded.  Install this
 # one as LIBS:muimaster.library and zunemaster.library as
 # LIBS:zunemaster.library.
-objs/muimaster_lib.o: zunemaster_lib.c
+objs/muimaster_lib.o: zunemaster_lib.c native_version.h
   sc $(CFLAGS) stringmerge DEFINE=MUIMASTER_DROPIN zunemaster_lib.c objname=$@
 
 # all.gst first, as for zunemaster.library above.
@@ -470,7 +470,7 @@ objs/mui_seterror.o: mui_seterror.c
 objs/classes/aboutmui.o: classes/aboutmui.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/aboutmui.c objname=$@
 
-objs/classes/application.o: classes/application.c
+objs/classes/application.o: classes/application.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) classes/application.c objname=$@
 
 objs/classes/area.o: classes/area.c
@@ -515,7 +515,7 @@ objs/classes/dirlist.o: classes/dirlist.c
 objs/classes/dtpic.o: classes/dtpic.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/dtpic.c objname=$@
 
-objs/classes/family.o: classes/family.c
+objs/classes/family.o: classes/family.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) classes/family.c objname=$@
 
 objs/classes/floattext.o: classes/floattext.c classes/floattext_private.h
@@ -530,7 +530,7 @@ objs/classes/framedisplay.o: classes/framedisplay.c
 objs/classes/gauge.o: classes/gauge.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/gauge.c objname=$@
 
-objs/classes/group.o: classes/group.c
+objs/classes/group.o: classes/group.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) classes/group.c objname=$@
 
 objs/classes/image.o: classes/image.c
@@ -554,7 +554,7 @@ objs/classes/list.o: classes/list.c
 objs/classes/listview.o: classes/listview.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/listview.c objname=$@
 
-objs/classes/notify.o: classes/notify.c
+objs/classes/notify.o: classes/notify.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) classes/notify.c objname=$@
 
 objs/classes/mccprefs.o: classes/mccprefs.c
@@ -632,7 +632,7 @@ objs/classes/settingsgroup.o: classes/settingsgroup.c
 objs/classes/string.o: classes/string.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/string.c objname=$@
 
-objs/classes/text.o: classes/text.c
+objs/classes/text.o: classes/text.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) classes/text.c objname=$@
 
 objs/classes/virtgroup.o: classes/virtgroup.c
@@ -641,10 +641,10 @@ objs/classes/virtgroup.o: classes/virtgroup.c
 objs/classes/volumelist.o: classes/volumelist.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/volumelist.c objname=$@
 
-objs/classes/window.o: classes/window.c
+objs/classes/window.o: classes/window.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) NOOPTIMIZE classes/window.c objname=$@
 
-objs/classes/rectangle.o: classes/rectangle.c
+objs/classes/rectangle.o: classes/rectangle.c native_version.h
   sc $(CFLAGS) $(CLASSESDIRS) classes/rectangle.c objname=$@
 
 objs/classes/register.o: classes/register.c

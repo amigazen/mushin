@@ -216,8 +216,7 @@ Notify.mui/MUIM_SetUData                  done
 Notify.mui/MUIM_SetUDataOnce              done
  */
 
-static const int __version = 1;
-static const int __revision = 1;
+#include "native_version.h"
 
 
 /*
@@ -1334,11 +1333,11 @@ static IPTR Application__OM_GET(struct IClass *cl, Object *obj,
         }
 
     case MUIA_Version:
-        STORE = __version;
+        STORE = MUSHIN_BUILTIN_VERSION;
         return TRUE;
 
     case MUIA_Revision:
-        STORE = __revision;
+        STORE = MUSHIN_BUILTIN_REVISION;
         return TRUE;
 
     case MUIA_Application_Author:

@@ -132,6 +132,17 @@ class NotifyHarness(Harness):
 
 
 def check(path):
+    # Built-in versions describe Mushin's implementation series, not the
+    # library release number or a claimed proprietary MUI feature level.
+    for name in ['Notify', 'Family', 'Group', 'Text', 'Rectangle', 'Window']:
+        h = NotifyHarness(path)
+        storage = h.words(0)
+        for attr in [0x80422301, 0x80427eaa]:
+            assert h.call(name + '__OM_GET', CLASS, OBJECT,
+                          h.words(0x104, attr, storage))
+            assert h.mem.r32(storage) == 1
+        h.finish()
+
     for failed_call in [1, 2, 3]:  # list header, node, parameter copy
         h = NotifyHarness(path)
         calls = [0]

@@ -28,8 +28,7 @@
 
 extern struct Library *MUIMasterBase;
 
-static const int __version = 1;
-static const int __revision = 1;
+#include "native_version.h"
 
 struct Rectangle_DATA
 {
@@ -112,11 +111,11 @@ IPTR Rectangle__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
     switch (msg->opg_AttrID)
     {
     case MUIA_Version:
-        STORE = __version;
+        STORE = MUSHIN_BUILTIN_VERSION;
         return TRUE;
 
     case MUIA_Revision:
-        STORE = __revision;
+        STORE = MUSHIN_BUILTIN_REVISION;
         return TRUE;
 
     case MUIA_Rectangle_BarTitle:

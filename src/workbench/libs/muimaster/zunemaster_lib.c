@@ -57,10 +57,11 @@ extern VOID MUI_RemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle);
 extern BOOL MUI_BeginRefresh(struct MUI_RenderInfo *mri, ULONG flags);
 extern VOID MUI_EndRefresh(struct MUI_RenderInfo *mri, ULONG flags);
 
-#define VERSION   19
-#define REVISION  50
-#define DATETXT   "27.06.2003"
-#define VERSTXT   "19.50"
+#include "native_version.h"
+#define VERSION MUSHIN_LIBRARY_VERSION
+#define REVISION MUSHIN_LIBRARY_REVISION
+#define DATETXT MUSHIN_LIBRARY_DATE
+#define VERSTXT MUSHIN_LIBRARY_VERSION_STRING
 /*
  * The name exec puts in the RomTag, which is also the name callers have to
  * pass to OpenLibrary().  These cannot be allowed to disagree: OpenLibrary()
