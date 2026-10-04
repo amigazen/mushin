@@ -127,10 +127,33 @@ def check(path):
         mem.w32(STACK, 0)
         run(symbols['_ZuneNextObject'])
         assert cpu.r_reg(0) == 0, 'NextObject null storage'
+
+        # SetSuperAttrs must dispatch OM_SET to cl->cl_Super, not to obj.
+        # The toolchain's alib helper used sp@(24) instead of a0@(24).
+        mem.w_block(BASE, data)
+        cl, supercl, obj = 0x72000, 0x72100, 0x73000
+        mem.w32(cl + 24, supercl)
+        mem.w32(supercl + 8, STUB)
+        # Keep the broken object-data dispatch deterministic for this check.
+        mem.w32(obj + 8, STUB)
+        stub = b''.join(struct.pack('>HI', 0x23c0 + reg, RESULT + i * 4)
+                        for i, reg in enumerate([8, 10, 9]))
+        mem.w_block(STUB, stub + bytes.fromhex('702a4e75'))
+        args = [cl, obj, 0x8042d0cd, 7, 0x80421654, 3, 0]
+        for i, value in enumerate(args):
+            mem.w32(STACK + i * 4, value)
+        run(symbols['_SetSuperAttrs'])
+        assert mem.r32(RESULT) == supercl, 'SetSuperAttrs superclass'
+        assert mem.r32(RESULT + 4) == obj, 'SetSuperAttrs object'
+        msg = mem.r32(RESULT + 8)
+        assert mem.r32(msg) == 0x103, 'SetSuperAttrs OM_SET'
+        assert mem.r32(msg + 4) == STACK + 8, 'SetSuperAttrs tag list'
+        assert mem.r32(msg + 8) == 0, 'SetSuperAttrs GadgetInfo'
+        assert cpu.r_reg(0) == 42, 'SetSuperAttrs return value'
     finally:
         machine.cleanup()
     print(f'{path.name}: Resident, 33 vectors, 25 gates, CLI, MCC ABI and '
-          f'object iterator OK; '
+          f'object iterator and superclass attributes OK; '
           f'{path.stat().st_size} file bytes, {len(data)} segment bytes')
 
 
