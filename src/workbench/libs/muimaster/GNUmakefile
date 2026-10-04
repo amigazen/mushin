@@ -78,6 +78,8 @@ check: all
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_class_lifetime.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_window_disposal.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
 	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest
 

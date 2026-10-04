@@ -3055,9 +3055,18 @@ struct MQNode {
 /**************************************************************************
  OM_DISPOSE
 **************************************************************************/
+static ULONG WindowClose(struct IClass *cl, Object *obj);
+
 IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
+
+    /* Close Intuition and release display resources before freeing objects
+     * referenced by the window, its event handlers and shared message port.
+     * Applications may dispose their tree without first setting Open FALSE.
+     */
+    if (data->wd_Flags & MUIWF_OPENED)
+        WindowClose(cl, obj);
 
 /*      D(bug("Window_Dispose(%p)\n", obj)); */
      //while (application_do_pushed_method(data));
@@ -3125,7 +3134,6 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 }
 
 static ULONG WindowOpen(struct IClass *cl, Object *obj);
-static ULONG WindowClose(struct IClass *cl, Object *obj);
 
 /**************************************************************************
  OM_SET
