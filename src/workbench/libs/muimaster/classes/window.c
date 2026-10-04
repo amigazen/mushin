@@ -200,6 +200,7 @@ struct MUI_WindowData
     struct IClass *wd_Class;
     struct MUI_PenSpec *hshinespec;
     struct MUI_PenSpec *hshadowpec;
+    Object **wd_CycleOrder; /* allocated only for the legacy explicit chain */
 };
 
 #ifndef WFLG_SIZEGADGET
@@ -3127,6 +3128,8 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     if (data->wd_MemoryPool)
         DeletePool(data->wd_MemoryPool);
     data->wd_MemoryPool = NULL;
+    FreeVec(data->wd_CycleOrder);
+    data->wd_CycleOrder = NULL;
 
     ZuneTrace(("zune: Window DISPOSE super cl=%lx super=%lx obj=%lx\n",
         (ULONG) cl, cl ? (ULONG) cl->cl_Super : 0L, (ULONG) obj));
@@ -3378,9 +3381,13 @@ IPTR Window__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
 
     switch(msg->opg_AttrID)
     {
+    case MUIA_WindowObject:
+        STORE = (IPTR)obj;
+        return TRUE;
      //new m 
     case MUIA_Window_Menustrip:                   
-         STORE = (IPTR)data->wd_Menustrip;
+         STORE = (IPTR)(data->wd_ChildMenustrip ?
+             data->wd_ChildMenustrip : data->wd_Menustrip);
          return TRUE ;              
      //new end m        
     case MUIA_Window_Activate:
@@ -4015,6 +4022,64 @@ IPTR Window__MUIM_Cleanup(struct IClass *cl, Object *obj, Msg msg)
 }
 
 
+static LONG CycleOrder(struct MUI_WindowData *data, Object *obj)
+{
+    LONG i;
+    if (!data->wd_CycleOrder) return -1;
+    for (i = 0; data->wd_CycleOrder[i]; i++)
+        if (data->wd_CycleOrder[i] == obj) return i;
+    return -1;
+}
+
+/* Keep the explicit order separate from the live chain. Cleanup removes live
+ * nodes; later setup inserts only surviving children, in the requested order.
+ * Stored object pointers are compared, never dereferenced during setup.
+ */
+IPTR Window__MUIM_SetCycleChain(struct IClass *cl, Object *obj,
+    struct MUIP_Window_SetCycleChain *msg)
+{
+    struct MUI_WindowData *data = INST_DATA(cl, obj);
+    Object **order;
+    ULONG count = 0, i;
+    struct MinList replacement;
+    struct ObjNode *node;
+
+    while (msg->obj[count]) count++;
+    order = AllocVec((count + 1) * sizeof(Object *), MEMF_ANY);
+    if (!order) return FALSE;
+    CopyMem(msg->obj, order, (count + 1) * sizeof(Object *));
+    NewList((struct List *)&replacement);
+    for (i = 0; i < count; i++)
+    {
+        Object *child = order[i];
+        if (!FindObjNode(&replacement, child)
+            && (_flags(child) & MADF_SETUP) && muiRenderInfo(child)
+            && _win(child) == obj)
+        {
+            node = AllocPooled(data->wd_MemoryPool, sizeof(*node));
+            if (!node)
+            {
+                while ((node = (struct ObjNode *)RemHead((struct List *)&replacement)))
+                    FreePooled(data->wd_MemoryPool, node, sizeof(*node));
+                FreeVec(order);
+                return FALSE;
+            }
+            node->obj = child;
+            AddTail((struct List *)&replacement, (struct Node *)node);
+        }
+    }
+    while ((node = (struct ObjNode *)RemHead((struct List *)&data->wd_CycleChain)))
+        FreePooled(data->wd_MemoryPool, node, sizeof(*node));
+    while ((node = (struct ObjNode *)RemHead((struct List *)&replacement)))
+        AddTail((struct List *)&data->wd_CycleChain, (struct Node *)node);
+    FreeVec(data->wd_CycleOrder);
+    data->wd_CycleOrder = order;
+    /* Arrange control-handler setup/cleanup for legacy gadgets as well. */
+    for (i = 0; i < count; i++)
+        set(order[i], MUIA_CycleChain, TRUE);
+    return TRUE;
+}
+
 /**************************************************************************
  This adds the the control char handler and also do the MUIA_CycleChain
  stuff. Orginal MUI does this in an other way.
@@ -4037,13 +4102,33 @@ IPTR Window__MUIM_AddControlCharHandler(struct IClass *cl, Object *obj,
 	Enqueue((struct List *)&data->wd_CCList, (struct Node *)msg->ccnode);
     }
     /* Due to the lack of a better idea ... */
-    if (muiAreaData(msg->ccnode->ehn_Object)->mad_Flags & MADF_CYCLECHAIN)
+    if ((data->wd_CycleOrder ? CycleOrder(data, msg->ccnode->ehn_Object) >= 0 :
+            !!(muiAreaData(msg->ccnode->ehn_Object)->mad_Flags & MADF_CYCLECHAIN))
+        && (!data->wd_CycleOrder ||
+            !FindObjNode(&data->wd_CycleChain, msg->ccnode->ehn_Object)))
     {
         node = AllocPooled(data->wd_MemoryPool, sizeof(struct ObjNode));
         if (node)
         {
+            struct ObjNode *next;
+            struct MinNode *pred = (struct MinNode *)&data->wd_CycleChain;
+            LONG rank;
             node->obj = msg->ccnode->ehn_Object;
-	    AddTail((struct List *)&data->wd_CycleChain,(struct Node*)node);
+            if (!data->wd_CycleOrder)
+            {
+                AddTail((struct List *)&data->wd_CycleChain, (struct Node *)node);
+                return TRUE;
+            }
+            rank = CycleOrder(data, node->obj);
+            for (next = (struct ObjNode *)data->wd_CycleChain.mlh_Head;
+                next->node.mln_Succ; next = (struct ObjNode *)next->node.mln_Succ)
+            {
+                if (data->wd_CycleOrder && CycleOrder(data, next->obj) > rank)
+                    break;
+                pred = &next->node;
+            }
+            Insert((struct List *)&data->wd_CycleChain,
+                (struct Node *)node, (struct Node *)pred);
         }
     }
     return TRUE;
@@ -4468,6 +4553,8 @@ BOOPSI_DISPATCHER(IPTR, Window_Dispatcher, cl, obj, msg)
 {
     switch (msg->MethodID)
     {
+    case MUIM_Window_SetCycleChain:
+        return Window__MUIM_SetCycleChain(cl, obj, (APTR)msg);
 	case OM_NEW:                            return Window__OM_NEW(cl, obj, (struct opSet *) msg);
 	case OM_DISPOSE:                        return Window__OM_DISPOSE(cl, obj, msg);
 	case OM_SET:                            return Window__OM_SET(cl, obj, (struct opSet *)msg);

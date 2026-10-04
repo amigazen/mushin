@@ -81,6 +81,9 @@ def check(path):
             assert cpu.r_reg(9) == FIRST
             events.append('reply window message')
 
+        def free_vec():
+            assert cpu.r_reg(9) == 0, 'no explicit cycle chain in this window'
+
         def superclass():
             assert [argument(i) for i in range(3)] == [CLASS, OBJECT, MESSAGE]
             events.append('super dispose')
@@ -120,6 +123,7 @@ def check(path):
             trap(EXEC - 138, lambda: None)  # Permit
             trap(EXEC - 252, remove)
             trap(EXEC - 378, reply)
+            trap(EXEC - 690, free_vec)
             if '_ZuneTraceOutput' in symbols:
                 trap(symbols['_ZuneTraceOutput'], lambda: None)
             for i, value in enumerate([CLASS, OBJECT, MESSAGE]):

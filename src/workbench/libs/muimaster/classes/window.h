@@ -201,7 +201,7 @@ struct MUIP_Window_SetMenuState
     STACKED LONG stat;
 };
 
-#ifdef MUI_OBSOLETE
+#if defined(MUI_OBSOLETE) || defined(MUIMASTER_LIBRARY_BUILD)
 #define MUIM_Window_SetCycleChain   (MUIB_MUI | 0x00426510)     /* MUI: V4  */
 
 struct MUIP_Window_SetCycleChain
@@ -348,7 +348,7 @@ struct MUIP_Window_SetCycleChain
 #define MUIV_Window_Button_Popup            8
 
 
-#ifdef MUI_OBSOLETE
+#if defined(MUI_OBSOLETE) || defined(MUIMASTER_LIBRARY_BUILD)
 #define MUIA_Window_Menu \
     (MUIB_MUI | 0x0042db94)       /* MUI: V4  i.. struct NewMenu * */
 
