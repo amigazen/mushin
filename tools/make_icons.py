@@ -16,6 +16,7 @@ DRAWERS = {
     'Docs': (112, 108),
     'Tests': (208, 108),
 }
+LIST_DRAWERS = {'Libs', 'Locale', 'Examples', 'SDK', 'Docs', 'Tests'}
 
 
 def main():
@@ -36,7 +37,12 @@ def main():
          '--edit', 'DrawerData:NewWindow:LeftEdge=40',
          '--edit', 'DrawerData:NewWindow:TopEdge=30')
     for name, (x, y) in DRAWERS.items():
-        edit(drawer, '--pos', f'{x},{y}',
+        view = []
+        if name in LIST_DRAWERS:
+            # DDFLAGS_SHOWALL and DDVM_BYNAME from workbench/workbench.h.
+            view = ['--edit', 'DrawerData2:Flags=2',
+                    '--edit', 'DrawerData2:ViewModes=2']
+        edit(drawer, '--pos', f'{x},{y}', *view,
              '-o', str(DIST / (name + '.info')))
 
     if not args.drawers_only:
