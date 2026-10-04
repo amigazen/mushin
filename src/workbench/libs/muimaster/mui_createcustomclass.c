@@ -56,7 +56,11 @@ VOID MUI_FreeClass(Class *cl);
     else super = supermcc->mcc_Class;
 
     if (!(mcc = mui_alloc_struct(struct MUI_CustomClass)))
+    {
+        if (!supermcc)
+            MUI_FreeClass(super);
         return NULL;
+    }
 
     if (base)
         id = FilePart(((struct Node *)base)->ln_Name);
@@ -64,6 +68,8 @@ VOID MUI_FreeClass(Class *cl);
     if (!(cl = MakeClass(id, NULL, super, datasize, 0)))
     {
         mui_free(mcc);
+        if (!supermcc)
+            MUI_FreeClass(super);
         return NULL;
     }
 
