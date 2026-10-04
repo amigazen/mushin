@@ -69,6 +69,7 @@ check: all
 	$(PYTHON) ../../../../tests/check_gcc_library.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
+	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest
 
 $(BUILD)/buildincludes: buildincludes.c GNUmakefile
 	@mkdir -p $(@D)
@@ -125,7 +126,7 @@ $(BUILD)/%.library: $(BUILD)/start.o $(BUILD)/%_lib.o $(BUILD)/gates.o $(OBJECTS
 	  -Wl,-Map,$@.map -o $@ $^ $(LDLIBS)
 
 $(BUILD)/opentest: opentest.c $(GENERATED)
-	$(CC) $(CPUFLAGS) $(CRTFLAGS) $(CFLAGS) -DMUIMASTER_YES_INLINE_STDARG= -I$(BUILD)/include -Iinclude -o $@ $<
+	$(CC) $(CPUFLAGS) $(CRTFLAGS) $(CFLAGS) -DMUIMASTER_YES_INLINE_STDARG= -I$(BUILD)/include -Iinclude -Wl,-u,___stkinit -o $@ $<
 
 $(OBJECTS) $(BUILD)/gates.o $(BUILD)/muimaster_lib.o \
   $(BUILD)/zunemaster_lib.o $(BUILD)/opentest: GNUmakefile
