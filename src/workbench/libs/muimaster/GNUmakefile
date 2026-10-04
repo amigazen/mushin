@@ -82,6 +82,8 @@ check: all
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_floattext.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_notifications.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
 	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest
 
