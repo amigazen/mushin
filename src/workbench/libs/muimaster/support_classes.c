@@ -53,6 +53,7 @@ static const struct __MUIBuiltinClass *const builtins[] = {
     &_MUI_Popstring_desc,
     &_MUI_Listview_desc,
     &_MUI_List_desc,
+    ZUNE_FLOATTEXT_DESC
     ZUNE_POPASL_DESC & _MUI_Popobject_desc,
     ZUNE_GAUGE_DESC
         ZUNE_ABOUTMUI_DESC

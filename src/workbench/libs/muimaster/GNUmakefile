@@ -44,7 +44,7 @@ SOURCES = \
   classes/bodychunk.c classes/boopsi.c classes/chunkyimage.c \
   classes/configdata.c classes/coloradjust.c classes/colorfield.c \
   classes/crawling.c classes/cycle.c classes/dataspace.c \
-  classes/dirlist.c classes/dtpic.c classes/family.c \
+  classes/dirlist.c classes/dtpic.c classes/family.c classes/floattext.c \
   classes/frameadjust.c classes/framedisplay.c classes/gauge.c \
   classes/group.c classes/image.c classes/imageadjust.c \
   classes/imagedisplay.c classes/knob.c classes/levelmeter.c \
@@ -79,6 +79,8 @@ check: all
 	$(PYTHON) ../../../../tests/check_class_lifetime.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_window_disposal.py \
+	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
+	$(PYTHON) ../../../../tests/check_floattext.py \
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
 	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest

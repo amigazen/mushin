@@ -90,6 +90,7 @@ CLASSESOBJS= \
   objs/classes/dirlist.o \
   objs/classes/dtpic.o \
   objs/classes/family.o \
+  objs/classes/floattext.o \
   objs/classes/frameadjust.o \
   objs/classes/framedisplay.o \
   objs/classes/gauge.o \
@@ -260,7 +261,8 @@ FROM objs/classes/aboutmui.o objs/classes/application.o \
   objs/classes/coloradjust.o objs/classes/colorfield.o \
   objs/classes/crawling.o objs/classes/cycle.o objs/classes/dataspace.o \
   objs/classes/dirlist.o objs/classes/dtpic.o \
-  objs/classes/family.o objs/classes/frameadjust.o \
+  objs/classes/family.o objs/classes/floattext.o \
+  objs/classes/frameadjust.o \
   objs/classes/framedisplay.o objs/classes/gauge.o objs/classes/group.o \
   objs/classes/image.o objs/classes/imageadjust.o \
   objs/classes/imagedisplay.o objs/classes/knob.o \
@@ -515,6 +517,9 @@ objs/classes/dtpic.o: classes/dtpic.c
 
 objs/classes/family.o: classes/family.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/family.c objname=$@
+
+objs/classes/floattext.o: classes/floattext.c classes/floattext_private.h
+  sc $(CFLAGS) $(CLASSESDIRS) classes/floattext.c objname=$@
 
 objs/classes/frameadjust.o: classes/frameadjust.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/frameadjust.c objname=$@

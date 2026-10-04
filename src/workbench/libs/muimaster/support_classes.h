@@ -49,6 +49,12 @@
 #   define ZUNE_COLORFIELD_DESC
 #endif
 
+#if ZUNE_BUILTIN_FLOATTEXT
+#   define ZUNE_FLOATTEXT_DESC (&_MUI_Floattext_desc),
+#else
+#   define ZUNE_FLOATTEXT_DESC
+#endif
+
 #if ZUNE_BUILTIN_FRAMEADJUST
 #   define ZUNE_FRAMEADJUST_DESC (&_MUI_Frameadjust_desc),
 #else
@@ -317,6 +323,7 @@ extern const struct __MUIBuiltinClass _MUI_Menu_desc;
 extern const struct __MUIBuiltinClass _MUI_Menustrip_desc;
 extern const struct __MUIBuiltinClass _MUI_Listview_desc;
 extern const struct __MUIBuiltinClass _MUI_List_desc;
+extern const struct __MUIBuiltinClass _MUI_Floattext_desc;
 extern const struct __MUIBuiltinClass _MUI_Popobject_desc;
 extern const struct __MUIBuiltinClass _MUI_Gauge_desc;
 extern const struct __MUIBuiltinClass _MUI_Aboutmui_desc;
