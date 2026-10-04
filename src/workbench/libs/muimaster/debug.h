@@ -9,11 +9,15 @@
 
 /* Debug Macros */
 
+#ifndef MUSHIN_TRACE
+#define MUSHIN_TRACE 0
+#endif
+
 #ifdef __AROS__
 
 #undef DEBUG
 
-#ifdef MYDEBUG
+#if defined(MYDEBUG) && MUSHIN_TRACE
 #define DEBUG 1
 #else
 #define DEBUG 0
@@ -32,7 +36,7 @@ void kprintf(char *string, ...);
 #define ASSERT(x)
 #define ASSERT_VALID_PTR(x)
 
-#ifdef MYDEBUG
+#if defined(MYDEBUG) && MUSHIN_TRACE
 
 #ifdef __AMIGAOS4__
 #    undef SysBase

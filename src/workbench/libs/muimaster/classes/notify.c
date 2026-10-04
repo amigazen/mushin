@@ -266,9 +266,9 @@ IPTR Notify__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     struct MinNode *node;
     struct MUI_NotifyData *data = INST_DATA(cl, obj);
 
-    ZuneTrace("zune: Notify DISPOSE obj=%lx attrs=%lx nlist=%lx\n",
+    ZuneTrace(("zune: Notify DISPOSE obj=%lx attrs=%lx nlist=%lx\n",
         (ULONG) obj, (ULONG) data->mnd_Attributes,
-        (ULONG) data->mnd_NotifyList);
+        (ULONG) data->mnd_NotifyList));
 
     if (data->mnd_Attributes)
     {
@@ -287,11 +287,11 @@ IPTR Notify__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
         data->mnd_NotifyList = NULL;
     }
 
-    ZuneTrace("zune: Notify DISPOSE super obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Notify DISPOSE super obj=%lx\n", (ULONG) obj));
     {
         IPTR rc;
         rc = DoSuperMethodA(cl, obj, msg);
-        ZuneTrace("zune: Notify DISPOSE done obj=%lx\n", (ULONG) obj);
+        ZuneTrace(("zune: Notify DISPOSE done obj=%lx\n", (ULONG) obj));
         return rc;
     }
 }
@@ -326,9 +326,9 @@ static void check_notify(NNode nnode, Object *obj, struct TagItem *tag)
 
     if (nnode->nn_TrigAttr == MUIA_Window_CloseRequest)
     {
-        ZuneTrace("zune: notify CloseRequest trig=%lx data=%lx fire=%ld dest=%lx\n",
+        ZuneTrace(("zune: notify CloseRequest trig=%lx data=%lx fire=%ld dest=%lx\n",
             (ULONG) nnode->nn_TrigVal, (ULONG) tag->ti_Data,
-            donotify ? 1L : 0L, (ULONG) nnode->nn_DestObj);
+            donotify ? 1L : 0L, (ULONG) nnode->nn_DestObj));
     }
 
     /* Is the notification already being performed? */

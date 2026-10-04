@@ -352,7 +352,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     obj = (Object *) DoSuperMethodA(cl, obj, (Msg) msg);
     if (!obj)
     {
-        ZuneTrace("zune: App OM_NEW super failed\n");
+        ZuneTrace(("zune: App OM_NEW super failed\n"));
         return FALSE;
     }
 
@@ -372,7 +372,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     data->app_WindowFamily = MUI_NewObjectA(MUIC_Family, NULL);
     if (!data->app_WindowFamily)
     {
-        ZuneTrace("zune: App OM_NEW no Family\n");
+        ZuneTrace(("zune: App OM_NEW no Family\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -380,7 +380,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     (&data->app_GlobalInfo)->mgi_ApplicationObject = obj;
     if (!((&data->app_GlobalInfo)->mgi_WindowsPort = CreateMsgPort()))
     {
-        ZuneTrace("zune: App OM_NEW no WindowsPort\n");
+        ZuneTrace(("zune: App OM_NEW no WindowsPort\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -396,7 +396,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
         msg->ops_AttrList);
     if (!data->app_Base || strpbrk(data->app_Base, ":/()#?*,"))
     {
-        ZuneTrace("zune: App OM_NEW bad Base\n");
+        ZuneTrace(("zune: App OM_NEW bad Base\n"));
         data->app_Base = NULL;  /* don't remove */
         CoerceMethod(cl, obj, OM_DISPOSE);
 
@@ -438,7 +438,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
 
     if (!data->app_Base)
     {
-        ZuneTrace("zune: App OM_NEW no Base/SingleTask\n");
+        ZuneTrace(("zune: App OM_NEW no Base/SingleTask\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -448,7 +448,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
         TAG_DONE);
     if (!(&data->app_GlobalInfo)->mgi_Configdata)
     {
-        ZuneTrace("zune: App OM_NEW no Configdata\n");
+        ZuneTrace(("zune: App OM_NEW no Configdata\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -461,7 +461,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     /* Setup timer stuff */
     if (!(data->app_TimerPort = CreateMsgPort()))
     {
-        ZuneTrace("zune: App OM_NEW no TimerPort\n");
+        ZuneTrace(("zune: App OM_NEW no TimerPort\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -470,7 +470,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
             (struct timerequest *)CreateIORequest(data->app_TimerPort,
                 sizeof(struct timerequest))))
     {
-        ZuneTrace("zune: App OM_NEW no TimerReq\n");
+        ZuneTrace(("zune: App OM_NEW no TimerReq\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -478,7 +478,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     if (OpenDevice(TIMERNAME, UNIT_VBLANK,
             (struct IORequest *)data->app_TimerReq, 0))
     {
-        ZuneTrace("zune: App OM_NEW timer.device failed\n");
+        ZuneTrace(("zune: App OM_NEW timer.device failed\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -667,7 +667,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
 
     if (bad_childs)
     {
-        ZuneTrace("zune: App OM_NEW bad child/Window\n");
+        ZuneTrace(("zune: App OM_NEW bad child/Window\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -741,7 +741,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
     (&data->app_GlobalInfo)->mgi_AppPort = data->app_AppPort;
     if (data->app_AppPort == NULL)
     {
-        ZuneTrace("zune: App OM_NEW no AppPort\n");
+        ZuneTrace(("zune: App OM_NEW no AppPort\n"));
         CoerceMethod(cl, obj, OM_DISPOSE);
         return 0;
     }
@@ -769,7 +769,7 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
 
     long positionmode;
 
-    ZuneTrace("zune: App DISPOSE start obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: App DISPOSE start obj=%lx\n", (ULONG) obj));
 
     if (data->app_Base)
     {
@@ -834,12 +834,12 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
             for (i = 0; i < n; i++)
             {
                 MUI_DisposeObject(snap[i]);
-                ZuneTrace("zune: App DISPOSE child %lx done\n",
-                    (ULONG) snap[i]);
+                ZuneTrace(("zune: App DISPOSE child %lx done\n",
+                    (ULONG) snap[i]));
             }
         }
-        ZuneTrace("zune: App DISPOSE family %lx\n",
-            (ULONG) data->app_WindowFamily);
+        ZuneTrace(("zune: App DISPOSE family %lx\n",
+            (ULONG) data->app_WindowFamily));
         MUI_DisposeObject(data->app_WindowFamily);
         data->app_WindowFamily = NULL;
     }
@@ -857,7 +857,7 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
     /* Configdata RemInputHandler walks app_IHList; do it before ports die. */
     if ((&data->app_GlobalInfo)->mgi_Configdata)
     {
-        ZuneTrace("zune: App DISPOSE configdata\n");
+        ZuneTrace(("zune: App DISPOSE configdata\n"));
         MUI_DisposeObject((&data->app_GlobalInfo)->mgi_Configdata);
         (&data->app_GlobalInfo)->mgi_Configdata = NULL;
         (&data->app_GlobalInfo)->mgi_Prefs = NULL;
@@ -885,7 +885,7 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
     }
 
     /* free timer stuff */
-    ZuneTrace("zune: App DISPOSE timer\n");
+    ZuneTrace(("zune: App DISPOSE timer\n"));
     if (data->app_TimerReq)
     {
         if (data->app_TimerReq->tr_node.io_Device)
@@ -944,7 +944,7 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
     {
         struct Message *wmsg;
 
-        ZuneTrace("zune: App DISPOSE windowsport\n");
+        ZuneTrace(("zune: App DISPOSE windowsport\n"));
         while ((wmsg = GetMsg((&data->app_GlobalInfo)->mgi_WindowsPort)))
             ReplyMsg(wmsg);
         DeleteMsgPort((&data->app_GlobalInfo)->mgi_WindowsPort);
@@ -962,7 +962,7 @@ static IPTR Application__OM_DISPOSE(struct IClass *cl, Object *obj,
         DeleteRIDNode(data, rid);
     }
 
-    ZuneTrace("zune: App DISPOSE super obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: App DISPOSE super obj=%lx\n", (ULONG) obj));
     return DoSuperMethodA(cl, obj, msg);
 }
 
@@ -1568,10 +1568,12 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
     struct MinNode *mn;
     struct MsgPort *wport;
     struct IntuiMessage *imsg;
-    ULONG ngot;
     ULONG wmask;
+#if MUSHIN_TRACE
+    ULONG ngot;
     ULONG wbit;
     static ULONG ni_calls;
+#endif
 
     if (msg == NULL || msg->signal == NULL)
         return 0;
@@ -1604,11 +1606,13 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
         signalmask |= portmask(data->app_AppPort);
 
     wmask = portmask(wport);
+#if MUSHIN_TRACE
     wbit = 0;
     if (wport != NULL)
         wbit = (ULONG) (UBYTE) wport->mp_SigBit;
     ngot = 0;
     ni_calls++;
+#endif
 
     /*
      * Drain IDCMP even when the Wait() bit test is wrong, so close gadget
@@ -1620,17 +1624,19 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
         while ((imsg = (struct IntuiMessage *)GetMsg(wport)))
         {
             Permit();
+#if MUSHIN_TRACE
             ngot++;
             if (imsg->Class == IDCMP_CLOSEWINDOW
                 || imsg->Class == IDCMP_RAWKEY
                 || imsg->Class == IDCMP_REFRESHWINDOW
                 || ni_calls <= 4)
             {
-                ZuneTrace("zune: GetMsg #%ld class=%lx code=%lx iwin=%lx udata=%lx\n",
+                ZuneTrace(("zune: GetMsg #%ld class=%lx code=%lx iwin=%lx udata=%lx\n",
                     ngot, (ULONG) imsg->Class, (ULONG) imsg->Code,
                     (ULONG) imsg->IDCMPWindow,
-                    imsg->IDCMPWindow ? (ULONG) imsg->IDCMPWindow->UserData : 0L);
+                    imsg->IDCMPWindow ? (ULONG) imsg->IDCMPWindow->UserData : 0L));
             }
+#endif
             _zune_window_message(imsg);
             Forbid();
         }
@@ -1645,11 +1651,13 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
         Permit();
     }
 
+#if MUSHIN_TRACE
     if (ni_calls <= 4)
     {
-        ZuneTrace("zune: NI #%ld in=%lx wport=%lx bit=%ld wmask=%lx smask=%lx got=%ld\n",
-            ni_calls, signal, (ULONG) wport, wbit, wmask, signalmask, ngot);
+        ZuneTrace(("zune: NI #%ld in=%lx wport=%lx bit=%ld wmask=%lx smask=%lx got=%ld\n",
+            ni_calls, signal, (ULONG) wport, wbit, wmask, signalmask, ngot));
     }
+#endif
 
     if (signal == 0)
     {
@@ -1879,7 +1887,7 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
     {
         retval = rid->rid_Value;
         DeleteRIDNode(data, rid);
-        ZuneTrace("zune: ReturnID %lx (NI #%ld)\n", retval, ni_calls);
+        ZuneTrace(("zune: ReturnID %lx (NI #%ld)\n", retval, ni_calls));
         return retval;
     }
     return 0;
@@ -2015,7 +2023,7 @@ static IPTR Application__MUIM_ReturnID(struct IClass *cl, Object *obj,
     if (!rid)
         return FALSE;
     AddTail((struct List *)&data->app_ReturnIDQueue, (struct Node *)rid);
-    ZuneTrace("zune: queued ReturnID %lx\n", (ULONG) msg->retid);
+    ZuneTrace(("zune: queued ReturnID %lx\n", (ULONG) msg->retid));
     return TRUE;
 }
 

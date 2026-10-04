@@ -64,12 +64,17 @@ IPTR DoSetupMethod(Object * obj, struct MUI_RenderInfo *info);
 IPTR DoShowMethod(Object * obj);
 IPTR DoHideMethod(Object * obj);
 
-/*
- * Write a line to the calling process's Output() (CLI stdout).  No-op if
- * Output() is NULL (Workbench-started programs).  Format is dos.library
- * VFPrintf: use %ld/%lx/%s, and pass every integer as LONG/ULONG.
- */
-void ZuneTrace(CONST_STRPTR fmt, ...);
+/* Tuple arguments keep the disabled macro compatible with SAS/C. */
+#ifndef MUSHIN_TRACE
+#define MUSHIN_TRACE 0
+#endif
+#if MUSHIN_TRACE
+/* CLI stdout or T:zune.log; VFPrintf requires LONG/ULONG integers. */
+void ZuneTraceOutput(CONST_STRPTR fmt, ...);
+#define ZuneTrace(args) ZuneTraceOutput args
+#else
+#define ZuneTrace(args) ((void)0)
+#endif
 
 /*
  * SAS/C DoMethod() varargs is unsafe for 32-bit MUI method IDs (and for

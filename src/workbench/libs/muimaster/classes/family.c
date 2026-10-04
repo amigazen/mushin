@@ -149,11 +149,11 @@ IPTR Family__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     cstate = (Object *) data->children.lh_Head;
     while ((child = NextObject(&cstate)))
     {
-        ZuneTrace("zune: Family DISPOSE child %lx cstate=%lx\n",
-            (ULONG) child, (ULONG) cstate);
+        ZuneTrace(("zune: Family DISPOSE child %lx cstate=%lx\n",
+            (ULONG) child, (ULONG) cstate));
         MUI_DisposeObject(child);
-        ZuneTrace("zune: Family DISPOSE child %lx done cstate=%lx\n",
-            (ULONG) child, (ULONG) cstate);
+        ZuneTrace(("zune: Family DISPOSE child %lx done cstate=%lx\n",
+            (ULONG) child, (ULONG) cstate));
     }
     NewList(&data->children);
 

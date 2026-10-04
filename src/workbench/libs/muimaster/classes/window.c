@@ -744,8 +744,8 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
         win->UserData = (char*)data->wd_RenderInfo.mri_WindowObject;
         win->UserPort = (muiGlobalInfo(obj))->mgi_WindowsPort; /* Same port for all windows */
         ModifyIDCMP(win, data->wd_Events);
-        ZuneTrace("zune: WindowOpen events=%lx IDCMP=%lx (idle has no INTUITICKS)\n",
-            data->wd_Events, win->IDCMPFlags);
+        ZuneTrace(("zune: WindowOpen events=%lx IDCMP=%lx (idle has no INTUITICKS)\n",
+            data->wd_Events, win->IDCMPFlags));
 
         data->wd_RenderInfo.mri_Window = win;
         data->wd_RenderInfo.mri_VertProp = data->wd_VertProp;
@@ -1581,14 +1581,16 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
     BOOL replied = FALSE;
 
     iWin = imsg->IDCMPWindow;
+#if MUSHIN_TRACE
     if (imsg->Class == IDCMP_REFRESHWINDOW
         || imsg->Class == IDCMP_NEWSIZE
         || imsg->Class == IDCMP_CHANGEWINDOW)
     {
-        ZuneTrace("zune: HWE class=%lx iwin=%lx layerf=%lx\n",
+        ZuneTrace(("zune: HWE class=%lx iwin=%lx layerf=%lx\n",
             (ULONG) imsg->Class, (ULONG) iWin,
-            (ULONG) (iWin && iWin->WLayer ? iWin->WLayer->Flags : 0));
+            (ULONG) (iWin && iWin->WLayer ? iWin->WLayer->Flags : 0)));
     }
+#endif
     switch (imsg->Class)
     {
     case IDCMP_ACTIVEWINDOW:
@@ -1677,7 +1679,7 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
         break;
 
     case IDCMP_CLOSEWINDOW:
-        ZuneTrace("zune: CLOSEWINDOW owin=%lx\n", (ULONG) oWin);
+        ZuneTrace(("zune: CLOSEWINDOW owin=%lx\n", (ULONG) oWin));
 	    ReplyMsg((struct Message*)imsg);
         replied = TRUE;
         /* Prefer 1L: notify compares ULONG ti_Data. */
@@ -1960,11 +1962,11 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     ie.ie_TimeStamp.tv_secs     = event->Seconds;
     ie.ie_TimeStamp.tv_micro    = event->Micros;
 
-    ZuneTrace("zune: RAWKEY code=%lx qual=%lx iaddr=%lx\n",
-        (ULONG)event->Code, (ULONG)event->Qualifier, (ULONG)event->IAddress);
+    ZuneTrace(("zune: RAWKEY code=%lx qual=%lx iaddr=%lx\n",
+        (ULONG)event->Code, (ULONG)event->Qualifier, (ULONG)event->IAddress));
     
     set(win, MUIA_Window_InputEvent, (IPTR)&ie);
-    ZuneTrace("zune: RAWKEY after InputEvent set\n");
+    ZuneTrace(("zune: RAWKEY after InputEvent set\n"));
 
     /* get the vanilla key for control char */
     {
@@ -1975,7 +1977,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
         key = ConvertKey(event);
         event->Code = msg_code;
     }
-    ZuneTrace("zune: RAWKEY ConvertKey=%lx\n", key);
+    ZuneTrace(("zune: RAWKEY ConvertKey=%lx\n", key));
 
     /* Reply before handlers; keep a copy of the dead-key ULONG. */
     imsg_copy = *event;
@@ -1986,7 +1988,7 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     imsg_copy.IAddress = &deadkey;
     ReplyMsg((struct Message*)event);
     event = &imsg_copy;
-    ZuneTrace("zune: RAWKEY replied, dispatch handlers\n");
+    ZuneTrace(("zune: RAWKEY replied, dispatch handlers\n"));
 
     //bug("rawkey: code=%lx, qual=%lx\n", event->Code, event->Qualifier);
 
@@ -2091,8 +2093,8 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
     else
         data->wd_ActiveObject = NULL;
 
-    ZuneTrace("zune: RAWKEY active=%lx muikey=%ld\n",
-        (ULONG)active_object, (LONG)muikey);
+    ZuneTrace(("zune: RAWKEY active=%lx muikey=%ld\n",
+        (ULONG)active_object, (LONG)muikey));
 
     /* try ActiveObject */
     if ((active_object != NULL) && !disabled)
@@ -2126,8 +2128,8 @@ static void HandleRawkey(Object *win, struct MUI_WindowData *data,
 		D(bug("HandleRawkey: (active) invoking on %p (ehn=%p) event=%p muikey=%p\n",
                     ehn->ehn_Object, ehn, event, muikey));
                 res = InvokeEventHandler(ehn, event, muikey);
-                ZuneTrace("zune: RAWKEY InvokeEH obj=%lx res=%lx\n",
-                    (ULONG)ehn->ehn_Object, res);
+                ZuneTrace(("zune: RAWKEY InvokeEH obj=%lx res=%lx\n",
+                    (ULONG)ehn->ehn_Object, res));
                 if (res & MUI_EventHandlerRC_Eat)
                     return;
 
@@ -2366,8 +2368,8 @@ void _zune_window_message(struct IntuiMessage *imsg)
         oWin = (Object *)iWin->UserData;
     if (iWin == NULL || oWin == NULL)
     {
-        ZuneTrace("zune: winmsg drop class=%lx iwin=%lx owin=%lx\n",
-            (ULONG) imsg->Class, (ULONG) iWin, (ULONG) oWin);
+        ZuneTrace(("zune: winmsg drop class=%lx iwin=%lx owin=%lx\n",
+            (ULONG) imsg->Class, (ULONG) iWin, (ULONG) oWin));
         ReplyMsg((struct Message *)imsg);
         return;
     }
@@ -3071,34 +3073,34 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     }
 #endif
 
-    ZuneTrace("zune: Window DISPOSE obj=%lx root=%lx\n",
-        (ULONG) obj, (ULONG) data->wd_RootObject);
+    ZuneTrace(("zune: Window DISPOSE obj=%lx root=%lx\n",
+        (ULONG) obj, (ULONG) data->wd_RootObject));
     if (data->wd_RootObject)
     {
         Object *root;
         struct { ULONG MethodID; } cmsg;
 
         root = data->wd_RootObject;
-        ZuneTrace("zune: Window DISPOSE root flags=%lx\n",
-            (ULONG) _flags(root));
+        ZuneTrace(("zune: Window DISPOSE root flags=%lx\n",
+            (ULONG) _flags(root)));
         if (_flags(root) & MADF_CANDRAW)
         {
-            ZuneTrace("zune: Window DISPOSE Hide root\n");
+            ZuneTrace(("zune: Window DISPOSE Hide root\n"));
             DoHideMethod(root);
-            ZuneTrace("zune: Window DISPOSE Hide done\n");
+            ZuneTrace(("zune: Window DISPOSE Hide done\n"));
         }
         if (_flags(root) & MADF_SETUP)
         {
-            ZuneTrace("zune: Window DISPOSE Cleanup root\n");
+            ZuneTrace(("zune: Window DISPOSE Cleanup root\n"));
             cmsg.MethodID = MUIM_Cleanup;
             DoMethodA(root, (Msg)&cmsg);
-            ZuneTrace("zune: Window DISPOSE Cleanup done flags=%lx\n",
-                (ULONG) _flags(root));
+            ZuneTrace(("zune: Window DISPOSE Cleanup done flags=%lx\n",
+                (ULONG) _flags(root)));
         }
-        ZuneTrace("zune: Window DISPOSE DisposeObject root\n");
+        ZuneTrace(("zune: Window DISPOSE DisposeObject root\n"));
         MUI_DisposeObject(root);
         data->wd_RootObject = NULL;
-        ZuneTrace("zune: Window DISPOSE root done\n");
+        ZuneTrace(("zune: Window DISPOSE root done\n"));
     }
 
     if (data->wd_ChildMenustrip)
@@ -3117,8 +3119,8 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
         DeletePool(data->wd_MemoryPool);
     data->wd_MemoryPool = NULL;
 
-    ZuneTrace("zune: Window DISPOSE super cl=%lx super=%lx obj=%lx\n",
-        (ULONG) cl, cl ? (ULONG) cl->cl_Super : 0L, (ULONG) obj);
+    ZuneTrace(("zune: Window DISPOSE super cl=%lx super=%lx obj=%lx\n",
+        (ULONG) cl, cl ? (ULONG) cl->cl_Super : 0L, (ULONG) obj));
     return DoSuperMethodA(cl, obj, msg);
 }
 
@@ -3774,9 +3776,9 @@ static ULONG WindowOpen(struct IClass *cl, Object *obj)
     if (data->wd_RootObject != NULL
         && (_flags(data->wd_RootObject) & MADF_CANDRAW))
     {
-        ZuneTrace("zune: WindowOpen MUI_Redraw\n");
+        ZuneTrace(("zune: WindowOpen MUI_Redraw\n"));
         MUI_Redraw(data->wd_RootObject, MADF_DRAWOBJECT);
-        ZuneTrace("zune: WindowOpen painted\n");
+        ZuneTrace(("zune: WindowOpen painted\n"));
     }
 
     D(bug("MUIC_Window:windowOpen() ActiveObject=%p\n", data->wd_ActiveObject));
@@ -4522,12 +4524,12 @@ void RefreshWindow(Object *obj, struct MUI_WindowData *data)
             DoMethodA(root, (Msg) &lmsg);
             if (!(_flags(root) & MADF_CANDRAW))
                 DoShowMethod(root);
-            ZuneTrace("zune: REFRESH layout %ld x %ld\n",
-                (LONG) data->wd_Width, (LONG) data->wd_Height);
+            ZuneTrace(("zune: REFRESH layout %ld x %ld\n",
+                (LONG) data->wd_Width, (LONG) data->wd_Height));
             if (_flags(root) & MADF_CANDRAW)
             {
                 MUI_Redraw(root, MADF_DRAWOBJECT);
-                ZuneTrace("zune: REFRESH painted\n");
+                ZuneTrace(("zune: REFRESH painted\n"));
             }
         }
         (void)obj;
@@ -4536,7 +4538,7 @@ void RefreshWindow(Object *obj, struct MUI_WindowData *data)
     {
         if (MUI_BeginRefresh(&data->wd_RenderInfo, 0))
             MUI_EndRefresh(&data->wd_RenderInfo, 0);
-        ZuneTrace("zune: REFRESH damage cleared\n");
+        ZuneTrace(("zune: REFRESH damage cleared\n"));
     }
 }
 
@@ -4549,4 +4551,3 @@ const struct __MUIBuiltinClass _MUI_Window_desc = {
     sizeof(struct MUI_WindowData),
     (void*)Window_Dispatcher
 };
-

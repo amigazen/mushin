@@ -483,15 +483,15 @@ static IPTR Area__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     struct MUI_AreaData *data = INST_DATA(cl, obj);
     IPTR rc;
 
-    ZuneTrace("zune: Area DISPOSE obj=%lx flags=%lx spec=%lx\n",
+    ZuneTrace(("zune: Area DISPOSE obj=%lx flags=%lx spec=%lx\n",
         (ULONG) obj, (ULONG) _flags(obj),
-        (ULONG) data->mad_BackgroundSpec);
+        (ULONG) data->mad_BackgroundSpec));
     /* Safe to call this with NULL */
     zune_image_spec_free(data->mad_BackgroundSpec);
     data->mad_BackgroundSpec = NULL;
-    ZuneTrace("zune: Area DISPOSE super obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Area DISPOSE super obj=%lx\n", (ULONG) obj));
     rc = DoSuperMethodA(cl, obj, msg);
-    ZuneTrace("zune: Area DISPOSE done obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Area DISPOSE done obj=%lx\n", (ULONG) obj));
     return rc;
 }
 

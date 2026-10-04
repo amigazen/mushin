@@ -12,11 +12,18 @@ SFDC ?= sfdc
 FD2SFD ?= fd2sfd
 BUILD ?= ../../../../build/muimaster
 CPUFLAGS ?= -m68000 -msoft-float
+TRACE ?= 0
+ifneq ($(TRACE),0)
+ifneq ($(TRACE),1)
+$(error TRACE must be 0 or 1)
+endif
+endif
 CRTFLAGS = -noixemul
 CFLAGS ?= -Os -g -Wall -Wno-pointer-sign
 CPPFLAGS += -DMUIMASTER_YES_INLINE_STDARG= -DMUSHIN_GCC_NATIVE \
   -DMUIMASTER_LIBRARY_BUILD -DZUNE_NO_CYBERGRAPHICS \
-  -I$(BUILD)/include -Igcc -Iinclude -I. -include include/clib/muimaster_protos.h
+  -I$(BUILD)/include -Igcc -Iinclude -I. -include include/clib/muimaster_protos.h \
+  -include $(BUILD)/trace-config.h
 LIB_CFLAGS = $(CPUFLAGS) $(CRTFLAGS) $(CFLAGS) \
   -fno-common -fno-builtin -fno-strict-aliasing
 SOURCES = \
@@ -55,10 +62,10 @@ SOURCES = \
 OBJECTS = $(addprefix $(BUILD)/,$(SOURCES:.c=.o))
 LDLIBS = -Wl,--start-group -lgcc -lnix20 -lnix -lm -lamiga -ldebug \
   -Wl,--end-group
-GENERATED = $(BUILD)/include/libraries/mui.h \
+GENERATED = $(BUILD)/trace-config.h $(BUILD)/include/libraries/mui.h \
   $(BUILD)/include/inline/muimaster.h $(BUILD)/include/inline/muiscreen.h $(BUILD)/gates.h
 
-.PHONY: all clean check release
+.PHONY: all clean check release FORCE
 all: $(BUILD)/muimaster.library $(BUILD)/zunemaster.library $(BUILD)/opentest
 
 release: all
@@ -70,6 +77,14 @@ check: all
 	  $(BUILD)/zunemaster.library $(BUILD)/muimaster.library
 	$(PYTHON) ../../../../tests/check_release.py
 	$(PYTHON) ../../../../tests/check_opentest_stack.py $(BUILD)/opentest
+
+# Changing TRACE in an existing build must also recompile the callers.
+$(BUILD)/trace-config.h: FORCE
+	@mkdir -p $(@D)
+	@printf '#define MUSHIN_TRACE %s\n' '$(TRACE)' | cmp -s - $@ || \
+	  printf '#define MUSHIN_TRACE %s\n' '$(TRACE)' > $@
+
+FORCE:
 
 $(BUILD)/buildincludes: buildincludes.c GNUmakefile
 	@mkdir -p $(@D)

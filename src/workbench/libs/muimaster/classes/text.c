@@ -131,8 +131,8 @@ IPTR Text__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     struct MUI_TextData *data = INST_DATA(cl, obj);
     IPTR rc;
 
-    ZuneTrace("zune: Text DISPOSE obj=%lx ztext=%lx\n",
-        (ULONG) obj, (ULONG) data->ztext);
+    ZuneTrace(("zune: Text DISPOSE obj=%lx ztext=%lx\n",
+        (ULONG) obj, (ULONG) data->ztext));
     if (data->ztext)
     {
         zune_text_destroy(data->ztext);
@@ -149,9 +149,9 @@ IPTR Text__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
         data->preparse = NULL;
     }
 
-    ZuneTrace("zune: Text DISPOSE super obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Text DISPOSE super obj=%lx\n", (ULONG) obj));
     rc = DoSuperMethodA(cl, obj, msg);
-    ZuneTrace("zune: Text DISPOSE done obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Text DISPOSE done obj=%lx\n", (ULONG) obj));
     return rc;
 }
 
@@ -410,10 +410,10 @@ IPTR Text__MUIM_Draw(struct IClass *cl, Object *obj,
             _mwidth(obj), _mheight(obj), _mleft(obj), _mtop(obj), 0);
     }
 
-    ZuneTrace("zune: Text Draw clip obj=%lx\n", (ULONG)obj);
+    ZuneTrace(("zune: Text Draw clip obj=%lx\n", (ULONG)obj));
     clip = MUI_AddClipping(muiRenderInfo(obj), _mleft(obj), _mtop(obj),
         _mwidth(obj), _mheight(obj));
-    ZuneTrace("zune: Text Draw clip handle=%lx\n", (ULONG)clip);
+    ZuneTrace(("zune: Text Draw clip handle=%lx\n", (ULONG)clip));
 
     SetAPen(_rp(obj), _pens(obj)[MPEN_TEXT]);
 
@@ -425,14 +425,14 @@ IPTR Text__MUIM_Draw(struct IClass *cl, Object *obj,
             get(_win(obj), MUIA_Window_ActiveObject, &act);
 
         y = (_mheight(obj) - data->ztext->height) / 2;
-        ZuneTrace("zune: Text Draw ztext\n");
+        ZuneTrace(("zune: Text Draw ztext\n"));
         zune_text_draw(data->ztext, obj,
             _mleft(obj), _mright(obj), _mtop(obj) + y);
-        ZuneTrace("zune: Text Draw ztext done\n");
+        ZuneTrace(("zune: Text Draw ztext done\n"));
     }
 
     MUI_RemoveClipping(muiRenderInfo(obj), clip);
-    ZuneTrace("zune: Text Draw done obj=%lx\n", (ULONG)obj);
+    ZuneTrace(("zune: Text Draw done obj=%lx\n", (ULONG)obj));
     data->update = 0;
     return TRUE;
 }

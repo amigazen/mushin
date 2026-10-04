@@ -51,14 +51,14 @@
 
         if (obj) return obj;
 
-        ZuneTrace("zune: NewObject failed class=%s\n",
-            classid ? classid : (CONST_STRPTR) "(null)");
+        ZuneTrace(("zune: NewObject failed class=%s\n",
+            classid ? classid : (CONST_STRPTR) "(null)"));
         MUI_FreeClass(cl);
     }
     else
     {
-        ZuneTrace("zune: GetClass failed class=%s\n",
-            classid ? classid : (CONST_STRPTR) "(null)");
+        ZuneTrace(("zune: GetClass failed class=%s\n",
+            classid ? classid : (CONST_STRPTR) "(null)"));
     }
 
     return NULL;

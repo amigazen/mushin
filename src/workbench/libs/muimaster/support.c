@@ -23,7 +23,8 @@
 extern struct Library *MUIMasterBase;
 extern struct Library *KeymapBase;
 
-void ZuneTrace(CONST_STRPTR fmt, ...)
+#if MUSHIN_TRACE
+void ZuneTraceOutput(CONST_STRPTR fmt, ...)
 {
     BPTR fh;
     static BPTR logfh;
@@ -50,6 +51,7 @@ void ZuneTrace(CONST_STRPTR fmt, ...)
     VFPrintf(fh, fmt, (APTR) (&fmt + 1));
     Flush(fh);
 }
+#endif
 
 /**************************************************************************
  check if region is entirely within given bounds

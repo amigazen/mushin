@@ -37,9 +37,11 @@
 *****************************************************************************/
 {
     volatile ULONG clsave;
+#if MUSHIN_TRACE
     STRPTR id;
     ULONG flags;
     ULONG ud;
+#endif
     Class *cl;
 
     if (obj == NULL)
@@ -54,6 +56,7 @@
      */
     cl = OCLASS(obj);
     clsave = (ULONG) cl;
+#if MUSHIN_TRACE
     id = (STRPTR) "?";
     flags = 0;
     ud = 0;
@@ -64,8 +67,9 @@
         if (cl->cl_ID != NULL)
             id = cl->cl_ID;
     }
-    ZuneTrace("zune: DisposeObject obj=%lx cl=%lx id=%s flags=%lx ud=%ld\n",
-        (ULONG) obj, clsave, id, flags, ud);
+    ZuneTrace(("zune: DisposeObject obj=%lx cl=%lx id=%s flags=%lx ud=%ld\n",
+        (ULONG) obj, clsave, id, flags, ud));
+#endif
     DisposeObject(obj);
     MUI_FreeClass((Class *) clsave);
 } /* MUI_DisposeObject */

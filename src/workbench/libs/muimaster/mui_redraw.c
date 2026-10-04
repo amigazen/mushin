@@ -63,17 +63,19 @@
 
     if (!(((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_CANDRAW)) return;
 
+#if MUSHIN_TRACE
     {
         Class *cl;
         CONST_STRPTR cid;
 
         cl = OCLASS(obj);
         cid = (cl != NULL && cl->cl_ID != NULL) ? (CONST_STRPTR)cl->cl_ID : (CONST_STRPTR)"?";
-        ZuneTrace("zune: MUI_Redraw enter obj=%lx class=%s flags=%lx invirt=%ld\n",
+        ZuneTrace(("zune: MUI_Redraw enter obj=%lx class=%s flags=%lx invirt=%ld\n",
             (ULONG)obj, cid, flags,
             (LONG)((((struct __dummyAreaData__ *)(obj))->mad.mad_Flags
-                & MADF_INVIRTUALGROUP) ? 1 : 0));
+                & MADF_INVIRTUALGROUP) ? 1 : 0)));
     }
+#endif
 
     if (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_INVIRTUALGROUP)
     {
@@ -81,7 +83,7 @@
         Object *parent;
         struct Region *region = NULL;
 
-        ZuneTrace("zune: MUI_Redraw INVIRTUAL clip walk\n");
+        ZuneTrace(("zune: MUI_Redraw INVIRTUAL clip walk\n"));
         get(obj,MUIA_WindowObject,&wnd);
         parent = obj;
 
@@ -102,9 +104,9 @@
                 /* Inverted rects crash classic layers OrRectRegion/AndRectRegion. */
                 if (rect.MaxX < rect.MinX || rect.MaxY < rect.MinY)
                 {
-                    ZuneTrace("zune: MUI_Redraw skip bad virt rect %ld,%ld-%ld,%ld\n",
+                    ZuneTrace(("zune: MUI_Redraw skip bad virt rect %ld,%ld-%ld,%ld\n",
                         (LONG)rect.MinX, (LONG)rect.MinY,
-                        (LONG)rect.MaxX, (LONG)rect.MaxY);
+                        (LONG)rect.MaxX, (LONG)rect.MaxY));
                     continue;
                 }
 
@@ -124,7 +126,7 @@
             if (region)
         {
             clip = MUI_AddClipRegion(((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo,region);
-            ZuneTrace("zune: MUI_Redraw INVIRTUAL clip handle=%lx\n", (ULONG)clip);
+            ZuneTrace(("zune: MUI_Redraw INVIRTUAL clip handle=%lx\n", (ULONG)clip));
         }
         
     } /* if object is in a virtual group */
@@ -167,10 +169,10 @@
 
     dmsg.MethodID = MUIM_Draw;
     dmsg.flags = 0;
-    ZuneTrace("zune: MUI_Redraw DoMethodA obj=%lx flags=%lx\n",
-        (ULONG)obj, flags);
+    ZuneTrace(("zune: MUI_Redraw DoMethodA obj=%lx flags=%lx\n",
+        (ULONG)obj, flags));
     DoMethodA(obj, (Msg)&dmsg);
-    ZuneTrace("zune: MUI_Redraw DoMethodA done\n");
+    ZuneTrace(("zune: MUI_Redraw DoMethodA done\n"));
 
     if (get(obj, MUIA_Disabled, &disabled))
     {

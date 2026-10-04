@@ -488,8 +488,8 @@ IPTR Group__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     struct MUI_GroupData *data = INST_DATA(cl, obj);
     IPTR rc;
 
-    ZuneTrace("zune: Group DISPOSE obj=%lx family=%lx\n",
-        (ULONG) obj, (ULONG) data->family);
+    ZuneTrace(("zune: Group DISPOSE obj=%lx family=%lx\n",
+        (ULONG) obj, (ULONG) data->family));
     if (data->row_infos != NULL)
         mui_free(data->row_infos);
     if (data->col_infos != NULL)
@@ -498,11 +498,11 @@ IPTR Group__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     {
         MUI_DisposeObject(data->family);
         data->family = NULL;
-        ZuneTrace("zune: Group DISPOSE family done obj=%lx\n", (ULONG) obj);
+        ZuneTrace(("zune: Group DISPOSE family done obj=%lx\n", (ULONG) obj));
     }
-    ZuneTrace("zune: Group DISPOSE super obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Group DISPOSE super obj=%lx\n", (ULONG) obj));
     rc = DoSuperMethodA(cl, obj, msg);
-    ZuneTrace("zune: Group DISPOSE done obj=%lx\n", (ULONG) obj);
+    ZuneTrace(("zune: Group DISPOSE done obj=%lx\n", (ULONG) obj));
     return rc;
 }
 
@@ -1184,9 +1184,9 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
      * whole group like WINDOW_REDRAW_WITH_CLEAR until the clip path is
      * proven safe on m68k.
      */
-    ZuneTrace("zune: Group Draw begin flags=%lx\n", (ULONG)msg->flags);
+    ZuneTrace(("zune: Group Draw begin flags=%lx\n", (ULONG)msg->flags));
     DoSuperMethodA(cl, obj, (Msg) msg);
-    ZuneTrace("zune: Group Draw after super\n");
+    ZuneTrace(("zune: Group Draw after super\n"));
 
     if ((msg->flags & MADF_DRAWUPDATE) && data->update == 1)
     {
@@ -1347,15 +1347,15 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
             rect.MaxX = _mright(obj);
             rect.MaxY = _mbottom(obj);
             OrRectRegion(region, &rect);
-            ZuneTrace("zune: Group virt clip %ld,%ld-%ld,%ld\n",
+            ZuneTrace(("zune: Group virt clip %ld,%ld-%ld,%ld\n",
                 (LONG)rect.MinX, (LONG)rect.MinY,
-                (LONG)rect.MaxX, (LONG)rect.MaxY);
+                (LONG)rect.MaxX, (LONG)rect.MaxY));
         }
         else
         {
-            ZuneTrace("zune: Group virt skip bad box l=%ld t=%ld r=%ld b=%ld\n",
+            ZuneTrace(("zune: Group virt skip bad box l=%ld t=%ld r=%ld b=%ld\n",
                 (LONG)_mleft(obj), (LONG)_mtop(obj),
-                (LONG)_mright(obj), (LONG)_mbottom(obj));
+                (LONG)_mright(obj), (LONG)_mbottom(obj)));
         }
     }
 
@@ -1371,8 +1371,10 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
         cstate = ChildList->mlh_Head;
         while ((child = NextObject(&cstate)))
         {
+#if MUSHIN_TRACE
             Class *ccl;
             CONST_STRPTR cid;
+#endif
 
             if (!(_flags(child) & MADF_SHOWME))
                 continue;
@@ -1396,11 +1398,13 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
                 continue;
             }
 
+#if MUSHIN_TRACE
             ccl = OCLASS(child);
             cid = (ccl != NULL && ccl->cl_ID != NULL)
                 ? (CONST_STRPTR)ccl->cl_ID : (CONST_STRPTR)"?";
-            ZuneTrace("zune: Group child redraw %lx class=%s\n",
-                (ULONG)child, cid);
+            ZuneTrace(("zune: Group child redraw %lx class=%s\n",
+                (ULONG)child, cid));
+#endif
             MUI_Redraw(child, MADF_DRAWOBJECT);
             muiRenderInfo(obj)->mri_ClipRect = group_rect;
         }

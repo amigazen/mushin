@@ -42,16 +42,19 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
 *****************************************************************************/
 {
+#if MUSHIN_TRACE
     STRPTR id;
     ULONG flags;
     ULONG ud;
     ULONG hdata;
     ULONG opencnt;
+#endif
     struct Library *lib;
 
     if (cl == NULL)
         return;
 
+#if MUSHIN_TRACE
     id = (STRPTR) "?";
     flags = cl->cl_Flags;
     ud = cl->cl_UserData;
@@ -60,8 +63,9 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
     if (cl->cl_ID != NULL)
         id = cl->cl_ID;
 
-    ZuneTrace("zune: FreeClass cl=%lx id=%s flags=%lx ud=%ld hdata=%lx opencnt=%ld\n",
-        (ULONG) cl, id, flags, ud, hdata, opencnt);
+    ZuneTrace(("zune: FreeClass cl=%lx id=%s flags=%lx ud=%ld hdata=%lx opencnt=%ld\n",
+        (ULONG) cl, id, flags, ud, hdata, opencnt));
+#endif
 
     ObtainSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
 
@@ -79,8 +83,8 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
             cl->cl_UserData--;
 
         ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
-        ZuneTrace("zune: FreeClass INLIST done cl=%lx ud=%ld\n",
-            (ULONG) cl, cl->cl_UserData);
+        ZuneTrace(("zune: FreeClass INLIST done cl=%lx ud=%ld\n",
+            (ULONG) cl, cl->cl_UserData));
     }
     else
     {
@@ -96,15 +100,15 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
         if (lib != NULL && lib != MUIMasterBase
             && lib->lib_Node.ln_Type == NT_LIBRARY)
         {
-            ZuneTrace("zune: FreeClass CloseLibrary %lx\n", (ULONG) lib);
+            ZuneTrace(("zune: FreeClass CloseLibrary %lx\n", (ULONG) lib));
             CloseLibrary(lib);
         }
         else
         {
-            ZuneTrace("zune: FreeClass skip CloseLibrary hdata=%lx type=%ld\n",
+            ZuneTrace(("zune: FreeClass skip CloseLibrary hdata=%lx type=%ld\n",
                 (ULONG) lib,
-                (ULONG) (lib ? lib->lib_Node.ln_Type : 0));
+                (ULONG) (lib ? lib->lib_Node.ln_Type : 0)));
         }
     }
-    ZuneTrace("zune: FreeClass return cl=%lx\n", (ULONG) cl);
+    ZuneTrace(("zune: FreeClass return cl=%lx\n", (ULONG) cl));
 } /* MUI_FreeClass */
