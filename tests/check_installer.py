@@ -8,9 +8,14 @@ No files outside the fixture directories are installed.
 import argparse
 import subprocess
 import tempfile
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools'))
+from components import PLUGINS, LANGUAGES, catalog_paths
+from release import install_script
+
 NAMES = ('zunemaster.library', 'muimaster.library')
 
 
@@ -43,7 +48,7 @@ def scenario(installer, label, *, installed=None, answers='N\nN\n',
 
         script = (ROOT / 'dist/Install').read_text()
         script = script.replace('"LIBS:"', f'"{target}"')
-        script = script.replace('(getversion #name (resident))', str(resident))
+        script = script.replace('(getversion #residentname (resident))', str(resident))
         welcome = '(welcome "Install Mushin\'s native AmigaOS libraries.")'
         script = script.replace(welcome, welcome +
                                 f'\n(set @pretend {int(pretend)})' +
@@ -95,6 +100,79 @@ def scenario(installer, label, *, installed=None, answers='N\nN\n',
         print(f'Installer: {label} passed')
 
 
+def components_scenario(installer, *, pretend=False, skip=False, missing=False,
+                        invalid=False):
+    with tempfile.TemporaryDirectory(prefix='mushin-components-install-') as temp:
+        root = Path(temp)
+        package = root / 'package'
+        target = root / 'target'
+        package.mkdir()
+        target.mkdir()
+        libs = target / 'Libs'
+        libs.mkdir()
+        files = ['Prefs/Zune', 'Prefs/Zune.info']
+        files += ['Libs/MUI/' + name for name in PLUGINS.values()]
+        files += catalog_paths(package)
+        for relative in ['Libs/' + name for name in NAMES] + files:
+            path = package / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(version_file(path.name, '35.6'))
+        script = install_script(files)
+        script = script.replace('"LIBS:"', f'"{libs}"')
+        script = script.replace('"LIBS:MUI"', f'"{libs}/MUI"')
+        script = script.replace('"SYS:Prefs"', f'"{target}/Prefs"')
+        script = script.replace('"LOCALE:Catalogs', f'"{target}/Catalogs')
+        # Host filenames use ASCII fixture names; Amiga script uses Latin-1.
+        for english, native in LANGUAGES.items():
+            script = script.replace('/' + native + '/', '/' + english + '/')
+            script = script.replace('/' + native + '"', '/' + english + '"')
+        script = script.replace('(getversion #residentname (resident))', '0')
+        welcome = '(welcome "Install Mushin\'s native AmigaOS libraries.")'
+        script = script.replace(welcome, welcome +
+                                f'\n(set @pretend {int(pretend)})\n(set @user-level 2)')
+        (package / 'Install').write_bytes(script.encode('latin1'))
+        old = libs / 'MUI/BetterString.mcc'
+        old.parent.mkdir()
+        old.write_bytes(version_file(old.name, '35.4'))
+        old_icon = target / 'Prefs/Zune.info'
+        old_icon.parent.mkdir()
+        old_icon.write_bytes(b'original icon')
+        old_catalog = target / 'Catalogs/german/BetterString_mcp.catalog'
+        old_catalog.parent.mkdir(parents=True)
+        old_catalog.write_bytes(b'original catalog')
+        originals = {p: p.read_bytes() for p in target.rglob('*') if p.is_file()}
+        if missing:
+            (package / 'Libs/MUI/TextEditor.mcp').unlink()
+        if invalid:
+            (package / 'Libs/MUI/TextEditor.mcp').write_bytes(b'no version')
+        answers = ('N\n' if skip else 'Y\n') * (len(PLUGINS) + 4)
+        result = subprocess.run([str(installer), 'Install'], cwd=package,
+                                input=answers, text=True, encoding='latin1',
+                                capture_output=True, timeout=15, check=True)
+        out = result.stdout + result.stderr
+        assert 'syntax error' not in out.lower(), out
+        assert 'undefined variable' not in out.lower(), out
+        if missing:
+            assert 'Aborting' in out and 'incomplete' in out, out
+        elif invalid:
+            assert 'Aborting' in out and 'Cannot read the bundled version' in out, out
+        else:
+            assert 'v35.4 already installed' in out and 'Bundled is v35.6' in out, out
+        if pretend or skip or missing or invalid:
+            assert {p: p.read_bytes() for p in target.rglob('*') if p.is_file()} == originals, out
+        else:
+            assert (target / 'Prefs/Zune').is_file(), out
+            assert (target / 'Prefs/Zune.info').is_file(), out
+            for name in PLUGINS.values():
+                assert (libs / 'MUI' / name).is_file(), (name, out)
+            assert (libs / 'MUI/BetterString.mcc.mushin-old').read_bytes() == version_file(old.name, '35.4')
+            assert len(list((target / 'Catalogs').rglob('*.catalog'))) == len(catalog_paths(package)), out
+            assert old_icon.with_name('Zune.info.old').read_bytes() == b'original icon'
+            assert old_catalog.with_name(old_catalog.name + '.old').read_bytes() == b'original catalog'
+        print(f'Installer components: pretend={pretend}, skip={skip}, '
+              f'missing={missing}, invalid={invalid} passed')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--installer', required=True, type=Path,
@@ -115,6 +193,11 @@ def main():
     scenario(installer, 'missing payload', missing=True)
     scenario(installer, 'unversioned payload', invalid=True)
     scenario(installer, 'destination is directory', directory=True)
+    components_scenario(installer)
+    components_scenario(installer, skip=True)
+    components_scenario(installer, pretend=True)
+    components_scenario(installer, missing=True)
+    components_scenario(installer, invalid=True)
 
 
 if __name__ == '__main__':

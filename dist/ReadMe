@@ -2,8 +2,10 @@ Mushin for AmigaOS 3.x / m68k
 ============================
 
 Mushin is a MUI-compatible user interface library based on AROS Zune.
-This package contains the core libraries and the opentest application.
-It does not include the preferences editor, extra MCCs, or an SDK.
+The full package contains the core libraries, the Zune preferences editor,
+13 MCC/MCP plugins, 51 translation catalogs, opentest, seven examples,
+SDK headers, plugin documentation/licenses, and corresponding source.
+The separate core-only packaging option omits the additional components.
 
 Requirements
 ------------
@@ -20,7 +22,8 @@ Alternatively, change to that drawer in a Shell and run:
 
   SYS:System/Installer Install MINUSER AVERAGE
 
-Each library has its own Install/Skip question. Existing and bundled
+Each library, plugin, and Prefs editor has its own Install/Skip question.
+Existing and bundled
 versions are shown before anything is replaced. Versions come from the
 actual files, not from the archive filename. Unknown versions are shown
 as unknown. Equal-version replacements and downgrades require the same
@@ -33,21 +36,39 @@ explicit choice as upgrades. The default is Skip.
     Replaces MUI for applications using the standard library name.
     Installing this is optional; it can affect other MUI applications.
 
+  Prefs/Zune         -> SYS:Prefs/Zune (with Workbench icon)
+    The preferences editor used by application settings menus.
+
+  Libs/MUI/*         -> LIBS:MUI/
+    BetterString, HotkeyString, NBitmap, NBalance, NList, NListview,
+    NFloattext, NListtree, TextEditor, and their bundled MCP editors.
+    These plugins open the standard muimaster.library name. For use with
+    Mushin, install its muimaster.library variant too. Side-by-side tests
+    with a different MUI implementation and these plugins are unverified.
+    Plugins are loaded on demand, not added to every application's cost.
+
+  Locale/Catalogs/*  -> LOCALE:Catalogs/<system-language>/
+    Translation installation is optional. The installer maps package
+    language names to Amiga names, for example german to deutsch.
+    Incomplete or unconvertible translations fall back to English.
+
 Before replacing a file, the installer saves the original beside it as
-<library-name>.mushin-old. An existing backup is preserved. Copy or
+<component-name>.mushin-old. An existing backup is preserved. Copy or
 rename that backup back to the original name to restore it. A newer
 resident library can remain active until reboot; the installer reports
 the resident version separately and does not expunge libraries in use.
 
-The installer copies only libraries. Tests/opentest remains in the
-extracted package. Nothing changes in S:Startup-Sequence or S:User-Startup.
+Catalogs and the Prefs icon have short .old backups. Saved preferences
+are not replaced. Tests/opentest, Examples, SDK, Docs, and Source.tar.gz
+remain in the extracted package. No SDK assigns are changed, and nothing
+changes in S:Startup-Sequence or S:User-Startup.
 Pretend mode displays the choices without copying files.
 
 After installation, close applications and reboot before trying Mushin.
 Run Tests/opentest from the extracted drawer. To exercise the replacement
 name explicitly, run Tests/opentest muimaster.library.
 
-The GNU-built opentest automatically requests at least 65536 bytes of
+GNU-built opentest, Prefs/Zune and the examples request at least 65536 bytes of
 stack and frees any replacement stack on exit. For older or SAS/C-built
 test programs, run Stack 65536 in the same Shell first.
 
@@ -59,7 +80,18 @@ Status and source
 -----------------
 This is a development build. Compiler and binary-interface checks do not
 establish application compatibility or performance on real hardware.
+Prefs and the additional plugins still need GUI testing on AmigaOS.
+The imported plugins retain compiler warnings; translations are partial.
+
+The AROS-only external classes and muiscreen.library are not ported by
+this package. Optional Prefs page icons needing Rawimage/Pixmap are
+unavailable; the editor has a public-screen enumeration fallback without
+muiscreen.library. BetterString uses ordinary text rendering where the
+classic CyberGraphX SDK lacks alpha-text support; NBitmap uses its
+existing software alpha fallback.
 
 Source: https://github.com/amigazen/mushin/
-The supplied LICENSE contains the AROS Public License. The AROS authors
-are not affiliated with the amigazen project.
+Source.tar.gz contains the corresponding sources and build adapters.
+The supplied LICENSE contains the AROS Public License; plugin licenses
+and authors are under Docs. The AROS authors are not affiliated with the
+amigazen project.

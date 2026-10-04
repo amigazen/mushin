@@ -33,29 +33,44 @@ class ReleaseTests(unittest.TestCase):
     def test_mismatched_versions(self):
         self.library('muimaster.library', '35.4')
         with self.assertRaisesRegex(ValueError, 'versions differ'):
-            release.release(self.build, self.output, 'lha')
+            release.release(self.build, self.output, 'lha', full=False)
         self.assertEqual(list(self.output.iterdir()), [])
 
     def test_missing_version(self):
         (self.build / 'muimaster.library').write_bytes(struct.pack('>I', 1011))
         with self.assertRaisesRegex(ValueError, 'matching'):
-            release.release(self.build, self.output, 'lha')
+            release.release(self.build, self.output, 'lha', full=False)
 
     def test_wrong_library_name(self):
         shutil.copyfile(self.build / 'muimaster.library',
                         self.build / 'zunemaster.library')
         with self.assertRaisesRegex(ValueError, 'matching'):
-            release.release(self.build, self.output, 'lha')
+            release.release(self.build, self.output, 'lha', full=False)
 
     def test_missing_tool(self):
         with self.assertRaisesRegex(ValueError, 'archiver not found'):
-            release.release(self.build, self.output, str(self.root / 'absent'))
+            release.release(self.build, self.output, str(self.root / 'absent'), full=False)
+
+    def test_incomplete_full_package(self):
+        for name in ['SDK/include/example.h', 'Docs/COPYING']:
+            path = self.build / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'fixture')
+        for name in ['Prefs/Zune', 'Prefs/Zune.info']:
+            with self.assertRaisesRegex(ValueError, 'missing ' + name):
+                release.release(self.build, self.output, 'lha')
+            path = self.build / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'fixture')
+        with self.assertRaisesRegex(ValueError, 'missing Libs/MUI/BetterString.mcc'):
+            release.release(self.build, self.output, 'lha')
+        self.assertEqual(list(self.output.iterdir()), [])
 
     def test_archiver_failure_preserves_previous_release(self):
         archive = self.output / 'Mushin-35.6-amigaos3-m68k.lha'
         archive.write_bytes(b'previous release')
         with self.assertRaises(release.subprocess.CalledProcessError):
-            release.release(self.build, self.output, '/usr/bin/false')
+            release.release(self.build, self.output, '/usr/bin/false', full=False)
         self.assertEqual(archive.read_bytes(), b'previous release')
         self.assertEqual(list(self.output.iterdir()), [archive])
 
