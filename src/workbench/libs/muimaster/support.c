@@ -24,32 +24,67 @@ extern struct Library *MUIMasterBase;
 extern struct Library *KeymapBase;
 
 #if MUSHIN_TRACE
+#define TRACE_FILE_LIMIT 65536L
+struct TraceBuffer
+{
+    STRPTR next;
+    ULONG left;
+};
+
+static ASM void TracePutChar(REG(d0, UBYTE chr),
+    REG(a3, struct TraceBuffer *buffer))
+{
+    if (buffer->left)
+    {
+        *buffer->next++ = chr;
+        buffer->left--;
+    }
+}
+
 void ZuneTraceOutput(CONST_STRPTR fmt, ...)
 {
-    BPTR fh;
-    static BPTR logfh;
+    BPTR fh = Output();
+    struct SignalSemaphore *sem;
+    char text[512];
+    struct TraceBuffer buffer;
+    LONG end;
 
-    fh = Output();
-    /*
-     * Workbench-started programs (MUI prefs, demos) have Output()==0, so
-     * traces would vanish.  Append to T:zune.log in that case.
-     */
-    if (fh == 0)
+    if (fh)
     {
-        if (logfh == 0)
-        {
-            logfh = Open("T:zune.log", MODE_READWRITE);
-            if (logfh == 0)
-                logfh = Open("T:zune.log", MODE_NEWFILE);
-        }
-        fh = logfh;
-        if (fh != 0)
-            Seek(fh, 0, OFFSET_END);
+        VFPrintf(fh, fmt, (APTR)(&fmt + 1));
+        Flush(fh);
+        return; /* the caller owns its Shell output */
     }
-    if (fh == 0)
-        return;
-    VFPrintf(fh, fmt, (APTR) (&fmt + 1));
-    Flush(fh);
+
+    /* Diagnostic-only stack storage; no retained DOS handles or heap.
+     * Drop a contended trace instead of blocking another application's GUI.
+     * The library semaphore also serializes writers to the bounded file. */
+    sem = &((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore;
+    if (!AttemptSemaphore(sem)) return;
+    buffer.next = text;
+    buffer.left = sizeof(text) - 1;
+    RawDoFmt(fmt, (APTR)(&fmt + 1), (VOID_FUNC)TracePutChar, &buffer);
+    *buffer.next = 0;
+
+    fh = Open("T:zune.log", MODE_READWRITE);
+    if (fh)
+    {
+        if (Seek(fh, 0, OFFSET_END) < 0)
+            end = -1;
+        else
+            end = Seek(fh, 0, OFFSET_CURRENT);
+        if (end < 0 || end > TRACE_FILE_LIMIT - (LONG)strlen(text))
+        {
+            Close(fh);
+            fh = end < 0 ? 0 : Open("T:zune.log", MODE_NEWFILE);
+        }
+    }
+    if (fh)
+    {
+        Write(fh, text, strlen(text));
+        Close(fh);
+    }
+    ReleaseSemaphore(sem);
 }
 #endif
 
