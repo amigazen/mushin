@@ -47,7 +47,8 @@ and run `make -j4` at the repository root. Outputs go to
 catalogs, examples, and SDK files. Use `make core` for just the core.
 Run `make release` to create an LHA package with a version-aware Amiga
 Installer script. This additionally requires Python 3 and `lha` on PATH.
-See [BUILD.md](BUILD.md) for dependencies, options, and runtime limits.
+See [ReadMe](dist/ReadMe) for installation and
+[Compatibility](dist/Compatibility) for runtime limits and workloads.
 
 GitHub Actions builds and checks the full distribution on branch pushes
 and pull requests. A `v<version>` tag matching the libraries creates a

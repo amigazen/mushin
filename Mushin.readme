@@ -6,8 +6,8 @@ Version:      [VERSION]
 Requires:     AmigaOS 3.1 or newer, 68000 or better
 Architecture: m68k-amigaos
 
-This is the first alpha release from Stefan Reinauer's Mushin fork.
-It is intended for testing and feedback; MUI compatibility is incomplete.
+This alpha release is intended for testing and feedback.
+Compatibility with MUI applications remains incomplete.
 
 Mushin is a free, open source user interface library based on AROS Zune.
 It aims to support classic MUI applications while staying responsive and
@@ -44,6 +44,5 @@ application compatibility still need broader testing.
 Mushin and its bundled components retain their original licenses and
 copyright notices. See LICENSE and Docs in the archive.
 
-Source for this release: https://github.com/reinauer/mushin
-Report issues: https://github.com/reinauer/mushin/issues
-Upstream project: https://github.com/amigazen/mushin
+Project: https://github.com/amigazen/mushin
+Report issues: https://github.com/amigazen/mushin/issues
