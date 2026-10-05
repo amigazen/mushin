@@ -1,5 +1,5 @@
 #
-# Makefile for the Zune prefs application
+# Makefile for the mushin prefs application
 #
 
 # If Kickstart isn't defined, we don't run on AmigaOS
@@ -34,7 +34,7 @@ CFLAGS = -D__AMIGAOS4__ -DNDEBUG -D__USE_INLINE__ -Wall -fno-strict-aliasing -c 
 LINK = 
 
 # Name of the "thing" to build
-TARGET = Zune
+TARGET = mushin
 
 # Additional linker libraries
 LIBS = -lauto #-ldebug -lauto

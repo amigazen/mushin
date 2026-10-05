@@ -224,6 +224,11 @@ IPTR Image__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                         if (data->img->type == IST_SCALED_GRADIENT
                                 || data->img->type == IST_TILED_GRADIENT)
                             set(obj, MUIA_FillArea, FALSE);
+                        else if (zune_imspec_is_sysimage(data->img))
+                        {
+                            set(obj, MUIA_Frame, MUIV_Frame_None);
+                            set(obj, MUIA_FillArea, FALSE);
+                        }
                         else
                             set(obj, MUIA_FillArea, TRUE);
                     }
@@ -318,6 +323,13 @@ IPTR Image__MUIM_Setup(struct IClass *cl, Object *obj, struct MUIP_Setup *msg)
             if (data->img->type == IST_SCALED_GRADIENT
                     || data->img->type == IST_TILED_GRADIENT)
                 set(obj, MUIA_FillArea, FALSE);
+            else if (zune_imspec_is_sysimage(data->img))
+            {
+                /* CHECKIMAGE and the other sysiclass images already
+                 * include their own bevel. */
+                set(obj, MUIA_Frame, MUIV_Frame_None);
+                set(obj, MUIA_FillArea, FALSE);
+            }
             else
                 set(obj, MUIA_FillArea, TRUE);
         }
@@ -392,7 +404,8 @@ IPTR Image__MUIM_AskMinMax(struct IClass *cl, Object *obj, struct MUIP_AskMinMax
             msg->MinMaxInfo->DefWidth += minmax.DefWidth;
         }
 
-        if (data->flags & MIF_FONTMATCHWIDTH)
+        if (data->flags & MIF_FONTMATCHWIDTH
+            && !zune_imspec_is_sysimage(data->img))
         {
             msg->MinMaxInfo->DefWidth *= _font(obj)->tf_XSize / 8;
         }
@@ -411,7 +424,8 @@ IPTR Image__MUIM_AskMinMax(struct IClass *cl, Object *obj, struct MUIP_AskMinMax
             msg->MinMaxInfo->DefHeight += minmax.DefHeight;
         }
 
-        if (data->flags & MIF_FONTMATCHHEIGHT)
+        if (data->flags & MIF_FONTMATCHHEIGHT
+            && !zune_imspec_is_sysimage(data->img))
         {
             msg->MinMaxInfo->DefHeight *= _font(obj)->tf_YSize / 8;
         }

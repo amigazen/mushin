@@ -34,6 +34,7 @@
 
 #include "muimaster_intern.h"
 #include "mui.h"
+#include "imspec.h"
 
 /* Typedef for cleaner casting */
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
@@ -341,6 +342,8 @@ void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBas
     MUIMasterBase_intern *libBase = (MUIMasterBase_intern *)_MUIMasterBase;
 
     D(bug("Inside Expunge func of muimaster.library\n"));
+
+    zune_imspec_expunge();
 
     /*
      * Builtin IClasses used to be FreeClass()'d from MUI_FreeClass when

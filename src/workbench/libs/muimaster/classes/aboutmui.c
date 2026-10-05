@@ -913,7 +913,7 @@ IPTR Aboutmui__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     (
         cl, obj, NULL,
         
-        MUIA_Window_Title, (IPTR) "About Zune",
+        MUIA_Window_Title, (IPTR) _(MSG_ABOUTMUI_WINDOW_TITLE),
         WindowContents,    (IPTR) VGroup,
             IMAGE
             Child, (IPTR) TextObject,

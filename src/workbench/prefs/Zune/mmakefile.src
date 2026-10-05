@@ -1,5 +1,5 @@
 #
-# Makefile for Zune prefs program
+# Makefile for mushin prefs program
 
 include $(SRCDIR)/config/aros.cfg
 
@@ -15,7 +15,7 @@ USER_CFLAGS := $(PARANOIA_CFLAGS)
 #MM workbench-prefs-zune : includes linklibs workbench-prefs-zune-catalogs
 
 %build_prog mmake=workbench-prefs-zune \
-    progname=Zune targetdir=$(EXEDIR) \
+    progname=mushin targetdir=$(EXEDIR) \
     files=$(FILES) uselibs="muiscreen"
 
 %common

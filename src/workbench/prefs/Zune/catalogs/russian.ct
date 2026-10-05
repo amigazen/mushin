@@ -1,4 +1,4 @@
-## version $VER: Zune.catalog 0.1 (13.08.2006)
+## version $VER: mushin.catalog 0.1 (13.08.2006)
 ## language russian
 ## codeset 0
 ;
@@ -719,12 +719,12 @@ MSG_B
 ; zune.c
 ;-------
 MSG_WINTITLE1
-Zune - глобальные параметры
-; Zune - Global Prefs
+mushin - глобальные параметры
+; mushin - Global Prefs
 ;
 MSG_WINTITLE2
-Zune - настройки : %s
-; Zune - Prefs for : %s
+mushin - настройки : %s
+; mushin - Prefs for : %s
 ;
 MSG_MEN_PROJECT
 Проект
@@ -751,8 +751,8 @@ A
 ; A
 ;
 MSG_MEN_ABOUT
-О Zune ...
-; About Zune ...
+О mushin ...
+; About mushin ...
 ;
 MSG_MEN_ABOUT_SC
 ?

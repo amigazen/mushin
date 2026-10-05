@@ -1,4 +1,4 @@
-## version $VER: zune.catalog 1.6 (4.12.2007)
+## version $VER: mushin.catalog 1.6 (4.12.2007)
 ## language czech
 ## codeset 0
 ;
@@ -725,12 +725,12 @@ Tlaèítka
 ; zune.c
 ;-------
 MSG_WINTITLE1
-Globální nastavení Zune
-; Zune - Global Prefs
+Globální nastavení mushin
+; mushin - Global Prefs
 ;
 MSG_WINTITLE2
-Nastavení Zune pro %s
-; Zune - Prefs for : %s
+Nastavení mushin pro %s
+; mushin - Prefs for : %s
 ;
 MSG_MEN_PROJECT
 Projekt
@@ -757,8 +757,8 @@ A
 ; A
 ;
 MSG_MEN_ABOUT
-O Zune...
-; About Zune ...
+O mushin...
+; About mushin ...
 ;
 MSG_MEN_ABOUT_SC
 ?

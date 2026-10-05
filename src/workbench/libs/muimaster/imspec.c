@@ -23,6 +23,10 @@
 #include <exec/memory.h>
 
 #include <graphics/gfxmacros.h>
+#include <intuition/imageclass.h>
+#include <proto/glyph.h>
+
+struct Library *GlyphBase;
 
 #include <proto/exec.h>
 #include <proto/graphics.h>
@@ -466,6 +470,84 @@ static void zune_imspec_free(struct MUI_ImageSpec_intern *spec)
     mui_free(spec);
 }
 
+/*
+ * Arrows, the checkmark and the radio button have sysiclass images.
+ * Cycle and popup pictures use glyph.image when that class is installed.
+ * Anything left over stays a vector drawing.
+ */
+static BOOL vector_to_sysi(LONG vect, ULONG *which)
+{
+    switch (vect)
+    {
+    case 0:
+        *which = UPIMAGE;
+        return TRUE;
+    case 1:
+        *which = DOWNIMAGE;
+        return TRUE;
+    case 2:
+        *which = LEFTIMAGE;
+        return TRUE;
+    case 3:
+        *which = RIGHTIMAGE;
+        return TRUE;
+    case 4:
+        *which = CHECKIMAGE;
+        return TRUE;
+    case 5:
+        *which = MXIMAGE;
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+/* Builtin vector index to a glyph.image picture. Sysiclass indices are absent. */
+static BOOL vector_to_glyph(LONG vect, LONG *glyph)
+{
+    switch (vect)
+    {
+    case 6:
+        *glyph = GLYPH_CYCLE;
+        return TRUE;
+    case 7:
+        *glyph = GLYPH_POPUP;
+        return TRUE;
+    case 8:
+        *glyph = GLYPH_POPFILE;
+        return TRUE;
+    case 9:
+        *glyph = GLYPH_POPDRAWER;
+        return TRUE;
+    case 22:
+        *glyph = GLYPH_UPARROW;
+        return TRUE;
+    case 23:
+        *glyph = GLYPH_DOWNARROW;
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+static Class *zune_glyph_class(void)
+{
+    if (GlyphBase == NULL)
+        GlyphBase = OpenLibrary("glyph.image", 0);
+    if (GlyphBase == NULL)
+        return NULL;
+    return GLYPH_GetClass();
+}
+
+void zune_imspec_expunge(void)
+{
+    if (GlyphBase != NULL)
+    {
+        CloseLibrary(GlyphBase);
+        GlyphBase = NULL;
+    }
+}
+
 struct MUI_ImageSpec_intern *zune_imspec_setup(IPTR s,
     struct MUI_RenderInfo *mri)
 {
@@ -490,6 +572,34 @@ struct MUI_ImageSpec_intern *zune_imspec_setup(IPTR s,
         break;
 
     case IST_VECTOR:
+        {
+            ULONG which;
+            struct TextFont *font;
+            LONG glyph;
+            Class *glyphclass;
+
+            if (mri->mri_DrawInfo != NULL &&
+                vector_to_sysi(spec->u.vect.type, &which))
+            {
+                font = mri->mri_DrawInfo->dri_Font;
+                spec->u.vect.sysimage = NewObject(NULL, "sysiclass",
+                    SYSIA_DrawInfo, (IPTR) mri->mri_DrawInfo,
+                    SYSIA_Which, which,
+                    font != NULL ? SYSIA_ReferenceFont : TAG_IGNORE,
+                    (IPTR) font,
+                    TAG_DONE);
+            }
+            else if (vector_to_glyph(spec->u.vect.type, &glyph))
+            {
+                glyphclass = zune_glyph_class();
+                if (glyphclass != NULL)
+                {
+                    spec->u.vect.glyphimage = NewObject(glyphclass, NULL,
+                        GLYPH_Glyph, glyph,
+                        TAG_DONE);
+                }
+            }
+        }
         break;
 
     case IST_COLOR:
@@ -590,6 +700,16 @@ void zune_imspec_cleanup(struct MUI_ImageSpec_intern *spec)
         break;
 
     case IST_VECTOR:
+        if (spec->u.vect.sysimage != NULL)
+        {
+            DisposeObject(spec->u.vect.sysimage);
+            spec->u.vect.sysimage = NULL;
+        }
+        if (spec->u.vect.glyphimage != NULL)
+        {
+            DisposeObject(spec->u.vect.glyphimage);
+            spec->u.vect.glyphimage = NULL;
+        }
         break;
 
     case IST_COLOR:
@@ -636,6 +756,13 @@ void zune_imspec_cleanup(struct MUI_ImageSpec_intern *spec)
 }
 
 
+BOOL zune_imspec_is_sysimage(struct MUI_ImageSpec_intern *spec)
+{
+    if (spec == NULL)
+        return FALSE;
+    return (BOOL) (spec->type == IST_VECTOR && spec->u.vect.sysimage != NULL);
+}
+
 BOOL zune_imspec_askminmax(struct MUI_ImageSpec_intern *spec,
     struct MUI_MinMax *minmax)
 {
@@ -657,6 +784,26 @@ BOOL zune_imspec_askminmax(struct MUI_ImageSpec_intern *spec,
         break;
 
     case IST_VECTOR:
+        if (spec->u.vect.sysimage != NULL)
+        {
+            struct Image *image;
+            WORD w;
+            WORD h;
+
+            image = (struct Image *) spec->u.vect.sysimage;
+            w = image->Width;
+            h = image->Height;
+            if (w > 0 && h > 0)
+            {
+                minmax->MinWidth = w;
+                minmax->MinHeight = h;
+                minmax->DefWidth = w;
+                minmax->DefHeight = h;
+                minmax->MaxWidth = w;
+                minmax->MaxHeight = h;
+                return TRUE;
+            }
+        }
         return zune_imspec_vector_get_minmax(spec, minmax);
         break;
 
@@ -807,7 +954,39 @@ void zune_imspec_drawbuffered(struct MUI_ImageSpec_intern *spec,
         break;
 
     case IST_VECTOR:
-        if (spec->u.vect.draw)
+        if (spec->u.vect.sysimage != NULL && mri->mri_DrawInfo != NULL)
+        {
+            struct Image *image;
+            WORD x;
+            WORD y;
+
+            image = (struct Image *) spec->u.vect.sysimage;
+            x = (WORD) (left - dx);
+            y = (WORD) (top - dy);
+            if (width > image->Width)
+                x += (WORD) ((width - image->Width) / 2);
+            if (height > image->Height)
+                y += (WORD) ((height - image->Height) / 2);
+            DrawImageState(rp, image, x, y, (ULONG) state,
+                mri->mri_DrawInfo);
+        }
+        else if (spec->u.vect.glyphimage != NULL &&
+            mri->mri_DrawInfo != NULL && width > 0 && height > 0)
+        {
+            struct impDraw drawmsg;
+
+            /* IM_DRAWFRAME scales the glyph into the gadget box. */
+            drawmsg.MethodID = IM_DRAWFRAME;
+            drawmsg.imp_RPort = rp;
+            drawmsg.imp_Offset.X = (WORD) (left - dx);
+            drawmsg.imp_Offset.Y = (WORD) (top - dy);
+            drawmsg.imp_State = (ULONG) state;
+            drawmsg.imp_DrInfo = mri->mri_DrawInfo;
+            drawmsg.imp_Dimensions.Width = (WORD) width;
+            drawmsg.imp_Dimensions.Height = (WORD) height;
+            DoMethodA(spec->u.vect.glyphimage, (Msg) &drawmsg);
+        }
+        else if (spec->u.vect.draw)
         {
             spec->u.vect.draw(mri, left - dx, top - dy, width, height,
                 state);

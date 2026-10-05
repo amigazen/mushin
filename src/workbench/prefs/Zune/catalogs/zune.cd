@@ -548,10 +548,10 @@ Buttons
 ; zune.c
 ;-------
 MSG_WINTITLE1 (//)
-Zune - Global Prefs
+mushin - Global Prefs
 ;
 MSG_WINTITLE2 (//)
-Zune - Prefs for : %s
+mushin - Prefs for : %s
 ;
 MSG_MEN_PROJECT (//)
 Project
@@ -572,7 +572,7 @@ MSG_MEN_SAVEAS_SC (//)
 A
 ;
 MSG_MEN_ABOUT (//)
-About Zune ...
+About mushin ...
 ;
 MSG_MEN_ABOUT_SC (//)
 ?

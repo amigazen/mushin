@@ -62,7 +62,7 @@ struct MUI_CustomClass *MCC_Query(ULONG d0);
 #define NM_BARLABEL ((STRPTR)~0)
 #endif
 
-#define ZUNEVERSION "$VER: Zune 0.2 (22.02.2006) AROS Dev Team"
+#define ZUNEVERSION "$VER: mushin 0.2 (22.02.2006) AROS Dev Team"
 
 APTR *appaddr;
 
@@ -103,7 +103,7 @@ static int open_libs(void)
     }
     if (MUIMasterBase == NULL)
     {
-        printf("Zune: cannot open %s or muimaster.library\n",
+        printf("mushin: cannot open %s or muimaster.library\n",
             MUIMASTER_NAME);
         return 0;
     }
@@ -509,12 +509,12 @@ int init_gui(void)
     }
 
     app = ApplicationObject,
-        MUIA_Application_Title, (IPTR) "Zune",
+        MUIA_Application_Title, (IPTR) "mushin",
         MUIA_Application_Version, (IPTR) ZUNEVERSION,
         MUIA_Application_Copyright, (IPTR) " 2006, The AROS Development Team",
         MUIA_Application_Description, wintitle,
         MUIA_Application_SingleTask, TRUE,
-        MUIA_Application_Base, "ZUNEPREF",
+        MUIA_Application_Base, "mushin",
         MUIA_Application_Menustrip, MenustripObject,
             MUIA_Family_Child, MenuObject,
                 MUIA_Menu_Title, _(MSG_MEN_PROJECT),
@@ -634,7 +634,7 @@ int init_gui(void)
                    etc.). Skip those pages rather than aborting the whole UI. */
                 if (p->mcp_library != NULL)
                 {
-                    printf("Zune: skipping MCP prefs page \"%s\"\n",
+                    printf("mushin: skipping MCP prefs page \"%s\"\n",
                            p->name ? p->name : "?");
                     p->group = NULL;
                     continue;
@@ -718,7 +718,7 @@ void main_open_menu(void)
     asl_filepart[0] = '\0';
     asl_filename[0] = '\0';
 
-    if (aslfilerequest ("Load a Zune Prefs File", asl_dirpart, asl_filepart, asl_filename, prefstags))
+    if (aslfilerequest ("Load a mushin Prefs File", asl_dirpart, asl_filepart, asl_filename, prefstags))
     {
         Object *configdata;
 
@@ -802,7 +802,7 @@ void main_saveas_menu(void)
     asl_filepart[0] = '\0';
     asl_filename[0] = '\0';
 
-    if (aslfilerequest("Save a Zune Prefs File", asl_dirpart, asl_filepart, asl_filename, prefstags))
+    if (aslfilerequest("Save a mushin Prefs File", asl_dirpart, asl_filepart, asl_filename, prefstags))
     {
         Object *configdata;
 
@@ -912,7 +912,7 @@ int main(void)
                 }
                 else
                 {
-                    printf("Zune: failed to open main window\n");
+                    printf("mushin: failed to open main window\n");
                     retval = RETURN_FAIL;
                 }
                 if (LastSavedConfigdata)
@@ -921,7 +921,7 @@ int main(void)
             }
             else
             {
-                printf("Zune: init_gui() failed (MUI object tree)\n");
+                printf("mushin: init_gui() failed (MUI object tree)\n");
                 retval = RETURN_FAIL;
             }
             if (NewDir) {
@@ -932,7 +932,7 @@ int main(void)
         }
         else
         {
-            printf("Zune: could not create listview class\n");
+            printf("mushin: could not create listview class\n");
             retval = RETURN_FAIL;
         }
     }

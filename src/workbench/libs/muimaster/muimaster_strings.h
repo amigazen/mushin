@@ -101,8 +101,8 @@
 
 #define MSG_OK_STR "_Ok"
 #define MSG_CANCEL_STR "_Cancel"
-#define MSG_ABOUTMUI_WINDOW_TITLE_STR "About Zune"
-#define MSG_ABOUTMUI_STRING_STR "Zune, a MUI clone\n\n"\
+#define MSG_ABOUTMUI_WINDOW_TITLE_STR "About mushin"
+#define MSG_ABOUTMUI_STRING_STR "mushin, a MUI clone\n\n"\
 	"Compiled on %s\n"\
 	"Copyright (C) 2002-2020, The AROS Development Team."
 #define MSG_COLORADJUST_RED_STR "Red:"

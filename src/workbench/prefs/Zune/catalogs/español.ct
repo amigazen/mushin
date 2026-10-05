@@ -1,4 +1,4 @@
-## version $VER: Zune.catalog 0.1 (23.09.2007)
+## version $VER: mushin.catalog 0.1 (23.09.2007)
 ## language español
 ## codeset 0
 ;
@@ -707,12 +707,12 @@ Botones
 ; zune.c
 ;-------
 MSG_WINTITLE1
-Zune - Prefs Globales
-;Zune - Global Prefs
+mushin - Prefs Globales
+;mushin - Global Prefs
 ;
 MSG_WINTITLE2
-Zune - Prefs para: %s
-;Zune - Prefs for : %s
+mushin - Prefs para: %s
+;mushin - Prefs for : %s
 ;
 MSG_MEN_PROJECT
 Proyecto
@@ -737,8 +737,8 @@ MSG_MEN_SAVEAS_SC
 A
 ;
 MSG_MEN_ABOUT
-Acerca de Zune...
-;About Zune ...
+Acerca de mushin...
+;About mushin ...
 ;
 MSG_MEN_ABOUT_SC
 ?

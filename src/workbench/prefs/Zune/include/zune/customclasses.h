@@ -44,7 +44,7 @@ int name ## _Initialize(void)                                         \
     {                                                                 \
         __showerror                                                   \
         ( (char *)                                                    \
-            "Could not create Zune custom class `" #name "'.", NULL   \
+            "Could not create mushin custom class `" #name "'.", NULL   \
         );                                                            \
                                                                       \
         return 0;                                                     \

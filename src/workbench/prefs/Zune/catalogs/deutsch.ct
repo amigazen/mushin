@@ -725,12 +725,12 @@ Knöpfe
 ; zune.c
 ;-------
 MSG_WINTITLE1
-Zune - globale Einstellungen
-; Zune - Global Prefs
+mushin - globale Einstellungen
+; mushin - Global Prefs
 ;
 MSG_WINTITLE2
-Zune - Einstellungen für : %s
-; Zune - Prefs for : %s
+mushin - Einstellungen für : %s
+; mushin - Prefs for : %s
 ;
 MSG_MEN_PROJECT
 Projekt
@@ -757,8 +757,8 @@ A
 ; A
 ;
 MSG_MEN_ABOUT
-Über Zune ...
-; About Zune ...
+Über mushin ...
+; About mushin ...
 ;
 MSG_MEN_ABOUT_SC
 ?

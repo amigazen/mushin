@@ -1,4 +1,4 @@
-# SAS/C makefile for the Zune prefs program.
+# SAS/C makefile for the mushin prefs program.
 #
 # Run from this directory:
 #   smake
@@ -46,7 +46,7 @@ OBJS = \
   objs/systemp.o \
   objs/amigasupport.o
 
-all: dirs Zune
+all: dirs mushin
 
 dirs:
   -makedir objs
@@ -55,8 +55,8 @@ dirs:
 strings.h: catalogs/zune.cd
   CatComp catalogs/zune.cd CFILE strings.h
 
-Zune: $(OBJS)
-  sc link lib $(LIBS) to Zune with <<
+mushin: $(OBJS)
+  sc link lib $(LIBS) to mushin with <<
 $(OBJS)
 <
 
@@ -113,4 +113,4 @@ objs/amigasupport.o: amigasupport.c
 
 clean:
   -delete objs all
-  -delete Zune
+  -delete mushin

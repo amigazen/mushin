@@ -59,6 +59,10 @@ struct MUI_ImageSpec_intern /* _intern */
 	struct {
 	    LONG type;
 	    VECTOR_DRAW_FUNC draw;
+	    /* sysiclass object when Intuition has this picture. */
+	    Object *sysimage;
+	    /* glyph.image object for pictures sysiclass does not have. */
+	    Object *glyphimage;
 	} vect;
 	/* IST_COLOR */
 	struct MUI_PenSpec_intern penspec;
