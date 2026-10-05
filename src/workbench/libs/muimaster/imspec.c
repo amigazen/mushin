@@ -15,10 +15,6 @@
  * See ImageSpecType for the known types.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <exec/types.h>
 #include <exec/memory.h>
 

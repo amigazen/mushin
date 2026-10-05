@@ -8,8 +8,6 @@
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-
 /*  #define MYDEBUG 1 */
 #include "debug.h"
 

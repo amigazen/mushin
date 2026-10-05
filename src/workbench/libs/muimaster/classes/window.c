@@ -10,9 +10,6 @@
 #include <exec/lists.h>
 #include <clib/alib_protos.h>
 //#define static
-#include <string.h>
-#include <stdio.h>
-
 #include <intuition/imageclass.h>
 #include <intuition/icclass.h>
 #include <intuition/gadgetclass.h>

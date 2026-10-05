@@ -5,9 +5,6 @@
 #include <exec/types.h>
 #include <proto/graphics.h>
 
-#include <string.h>
-#include <stdlib.h>
-
 #include "mui.h"
 #include "penspec.h"
 #include "muimaster_intern.h"

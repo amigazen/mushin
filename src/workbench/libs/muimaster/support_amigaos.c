@@ -1,15 +1,367 @@
 #include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
 
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
 #include <proto/intuition.h>
 #include <proto/utility.h>
+#include <proto/mathieeedoubbas.h>
+#include <proto/mathieeedoubtrans.h>
 
 #include "support_amigaos.h"
- 
+
+/*
+ * These replace the SAS/C sc.lib copies.  CopyMem does not accept overlap,
+ * so memmove copies backwards in that case.  memset is a CPU fill: BltClear
+ * only applies to chip memory, and this library's buffers are ordinary RAM.
+ * utility.library Strncpy is V47 and does not pad the way strncpy does, so
+ * the copy routines stay in C and call CopyMem for the byte move.
+ */
+
+void *memcpy(void *dest, const void *src, size_t n)
+{
+    if (n != 0 && dest != src)
+        CopyMem((APTR)src, dest, (ULONG)n);
+    return dest;
+}
+
+void *memmove(void *dest, const void *src, size_t n)
+{
+    const unsigned char *s;
+    unsigned char *d;
+    size_t i;
+
+    if (n == 0 || dest == src)
+        return dest;
+    s = (const unsigned char *)src;
+    d = (unsigned char *)dest;
+    if (d < s || d >= s + n)
+        CopyMem((APTR)src, dest, (ULONG)n);
+    else
+    {
+        i = n;
+        while (i > 0)
+        {
+            i--;
+            d[i] = s[i];
+        }
+    }
+    return dest;
+}
+
+void *memset(void *dest, int c, size_t n)
+{
+    unsigned char *d;
+    unsigned char b;
+    ULONG fill;
+    ULONG *dw;
+    size_t nlong;
+
+    d = (unsigned char *)dest;
+    b = (unsigned char)c;
+    while (n != 0 && (((ULONG)d) & 3) != 0)
+    {
+        *d++ = b;
+        n--;
+    }
+    if (n >= 4)
+    {
+        fill = (ULONG)b | ((ULONG)b << 8) | ((ULONG)b << 16) | ((ULONG)b << 24);
+        dw = (ULONG *)d;
+        nlong = n >> 2;
+        while (nlong != 0)
+        {
+            *dw++ = fill;
+            nlong--;
+        }
+        d = (unsigned char *)dw;
+        n = n & 3;
+    }
+    while (n != 0)
+    {
+        *d++ = b;
+        n--;
+    }
+    return dest;
+}
+
+int memcmp(const void *a, const void *b, size_t n)
+{
+    const unsigned char *pa;
+    const unsigned char *pb;
+
+    pa = (const unsigned char *)a;
+    pb = (const unsigned char *)b;
+    while (n != 0)
+    {
+        if (*pa != *pb)
+            return (int)*pa - (int)*pb;
+        pa++;
+        pb++;
+        n--;
+    }
+    return 0;
+}
+
+size_t strlen(const char *s)
+{
+    const char *p;
+
+    p = s;
+    if (p == NULL)
+        return 0;
+    while (*p != '\0')
+        p++;
+    return (size_t)(p - s);
+}
+
+char *strcpy(char *dest, const char *src)
+{
+    char *d;
+
+    d = dest;
+    if (dest == NULL || src == NULL)
+        return dest;
+    while ((*d++ = *src++) != '\0')
+        ;
+    return dest;
+}
+
+char *strncpy(char *dest, const char *src, size_t n)
+{
+    char *d;
+    size_t i;
+
+    d = dest;
+    i = 0;
+    if (dest == NULL)
+        return dest;
+    while (i < n && src != NULL && src[i] != '\0')
+    {
+        d[i] = src[i];
+        i++;
+    }
+    while (i < n)
+    {
+        d[i] = '\0';
+        i++;
+    }
+    return dest;
+}
+
+char *strcat(char *dest, const char *src)
+{
+    char *d;
+
+    d = dest;
+    if (dest == NULL)
+        return dest;
+    while (*d != '\0')
+        d++;
+    if (src != NULL)
+    {
+        while ((*d++ = *src++) != '\0')
+            ;
+    }
+    return dest;
+}
+
+int strcmp(const char *a, const char *b)
+{
+    if (a == NULL || b == NULL)
+        return (a == b) ? 0 : (a == NULL ? -1 : 1);
+    while (*a != '\0' && *a == *b)
+    {
+        a++;
+        b++;
+    }
+    return (int)(unsigned char)*a - (int)(unsigned char)*b;
+}
+
+int strncmp(const char *a, const char *b, size_t n)
+{
+    if (a == NULL || b == NULL)
+        return (a == b) ? 0 : (a == NULL ? -1 : 1);
+    while (n != 0 && *a != '\0' && *a == *b)
+    {
+        a++;
+        b++;
+        n--;
+    }
+    if (n == 0)
+        return 0;
+    return (int)(unsigned char)*a - (int)(unsigned char)*b;
+}
+
+char *strchr(const char *s, int c)
+{
+    unsigned char ch;
+
+    ch = (unsigned char)c;
+    if (s == NULL)
+        return NULL;
+    while (*s != '\0')
+    {
+        if ((unsigned char)*s == ch)
+            return (char *)s;
+        s++;
+    }
+    if (ch == 0)
+        return (char *)s;
+    return NULL;
+}
+
+char *strrchr(const char *s, int c)
+{
+    const char *last;
+    unsigned char ch;
+
+    ch = (unsigned char)c;
+    last = NULL;
+    if (s == NULL)
+        return NULL;
+    while (*s != '\0')
+    {
+        if ((unsigned char)*s == ch)
+            last = s;
+        s++;
+    }
+    if (ch == 0)
+        return (char *)s;
+    return (char *)last;
+}
+
+char *strstr(const char *hay, const char *needle)
+{
+    size_t nlen;
+    size_t i;
+
+    if (hay == NULL || needle == NULL)
+        return NULL;
+    nlen = strlen(needle);
+    if (nlen == 0)
+        return (char *)hay;
+    while (*hay != '\0')
+    {
+        i = 0;
+        while (i < nlen && hay[i] == needle[i])
+            i++;
+        if (i == nlen)
+            return (char *)hay;
+        hay++;
+    }
+    return NULL;
+}
+
+int stricmp(const char *a, const char *b)
+{
+    if (a == NULL || b == NULL)
+        return (a == b) ? 0 : (a == NULL ? -1 : 1);
+    return (int)Stricmp((STRPTR)a, (STRPTR)b);
+}
+
+int toupper(int c)
+{
+    return (int)ToUpper((ULONG)(unsigned char)c);
+}
+
+int isdigit(int c)
+{
+    return ((unsigned char)c >= '0' && (unsigned char)c <= '9');
+}
+
+unsigned long strtoul(const char *nptr, char **endptr, int base)
+{
+    const char *s;
+    unsigned long val;
+    int digit;
+    int neg;
+
+    s = nptr;
+    val = 0;
+    neg = 0;
+    digit = 0;
+    if (s == NULL)
+    {
+        if (endptr != NULL)
+            *endptr = NULL;
+        return 0;
+    }
+    while (*s == ' ' || *s == '\t')
+        s++;
+    if (*s == '+')
+        s++;
+    else if (*s == '-')
+    {
+        neg = 1;
+        s++;
+    }
+    if ((base == 0 || base == 16) && s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+    {
+        base = 16;
+        s += 2;
+    }
+    else if (base == 0)
+        base = 10;
+    while (*s != '\0')
+    {
+        if (*s >= '0' && *s <= '9')
+            digit = *s - '0';
+        else if (*s >= 'a' && *s <= 'f')
+            digit = *s - 'a' + 10;
+        else if (*s >= 'A' && *s <= 'F')
+            digit = *s - 'A' + 10;
+        else
+            break;
+        if (digit >= base)
+            break;
+        val = val * (unsigned long)base + (unsigned long)digit;
+        s++;
+    }
+    if (endptr != NULL)
+        *endptr = (char *)s;
+    if (neg)
+        val = (unsigned long)(-(long)val);
+    return val;
+}
+
+double ZuneSin(double x)
+{
+    if (MathIeeeDoubTransBase == NULL)
+        return 0.0;
+    return IEEEDPSin(x);
+}
+
+double ZuneCos(double x)
+{
+    if (MathIeeeDoubTransBase == NULL)
+        return 0.0;
+    return IEEEDPCos(x);
+}
+
+double ZuneAtan2(double y, double x)
+{
+    double pi;
+    double a;
+
+    pi = 3.14159265358979323846;
+    if (MathIeeeDoubTransBase == NULL || MathIeeeDoubBasBase == NULL)
+        return 0.0;
+    if (x > 0.0)
+        return IEEEDPAtan(IEEEDPDiv(y, x));
+    if (x < 0.0)
+    {
+        a = IEEEDPAtan(IEEEDPDiv(y, x));
+        if (y >= 0.0)
+            return a + pi;
+        return a - pi;
+    }
+    if (y > 0.0)
+        return pi / 2.0;
+    if (y < 0.0)
+        return -(pi / 2.0);
+    return 0.0;
+}
+
 /***************************************************************************/
 
 #ifndef __amigaos4__   

@@ -2,7 +2,6 @@
     Copyright (C) 2002-2020, The AROS Development Team. All rights reserved.
 */
 
-#include <string.h>
 #include <exec/memory.h>
 #include <intuition/icclass.h>
 #include <intuition/gadgetclass.h>

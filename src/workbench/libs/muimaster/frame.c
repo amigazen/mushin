@@ -12,9 +12,6 @@
 #include <proto/graphics.h>
 #include <proto/layers.h>
 
-#include <stdio.h>
-#include <string.h>
-
 #include "datatypescache.h"
 #include "frame.h"
 #include "mui.h"

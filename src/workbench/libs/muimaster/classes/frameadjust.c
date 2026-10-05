@@ -5,9 +5,6 @@
 #include "intuition/classusr.h"
 #define MUIMASTER_YES_INLINE_STDARG
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <clib/alib_protos.h>
 #include <graphics/gfx.h>
 #include <graphics/view.h>
@@ -18,8 +15,6 @@
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
 #include <proto/utility.h>
-
-#include <string.h>
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"

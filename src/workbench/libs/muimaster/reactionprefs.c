@@ -9,9 +9,6 @@
  * into a native struct ReactionPrefs.
  */
 
-#include <string.h>
-#include <stdio.h>
-
 #include <exec/types.h>
 #include <exec/memory.h>
 #include <dos/dos.h>

@@ -3,11 +3,6 @@
 
 */
 
-#include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #define DT_V44_SUPPORT
 
 #include <datatypes/pictureclass.h>
@@ -285,8 +280,12 @@ char *SkipChars(char *v)
 int GetInt(char *v)
 {
     char *c;
+    LONG num;
+
     c = SkipChars(v);
-    return atol(c);
+    if (c == NULL || StrToLong(c, &num) == -1)
+        return 0;
+    return (int)num;
 }
 
 BOOL GetBool(char *v, char *id)
@@ -300,22 +299,44 @@ BOOL GetBool(char *v, char *id)
 void GetIntegers(char *v, int *v1, int *v2)
 {
     char *c;
-    char va1[32], va2[32];
-    int cnt;
+    char va1[32];
+    char va2[32];
+    int n1;
+    int n2;
+    LONG num;
+
     c = SkipChars(v);
-    if (c)
+    if (c == NULL)
+        return;
+    n1 = 0;
+    while (*c == ' ' || *c == '\t')
+        c++;
+    while (*c != '\0' && *c != ' ' && *c != '\t' && n1 < 31)
+        va1[n1++] = *c++;
+    va1[n1] = '\0';
+    while (*c == ' ' || *c == '\t')
+        c++;
+    n2 = 0;
+    while (*c != '\0' && *c != ' ' && *c != '\t' && n2 < 31)
+        va2[n2++] = *c++;
+    va2[n2] = '\0';
+    if (n1 == 0)
+        return;
+    if (n2 == 0)
     {
-        cnt = sscanf(c, "%s %s", va1, va2);
-        if (cnt == 1)
-        {
-            *v1 = -1;
-            *v2 = atol(va1);
-        }
-        else if (cnt == 2)
-        {
-            *v1 = atol(va1);
-            *v2 = atol(va2);
-        }
+        *v1 = -1;
+        if (StrToLong(va1, &num) == -1)
+            num = 0;
+        *v2 = (int)num;
+    }
+    else
+    {
+        if (StrToLong(va1, &num) == -1)
+            num = 0;
+        *v1 = (int)num;
+        if (StrToLong(va2, &num) == -1)
+            num = 0;
+        *v2 = (int)num;
     }
 }
 

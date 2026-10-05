@@ -2,10 +2,6 @@
     Copyright (C) 2002-2025, The AROS Development Team. All rights reserved.
 
 */
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
 #include <exec/types.h>
 #include <exec/lists.h>
 #include <prefs/prefhdr.h>

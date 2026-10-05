@@ -29,6 +29,8 @@
 #include <proto/wb.h>
 #include <proto/muiscreen.h>
 #include <proto/cybergraphics.h>
+#include <proto/mathieeedoubbas.h>
+#include <proto/mathieeedoubtrans.h>
 
 #include <clib/alib_protos.h>
 
@@ -81,6 +83,8 @@ struct Library *DiskfontBase;
 struct Library *IconBase;
 struct Library *WorkbenchBase;
 struct Library *CoolImagesBase;
+struct MathIEEEBase *MathIeeeDoubBasBase;
+struct MathIEEEBase *MathIeeeDoubTransBase;
 
 #define LC_LIBHEADERTYPEPTR struct Library *
 
@@ -191,6 +195,13 @@ ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
     if (!(UtilityBase = OpenLibrary("utility.library", UTILITY_MIN_VERSION)))
         goto fail;
     libBase->utilitybase = (struct UtilityBase *)UtilityBase;
+
+    /* IEEE double sin/cos/atan for the knob and gradients. Optional: the
+       library still opens if these disk libraries are absent. */
+    MathIeeeDoubBasBase = (struct MathIEEEBase *)OpenLibrary(
+        "mathieeedoubbas.library", 0);
+    MathIeeeDoubTransBase = (struct MathIEEEBase *)OpenLibrary(
+        "mathieeedoubtrans.library", 0);
 
     if (!(GfxBase = (struct GfxBase *)OpenLibrary("graphics.library", GRAPHICS_MIN_VERSION)))
         goto fail;
@@ -385,6 +396,13 @@ void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBas
         CloseLibrary((struct Library *)libBase->gfxbase);
     libBase->gfxbase = NULL;
     GfxBase = NULL;
+
+    if (MathIeeeDoubTransBase)
+        CloseLibrary((struct Library *)MathIeeeDoubTransBase);
+    MathIeeeDoubTransBase = NULL;
+    if (MathIeeeDoubBasBase)
+        CloseLibrary((struct Library *)MathIeeeDoubBasBase);
+    MathIeeeDoubBasBase = NULL;
 
     if (libBase->utilitybase)
         CloseLibrary((struct Library *)libBase->utilitybase);

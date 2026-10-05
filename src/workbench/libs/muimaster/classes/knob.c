@@ -13,8 +13,6 @@
 #include <proto/utility.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-#include <stdio.h>
 #include <math.h>
 
 #include "mui.h"
@@ -183,8 +181,8 @@ static void DrawNeedle(Object *obj, struct RastPort *rp, LONG x1, LONG y1,
         angle = 0.0;
     angle = 270.0 - 45.0 - angle;
 
-    a = cx + (LONG) (cos(angle * 3.14159265358979323846 / 180.0) * rx);
-    b = cy - (LONG) (sin(angle * 3.14159265358979323846 / 180.0) * ry);
+    a = cx + (LONG) (ZuneCos(angle * 3.14159265358979323846 / 180.0) * rx);
+    b = cy - (LONG) (ZuneSin(angle * 3.14159265358979323846 / 180.0) * ry);
 
     if (clear)
     {
@@ -463,7 +461,7 @@ IPTR Knob__MUIM_HandleEvent(struct IClass *cl, Object *obj,
             dy = cy - msg->imsg->MouseY;
 
             angle =
-                180.0 - 45.0 + 180.0 * atan2((double)dx,
+                180.0 - 45.0 + 180.0 * ZuneAtan2((double)dx,
                 (double)dy) / 3.14159265358979323846;
             if (angle < 0.0)
                 angle = 0.0;

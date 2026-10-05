@@ -5,8 +5,6 @@
 
 */
 
-#include <string.h>
-
 #include <clib/alib_protos.h>
 #include <clib/macros.h>
 

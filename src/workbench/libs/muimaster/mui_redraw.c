@@ -4,7 +4,6 @@
 
 #define MUIMASTER_DEFINING_REDRAW
 
-#include <string.h>
 #include <clib/alib_protos.h>
 #include <intuition/classusr.h>
 #include <graphics/gfxmacros.h>

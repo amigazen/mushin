@@ -2,8 +2,6 @@
     Copyright  2002-2020, The AROS Development Team. All rights reserved.
 */
 
-#include <stdio.h>
-
 #include <intuition/imageclass.h>
 #include <datatypes/pictureclass.h>
 
@@ -17,8 +15,6 @@
 #include <proto/muimaster.h>
 #include <proto/cybergraphics.h>
 #include <proto/datatypes.h>
-
-#include <string.h>
 
 /*  #define MYDEBUG 1 */
 #include "debug.h"

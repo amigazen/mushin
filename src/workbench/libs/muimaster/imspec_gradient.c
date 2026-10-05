@@ -4,13 +4,11 @@
 
 */
 
-#include <math.h>
 #include <intuition/imageclass.h>
 #include <cybergraphx/cybergraphics.h>
 #include <proto/graphics.h>
 #include <proto/cybergraphics.h>
 
-#include <stdio.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/utility.h>

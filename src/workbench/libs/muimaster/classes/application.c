@@ -13,10 +13,6 @@
 #include <utility/date.h>
 #include <prefs/prefhdr.h>
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <intuition/classusr.h>
 
 #include <clib/alib_protos.h>
@@ -64,8 +60,6 @@ static ULONG portmask(struct MsgPort *port);
  * Their values happened to be right, unlike the equivalents in group.c and
  * window.c, but the pattern is what produced those bugs.
  */
-
-#include <string.h>
 
 extern struct Library *MUIMasterBase;
 
@@ -722,7 +716,7 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
                 for (i = data->app_RexxPort->mp_Node.ln_Name; *i != '\0';
                     i++)
                 {
-                    *i = toupper(*i);
+                    *i = (char)ToUpper((ULONG)(unsigned char)*i);
                 }
                 AddPort(data->app_RexxPort);
             }

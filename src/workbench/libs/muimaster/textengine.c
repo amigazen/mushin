@@ -5,11 +5,6 @@
 
 */
 
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
 #include <exec/types.h>
 #include <exec/memory.h>
 

@@ -13,8 +13,6 @@
 #include <proto/utility.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-#include <stdio.h>
 #include <math.h>
 
 #include "mui.h"
@@ -145,8 +143,8 @@ static void DrawScale(struct RastPort *rp, LONG x1, LONG y1, LONG x2,
     {
         double angle = ((double)g) * 3.14159265358979323846 / 180.0;
 
-        a = cx + (LONG) (cos(angle) * rx);
-        b = cy - (LONG) (sin(angle) * ry);
+        a = cx + (LONG) (ZuneCos(angle) * rx);
+        b = cy - (LONG) (ZuneSin(angle) * ry);
 
         WritePixel(rp, a, b);
 
@@ -184,8 +182,8 @@ static void DrawNeedle(struct RastPort *rp, LONG x1, LONG y1, LONG x2,
         angle = 0.0;
     angle = 180.0 - angle;
 
-    a = cx + (LONG) (cos(angle * 3.14159265358979323846 / 180.0) * rx);
-    b = cy - (LONG) (sin(angle * 3.14159265358979323846 / 180.0) * ry);
+    a = cx + (LONG) (ZuneCos(angle * 3.14159265358979323846 / 180.0) * rx);
+    b = cy - (LONG) (ZuneSin(angle * 3.14159265358979323846 / 180.0) * ry);
 
     Draw(rp, a, b);
 

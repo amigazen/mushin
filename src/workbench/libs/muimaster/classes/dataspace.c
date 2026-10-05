@@ -2,9 +2,6 @@
     Copyright (C) 2002-2014, The AROS Development Team. All rights reserved.
 */
 
-#include <stdlib.h>
-#include <string.h>
-
 #include <exec/types.h>
 #include <clib/alib_protos.h>
 #include <proto/exec.h>

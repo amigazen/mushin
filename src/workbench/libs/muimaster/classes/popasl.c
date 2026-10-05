@@ -4,9 +4,6 @@
 
 #define MUIMASTER_YES_INLINE_STDARG
 
-#include <string.h>
-#include <stdio.h>
-
 #include <graphics/gfx.h>
 #include <graphics/view.h>
 #include <dos/dostags.h>

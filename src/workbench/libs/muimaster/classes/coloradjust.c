@@ -4,8 +4,6 @@
 
 #define MUIMASTER_YES_INLINE_STDARG
 
-#include <stdio.h>
-
 #include <graphics/gfx.h>
 #include <graphics/view.h>
 #include <graphics/gfxmacros.h>
@@ -21,8 +19,6 @@
 #include <proto/colorwheel.h>
 #include <proto/muimaster.h>
 #include <proto/cybergraphics.h>
-
-#include <string.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"

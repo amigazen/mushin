@@ -11,8 +11,6 @@
 #include <libraries/gadtools.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
-#include <string.h>
-
 #ifdef HAVE_COOLIMAGES
 #include <libraries/coolimages.h>
 #include <proto/coolimages.h>

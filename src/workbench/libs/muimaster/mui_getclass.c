@@ -2,8 +2,6 @@
     Copyright (C) 2002-2007, The AROS Development Team. All rights reserved.
 */
 
-#include <stdio.h>
-
 #include <proto/exec.h>
 #include <proto/intuition.h>
 

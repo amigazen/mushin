@@ -13,8 +13,6 @@
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
 
-#include <stdio.h>
-
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"

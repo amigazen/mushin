@@ -4,8 +4,6 @@
     
 */
 
-#include <string.h>
-
 #include <graphics/gfxmacros.h>
 #include <intuition/imageclass.h>
 #include <clib/alib_protos.h>

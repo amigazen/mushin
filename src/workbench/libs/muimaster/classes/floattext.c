@@ -13,8 +13,6 @@
 #include <proto/muimaster.h>
 #include <proto/graphics.h>
 
-#include <string.h>
-
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"

@@ -33,9 +33,6 @@
 /* Raw key codes - minimal definitions for wheel events */
 #define RAWKEY_NM_WHEEL_UP      0x7A
 #define RAWKEY_NM_WHEEL_DOWN    0x7B
-#include <stdlib.h>
-#include <string.h>
-
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>

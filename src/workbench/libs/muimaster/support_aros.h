@@ -22,4 +22,9 @@
 LONG HexToIPTR(CONST_STRPTR s, IPTR *val);
 LONG HexToLong(CONST_STRPTR s, ULONG *val);
 
+/* Amiga builds these on mathieeedoubtrans.library. AROS keeps libm. */
+#define ZuneSin(x) sin(x)
+#define ZuneCos(x) cos(x)
+#define ZuneAtan2(y, x) atan2((y), (x))
+
 #endif

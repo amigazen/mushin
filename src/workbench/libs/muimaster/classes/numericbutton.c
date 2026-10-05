@@ -13,9 +13,6 @@
 #include <proto/utility.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-#include <stdio.h>
-
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "area_macros.h"

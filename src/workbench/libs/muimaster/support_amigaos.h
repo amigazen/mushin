@@ -168,8 +168,35 @@ LONG HexToLong(CONST_STRPTR s, ULONG *val);
 #define AROS_STACKSIZE 65536
 
 char *StrDup(const char *x);
-#ifdef __GNUC__
-int stricmp(const char *left, const char *right);
+
+/*
+ * AmigaOS builds do not take these from sc.lib.  memcpy and memset go
+ * through exec CopyMem and a CPU fill.  stricmp is utility.library Stricmp.
+ * strcpy, strlen, strcmp and the rest have no exec entry, so they live here.
+ * sin, cos and atan2 are mathieeedoubtrans.library.  AROS and MorphOS keep
+ * their own C library.
+ */
+#if !defined(__AROS__) && !defined(__MORPHOS__)
+void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+void *memset(void *dest, int c, size_t n);
+int memcmp(const void *a, const void *b, size_t n);
+char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, size_t n);
+char *strcat(char *dest, const char *src);
+int strcmp(const char *a, const char *b);
+int strncmp(const char *a, const char *b, size_t n);
+size_t strlen(const char *s);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
+char *strstr(const char *hay, const char *needle);
+int stricmp(const char *a, const char *b);
+int toupper(int c);
+int isdigit(int c);
+unsigned long strtoul(const char *nptr, char **endptr, int base);
+double ZuneSin(double x);
+double ZuneCos(double x);
+double ZuneAtan2(double y, double x);
 #endif
 #if defined(__SASC) || defined(__GNUC__) /* PRIV */
 size_t strlcat(char *buf, const char *src, size_t len); /* PRIV */

@@ -2,8 +2,6 @@
     Copyright (C) 2002-2025, The AROS Development Team. All rights reserved.
 */
 
-#include <string.h>
-
 #ifdef __AROS__
 #include <proto/alib.h>
 #else
@@ -13,7 +11,6 @@
 #include <proto/intuition.h>
 
 #ifdef __AROS__
-#include <stdlib.h>
 #endif
 
 #include "mui.h"

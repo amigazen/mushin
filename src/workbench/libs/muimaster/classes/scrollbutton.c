@@ -2,10 +2,6 @@
     Copyright (C) 2002-2011, The AROS Development Team. All rights reserved.
 */
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #include <intuition/intuitionbase.h>
 
 #include <clib/alib_protos.h>

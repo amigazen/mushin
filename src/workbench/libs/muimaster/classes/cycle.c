@@ -11,8 +11,6 @@
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-
 #include "debug.h"
 
 #include "mui.h"

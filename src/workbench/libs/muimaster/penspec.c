@@ -2,9 +2,6 @@
     Copyright (C) 2003-2025, The AROS Development Team. All rights reserved.
 
 */
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <proto/dos.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>

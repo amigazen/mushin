@@ -4,8 +4,6 @@
 
 #define MUIMASTER_YES_INLINE_STDARG
 
-#include <stdio.h>
-
 #include <clib/alib_protos.h>
 #include <graphics/gfx.h>
 #include <graphics/view.h>
@@ -14,8 +12,6 @@
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
 #include <proto/utility.h>
-
-#include <string.h>
 
 #include "datatypescache.h"
 #include "debug.h"

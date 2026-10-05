@@ -12,9 +12,6 @@
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-#include <stdio.h>
-
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
@@ -55,7 +52,7 @@ LONG PopscreenStrObjFunc(struct Hook *hook, Object *popup, Object *str)
             break;
         }
 
-        if (stricmp(strtext, listentry) == 0)
+        if (Stricmp(strtext, listentry) == 0)
         {
             set(data->list, MUIA_List_Active, index);
             break;

@@ -14,9 +14,6 @@
 #include <proto/utility.h>
 #include <proto/muimaster.h>
 
-#include <string.h>
-#include <stdio.h>
-
 #include "mui.h"
 #include "muimaster_intern.h"
 #include "support.h"
@@ -235,7 +232,7 @@ static void ReadDirectory(Object *obj, struct Dirlist_DATA *data)
 
                             if (len >= 5)
                             {
-                                if (stricmp(fib->fib_FileName + len - 5,
+                                if (Stricmp(fib->fib_FileName + len - 5,
                                         ".info") == 0)
                                     continue;
                             }

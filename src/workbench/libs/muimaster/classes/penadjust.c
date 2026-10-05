@@ -4,9 +4,6 @@
 
 #define MUIMASTER_YES_INLINE_STDARG
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <graphics/gfx.h>
 #include <graphics/view.h>
 #include <clib/alib_protos.h>
@@ -17,8 +14,6 @@
 #include <proto/utility.h>
 #include <proto/intuition.h>
 #include <proto/muimaster.h>
-
-#include <string.h>
 
 #define MYDEBUG 1
 #include "debug.h"

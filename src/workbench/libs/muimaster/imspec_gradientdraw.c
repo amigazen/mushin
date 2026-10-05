@@ -10,7 +10,6 @@
 #include <proto/graphics.h>
 #include <proto/cybergraphics.h>
 
-#include <stdio.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/utility.h>
@@ -153,8 +152,8 @@ void FillPixelArrayGradientRelative(struct RastPort *rp, int xt, int yt,
      *       Remove the use of floating point variables
      */
     double rad = angle * M_PI / 180;
-    double cosarc = cos(rad);
-    double sinarc = sin(rad);
+    double cosarc = ZuneCos(rad);
+    double sinarc = ZuneSin(rad);
 
     struct RGBColour startColour, endColour;
 
@@ -335,8 +334,8 @@ STATIC int FillPixelArrayGradient(struct RastPort *rp, int xt, int yt,
      */
 
     double rad = angle * M_PI / 180;
-    double cosarc = cos(rad);
-    double sinarc = sin(rad);
+    double cosarc = ZuneCos(rad);
+    double sinarc = ZuneSin(rad);
 
     struct RGBColour startColour, endColour;
     int diffR, diffG, diffB;

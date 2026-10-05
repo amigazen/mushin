@@ -4,10 +4,6 @@
     
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-
 #include <exec/devices.h>
 #include <exec/memory.h>
 #include <workbench/icon.h>

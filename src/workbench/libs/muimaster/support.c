@@ -4,8 +4,6 @@
     
 */
 
-#include <string.h>
-
 #include <intuition/classes.h>
 #include <clib/alib_protos.h>
 #include <proto/exec.h>

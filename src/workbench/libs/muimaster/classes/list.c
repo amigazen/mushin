@@ -2,9 +2,6 @@
     Copyright (C) 2002-2025, The AROS Development Team. All rights reserved.
 */
 
-#include <string.h>
-#include <stdlib.h>
-
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <graphics/gfxmacros.h>

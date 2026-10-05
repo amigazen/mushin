@@ -6,8 +6,6 @@
 #define RAWKEY_NM_WHEEL_UP      0x7A
 #define RAWKEY_NM_WHEEL_DOWN    0x7B
 
-#include <stdio.h>
-
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
 #include <proto/intuition.h>
