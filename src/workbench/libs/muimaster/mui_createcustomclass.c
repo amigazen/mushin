@@ -13,9 +13,10 @@
 #include "support.h"
 #include "support_classes.h"
 
-/* Forward declarations for internal functions */
-struct IClass *MUI_GetClass(ClassID classid);
-VOID MUI_FreeClass(Class *cl);
+extern struct Library *MUIMasterBase;
+
+/* Stack-safe; do not call the LVO form of MUI_FreeClass from here. */
+extern VOID ZUNE_FreeClass(Class *cl);
 
 /*****************************************************************************
 
@@ -37,33 +38,67 @@ VOID MUI_FreeClass(Class *cl);
     SEE ALSO
 
     INTERNALS
+        Resolve the superclass with ZUNE_GetBuiltinClass /
+        ZUNE_GetExternalClass (normal C calls).  Calling MUI_GetClass()
+        from here is unsafe under SAS/C: that LVO expects classid in A0,
+        but A0 still holds 'base' from this function's entry, so every
+        subclass create returned NULL (prefs "Out of memory (20).",
+        Voyager CreateCustomClass).
 
 *****************************************************************************/
 {
-
     struct MUI_CustomClass *mcc;
-    struct IClass        *cl, *super;
-    ClassID                 id = NULL;
+    struct IClass *cl;
+    struct IClass *super;
+    ClassID id;
+
+    id = NULL;
+    super = NULL;
+    mcc = NULL;
+    cl = NULL;
 
     if ((supername == NULL) && (supermcc == NULL))
+    {
+        ZuneTrace("zune: CreateCustomClass no supername/supermcc\n");
         return NULL;
+    }
 
     if (!supermcc)
     {
-        super = MUI_GetClass(supername);
-        if (!super) return NULL;
+        /*
+         * Same resolution order as MUI_GetClass, but stack-safe.
+         */
+        super = ZUNE_GetBuiltinClass(supername, MUIMasterBase);
+        if (!super)
+            super = ZUNE_GetExternalClass(supername, MUIMasterBase);
+        if (!super)
+        {
+            ZuneTrace("zune: CreateCustomClass GetClass failed super=%s\n",
+                supername ? supername : (CONST_STRPTR) "(null)");
+            return NULL;
+        }
     }
-    else super = supermcc->mcc_Class;
+    else
+        super = supermcc->mcc_Class;
 
     if (!(mcc = mui_alloc_struct(struct MUI_CustomClass)))
+    {
+        ZuneTrace("zune: CreateCustomClass mcc alloc failed\n");
+        if (!supermcc)
+            ZUNE_FreeClass(super);
         return NULL;
+    }
 
     if (base)
         id = FilePart(((struct Node *)base)->ln_Name);
 
     if (!(cl = MakeClass(id, NULL, super, datasize, 0)))
     {
+        ZuneTrace("zune: CreateCustomClass MakeClass failed super=%s\n",
+            supername ? supername : (CONST_STRPTR) "(null)");
         mui_free(mcc);
+        if (!supermcc)
+            ZUNE_FreeClass(super);
         return NULL;
     }
 
@@ -84,6 +119,9 @@ VOID MUI_FreeClass(Class *cl);
 #endif
     cl->cl_Dispatcher.h_Data     = base;
 
+    ZuneTrace("zune: CreateCustomClass ok super=%s mcc=%lx cl=%lx\n",
+        supername ? supername : (CONST_STRPTR) "(via supermcc)",
+        (ULONG) mcc, (ULONG) cl);
+
     return mcc;
-    
 } /* MUI_CreateCustomClass */

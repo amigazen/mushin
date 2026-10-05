@@ -8,30 +8,25 @@
 #include <prefs/prefhdr.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
+
 #define DEBUG 0
 #include <aros/debug.h>
 
 #include "fileformat.h"
+#include "muiscreen_intern.h"
 
 /*****************************************************************************
 
     NAME */
-#include <proto/muiscreen.h>
-
-        AROS_LH1(struct MUI_PubScreenDesc *, MUIS_ReadPubFile,
-
-/*  SYNOPSIS */
-        AROS_LHA(APTR, pf,  A0),
-
-/*  LOCATION */
-        struct Library *, MUIScreenBase, 11, MUIScreen)
+        __asm __saveds struct MUI_PubScreenDesc *MUIS_ReadPubFile(
+            register __a0 APTR pf)
 
 /*  FUNCTION
 
     INPUTS
 
     RESULT
-    
+
     NOTES
 
     EXAMPLE
@@ -42,27 +37,31 @@
 
     INTERNALS
 
-******************************************************************************/
-
+*****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
+    struct IFFHandle *iff;
+    struct MUI_PubScreenDesc *retval;
+    struct ContextNode *cn;
+    struct MUI_PubScreenDesc desc;
+    struct MUI_PubScreenDescArray desc_tmp;
 
-    D(bug("MUIS_ReadPubFile(%p)\n", pf));
+    D(bug("MUIS_ReadPubFile(%lx)\n", (ULONG)pf));
 
-    struct IFFHandle *iff = (struct IFFHandle *) pf;
-    struct MUI_PubScreenDesc *retval = NULL;
+    iff = (struct IFFHandle *)pf;
+    retval = NULL;
+
+    if (iff == NULL)
+        return NULL;
 
     if (!StopChunk(iff, ID_PREF, ID_MPUB))
     {
         if (!ParseIFF(iff, IFFPARSE_SCAN))
         {
-            struct ContextNode *cn;
             cn = CurrentChunk(iff);
-            if (cn->cn_Size == sizeof(struct MUI_PubScreenDescArray))
+            if (cn != NULL && cn->cn_Size == sizeof(struct MUI_PubScreenDescArray))
             {
-                struct MUI_PubScreenDesc desc;
-                struct MUI_PubScreenDescArray desc_tmp;
-                if (ReadChunkBytes(iff, &desc_tmp, sizeof(struct MUI_PubScreenDescArray)) == sizeof(struct MUI_PubScreenDescArray))
+                if (ReadChunkBytes(iff, &desc_tmp, sizeof(struct MUI_PubScreenDescArray))
+                    == sizeof(struct MUI_PubScreenDescArray))
                 {
                     desc.Version = ARRAY_TO_LONG(desc_tmp.Version);
                     CopyMem(desc_tmp.Name, desc.Name, sizeof(desc_tmp.Name));
@@ -89,7 +88,8 @@
                     ARRAY_TO_COLS(desc_tmp.rsvd, desc.rsvd);
                     CopyMem(desc_tmp.rsvd2, desc.rsvd2, sizeof(desc_tmp.rsvd2));
                     desc.Changed = ARRAY_TO_LONG(desc_tmp.Changed);
-                    
+                    desc.UserData = NULL;
+
                     retval = MUIS_AllocPubScreenDesc(&desc);
                 }
             }
@@ -97,6 +97,4 @@
     }
 
     return retval;
-
-    AROS_LIBFUNC_EXIT
 }

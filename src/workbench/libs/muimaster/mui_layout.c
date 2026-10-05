@@ -10,6 +10,7 @@
 #include "muimaster_intern.h"
 #include "classes/area.h"
 #include "area_macros.h"
+#include "support.h"
 
 /* Ensure MADF_ISVIRTUALGROUP is defined */
 #ifndef MADF_ISVIRTUALGROUP
@@ -50,6 +51,20 @@ Z
  */
 //    ASSERT(parent != NULL);
 
+    /* Trace only the 1x1 dummy (Voyager htmlview) and oversize boxes —
+     * full HTML layout floods serial with thousands of LayoutObj calls. */
+    if ((width <= 1 && height <= 1) || width > 8000 || height > 8000)
+    {
+        ZuneTrace("zune: MUI_Layout enter obj=%lx %ldx%ld+%ldx%ld parent=%lx\n",
+            (ULONG) obj, left, top, width, height, (ULONG) parent);
+    }
+
+    if (parent == NULL)
+    {
+        ZuneTrace("zune: MUI_Layout abort NULL parent obj=%lx\n", (ULONG) obj);
+        return FALSE;
+    }
+
     if (((struct __dummyAreaData__ *)(parent))->mad.mad_Flags & MADF_ISVIRTUALGROUP)
     {
         /* I'm not yet sure what to do by virtual groups in virtual groups,
@@ -65,9 +80,13 @@ Z
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top = top + (((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop);
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width = width;
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height = height;
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_VirtualTop =
+        ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top;
 
     D(bug("muimaster.library/mui_layout.c: 0x%p %ldx%ldx%ldx%ld\n",obj,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1));
 
     DoMethodA(obj, (Msg)&method);
+    if ((width <= 1 && height <= 1) || width > 8000 || height > 8000)
+        ZuneTrace("zune: MUI_Layout leave obj=%lx\n", (ULONG) obj);
     return TRUE;
 } /* MUI_Layout */

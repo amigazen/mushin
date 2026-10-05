@@ -277,6 +277,8 @@ struct MUIP_Setup
 struct MUIP_Show
 {
     STACKED ULONG MethodID;
+    /* Commercial MUI 3.8 / Voyager: clip rect for virtgroup ShowClipped. */
+    STACKED APTR clip;
 };
 
 #define MUIM_Layout \
@@ -486,62 +488,52 @@ struct MUI_AreaData
     BYTE mad_subwidth;          /* additional width (frame & innerspacing) */
     BYTE mad_subheight;         /* additional height (frame & innerspacing) */
     ULONG mad_Flags;            /* some flags; see below */
-    ULONG mad_Flags2;
-// 40 bytes up to here
-
-    /* The following data is private */
+    /*
+     * Commercial MUI 3.x layout through mad_Flags2 (Voyager _vtop etc.).
+     * Zune-only fields follow.
+     */
     /* START PRIV */
-// offset 40
-    UWORD mad_HorizWeight;      /* weight values for layout. default 100 */
-    UWORD mad_VertWeight;
-// offset 44
-// ?
-// offset 48
-    ULONG mad_IDCMP;            /* IDCMP flags this listens to (for HandleInput) */
-// offset 52
+    WORD mad_HorizWeight;
+    WORD mad_VertWeight;
+    WORD mad_HorizDisappear;
+    WORD mad_VertDisappear;
+    ULONG mad_IDCMP;
     CONST_STRPTR mad_BackgroundSpec;
-// offset 56
-    IPTR mad_FontPreset;        /* MUIV_Font_xxx or pointer to struct TextFont */
-// offset 76
-    CONST_STRPTR mad_FrameTitle;        /* for groups. Req. mad_Frame > 0 */
-// Inner values at offset 88 in MUI:
-    BYTE mad_InnerLeft;         /* frame or hardcoded */
+    IPTR mad_FontPreset;
+    CONST_STRPTR mad_ShortHelp;
+    LONG mad_FixWidth;
+    LONG mad_FixHeight;
+    LONG mad_VirtualTop;
+    ULONG mad_Flags2;
+
+    CONST_STRPTR mad_FrameTitle;
+    BYTE mad_InnerLeft;
     BYTE mad_InnerTop;
     BYTE mad_InnerRight;
     BYTE mad_InnerBottom;
-// offset 94
-    BYTE mad_FrameOBSOLETE;     /* frame setting -- private */
-// offset 95
-    BYTE mad_InputMode;         /* how to react to events */
-// offset 96
-    TEXT mad_ControlChar;       /* key shortcut */
-    BYTE mad_TitleHeightAdd;    /* frame title height = mad_TitleBelow + mad_TitleBaseline */
-    BYTE mad_TitleHeightBelow;  /* height below frame */
-    BYTE mad_TitleHeightAbove;  /* height above frame */
-// 100
-// ?
+    BYTE mad_FrameOBSOLETE;
+    BYTE mad_InputMode;
+    TEXT mad_ControlChar;
+    BYTE mad_TitleHeightAdd;
+    BYTE mad_TitleHeightBelow;
+    BYTE mad_TitleHeightAbove;
     IPTR mad_Frame;
-    WORD mad_HardHeight;        /* if harcoded dim (see flags)  */
-    WORD mad_HardWidth;         /* if harcoded dim (see flags)  */
+    WORD mad_HardHeight;
+    WORD mad_HardWidth;
     CONST_STRPTR mad_HardWidthTxt;
     CONST_STRPTR mad_HardHeightTxt;
-// TODO: move SelBack in RenderInfo as it's common for all objects
-    struct MUI_ImageSpec_intern *mad_SelBack;   /* selected state background */
-    CONST_STRPTR mad_ShortHelp; /* bubble help */
-// there's an event handler at 114
+    struct MUI_ImageSpec_intern *mad_SelBack;
     struct MUI_EventHandlerNode mad_ehn;
-    struct MUI_InputHandlerNode mad_Timer;      /* MUIA_Timer */
-    ULONG mad_Timeval;          /* just to trigger notifications */
-    struct MUI_EventHandlerNode mad_ccn;        /* gross hack for control char */
-    Object *mad_ContextMenu;    /* menu strip */
-    LONG mad_ClickX;            /* x position of the initial SELECTDOWN click */
-    LONG mad_ClickY;            /* y position of the intiial SELECTDOWN click */
+    struct MUI_InputHandlerNode mad_Timer;
+    ULONG mad_Timeval;
+    struct MUI_EventHandlerNode mad_ccn;
+    Object *mad_ContextMenu;
+    LONG mad_ClickX;
+    LONG mad_ClickY;
     struct ZMenu *mad_ContextZMenu;
-    struct MUI_EventHandlerNode mad_hiehn;      /* Eventhandler to simulate MUIM_HandleInput */
-
-    LONG mad_DisableCount;      /* counts number of disables */
+    struct MUI_EventHandlerNode mad_hiehn;
+    LONG mad_DisableCount;
     /* END PRIV */
-// only 148 bytes for the struct in MUI !
 };
 
 /*
@@ -557,47 +549,66 @@ struct MUI_AreaData
  * ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left instead of _left(obj).
  */
 
-/* Flags during MUIM_Draw */
-#define MADF_DRAWOBJECT        (1<< 0)  /* draw object completely */
-#define MADF_DRAWUPDATE        (1<< 1)  /* update object */
+/*
+ * mad_Flags bit layout MUST match commercial MUI 3.8 (Voyager's mui.h).
+ * Voyager sets MADF_PARTIAL / MADF_DRAWALL / MADF_KNOWSACTIVE / MADF_VISIBLE
+ * on AreaData directly; Zune-only bits live in mad_Flags2.
+ */
+#define MADF_DRAWOBJECT        (1<< 0)
+#define MADF_DRAWUPDATE        (1<< 1)
+#define MADF_DRAWACTIVE        (1<< 2)
+#define MADF_DRAGGABLE         (1<< 3)
+#define MADF_CUSTOMBACKFILL    (1<< 4)
+#define MADF_CYCLECHAIN        (1<< 5)
+#define MADF_FIXMEANSMAX       (1<< 6)
+#define MADF_KNOWSACTIVE       (1<< 7)
+#define MADF_GROUP             (1<< 8)
+#define MADF_SHOWME            (1<< 9)
+#define MADF_PARTIAL           (1<<10)
+#define MADF_DRAWOUTER         (1<<11)
+#define MADF_DRAWCHILD         (1<<12)
+#define MADF_DROPABLE          (1<<13)
+#define MADF_VISIBLE           (1<<14)
+#define MADF_CANDRAW           MADF_VISIBLE
+#define MADF_DISABLED          (1<<15)
+#define MADF_SHOWSELSTATE      (1<<16)
+#define MADF_PRESSED           (1<<17)
+#define MADF_SELECTED          (1<<18)
+#define MADF_PAGETITLES        (1<<19)
+#define MADF_FILLAREA          (1<<20)
+#define MADF_FIXWIDTHTXT       (1<<21)
+#define MADF_FIXHEIGHTTXT      (1<<22)
+#define MADF_INNERLEFT         (1<<23)
+#define MADF_INNERTOP          (1<<24)
+#define MADF_INNERRIGHT        (1<<25)
+#define MADF_INNERBOTTOM       (1<<26)
+#define MADF_FRAMEPHANTOM      (1<<27)
+#define MADF_DRAWDROPBOX       (1<<28)
+#define MADF_INVIRTUALGROUP    (1<<29)
+#define MADF_INVIRTUAL         MADF_INVIRTUALGROUP
+#define MADF_ISVIRTUALGROUP    (1<<30)
+#define MADF_VIRTUAL           MADF_ISVIRTUALGROUP
+#define MADF_FRAMEOFFSET       (1<<31)
 
-#define MADF_DRAWALL           (1<< 31)
+#define MADF_DRAWALL    (MADF_DRAWACTIVE | MADF_DRAWOUTER | MADF_DRAWOBJECT)
+#define MADF_DRAWMASK   (MADF_DRAWOUTER | MADF_DRAWOBJECT | MADF_DRAWCHILD \
+    | MADF_DRAWUPDATE | MADF_DRAWACTIVE)
+#define MADF_DRAWFLAGS  MADF_DRAWMASK
 
+/* Old Zune names kept as aliases where the commercial bit matches. */
+#define MADF_DRAW_XXX          MADF_DRAWACTIVE
+#define MADF_DRAWFRAME         MADF_DRAWOUTER
+#define MADF_DRAW_XXX_2        MADF_DRAWCHILD
 
-/* mad_Flags, private one */
-#define MADF_DRAW_XXX          (1<< 2)  /* PRIV - mui verified, what use ? */
-#define MADF_DRAGGABLE         (1<< 3)  /* PRIV - mui verified */
-#define MADF_MAXHEIGHT         (1<< 4)  /* PRIV - share bit 6 in mui */
-#define MADF_CYCLECHAIN        (1<< 5)  /* PRIV - mui verified */
-#define MADF_MAXWIDTH          (1<< 6)  /* PRIV - share bit 6 in mui */
-#define MADF_DRAGGING          (1<< 7)  /* PRIV - zune-specific ? */
-#define MADF_OWNBG               (1<< 8)  /* PRIV - zune-specific ? */
-#define MADF_SHOWME            (1<< 9)  /* PRIV - mui verified */
-#define MADF_BORDERGADGET      (1<< 10) /* PRIV - is a border gadget; zune-specific ? */
-#define MADF_DRAWFRAME         (1<< 11) /* PRIV - nearly mui verified */
-#define MADF_DRAW_XXX_2        (1<< 12) /* PRIV - mui verified, what use ? */
-#define MADF_DROPABLE          (1<< 13) /* PRIV - mui verified */
-#define MADF_CANDRAW           (1<< 14) /* PRIV - roughly mui equivalent */
-#define MADF_DISABLED          (1<< 15) /* PRIV - mui verified */
-#define MADF_SHOWSELSTATE      (1<< 16) /* PRIV - mui verified */
-#define MADF_PRESSED           (1<< 17) /* PRIV - nearly mui verified */
-#define MADF_SELECTED          (1<< 18) /* PRIV - mui verified */
-#define MADF_FIXHEIGHT         (1<< 19) /* PRIV - zune-specific */
-#define MADF_FILLAREA          (1<< 20) /* PRIV - mui verified */
-#define MADF_FIXWIDTH          (1<< 22) /* PRIV - zune-specific */
-#define MADF_FIXHEIGHTTXT      (1<< 22) /* PRIV - mui verified (unused in zune) */
-#define MADF_INNERLEFT         (1<< 23) /* PRIV - mui verified */
-#define MADF_INNERTOP          (1<< 24) /* PRIV - mui verified */
-#define MADF_INNERRIGHT        (1<< 25) /* PRIV - mui verified */
-#define MADF_INNERBOTTOM       (1<< 26) /* PRIV - mui verified */
-#define MADF_FRAMEPHANTOM      (1<< 27) /* PRIV - mui verified */
-#define MADF_SETUP             (1<< 28) /* PRIV - zune-specific */
-
-#define MADF_INVIRTUALGROUP        (1<<29) /* PRIV UNDOC: The object is inside a virtual group */
-#define MADF_ISVIRTUALGROUP        (1<<30) /* PRIV UNDOC: The object is a virtual group */
-
-#define MADF_DRAWFLAGS (MADF_DRAWOBJECT | MADF_DRAWUPDATE | MADF_DRAW_XXX \
-    | MADF_DRAWFRAME | MADF_DRAW_XXX_2 | MADF_DRAWALL)
+/* mad_Flags2 -- Zune-only state (must not use commercial mad_Flags bits) */
+#define MADF2_SETUP                (1<< 0)
+#define MADF2_MAXHEIGHT            (1<< 1)
+#define MADF2_MAXWIDTH             (1<< 2)
+#define MADF2_BORDERGADGET         (1<< 3)
+#define MADF2_OWNBG                (1<< 4)
+#define MADF2_DRAGGING             (1<< 5)
+#define MADF2_FIXHEIGHT            (1<< 6)
+#define MADF2_FIXWIDTH             (1<< 7)
 
 
 // offset 94 (byte) (frame << 1) (lsb is SETUP_DONE flag)

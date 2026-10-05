@@ -5,28 +5,25 @@
 #include <libraries/muiscreen.h>
 #include <proto/dos.h>
 #include <proto/iffparse.h>
+#include <libraries/iffparse.h>
+
 #define DEBUG 0
 #include <aros/debug.h>
+
+#include "muiscreen_intern.h"
 
 /*****************************************************************************
 
     NAME */
-#include <proto/muiscreen.h>
-
-        AROS_LH1(void, MUIS_ClosePubFile,
-
-/*  SYNOPSIS */
-        AROS_LHA(APTR, pf,  A0),
-
-/*  LOCATION */
-        struct Library *, MUIScreenBase, 10, MUIScreen)
+        __asm __saveds void MUIS_ClosePubFile(
+            register __a0 APTR pf)
 
 /*  FUNCTION
 
     INPUTS
 
     RESULT
-    
+
     NOTES
 
     EXAMPLE
@@ -37,24 +34,20 @@
 
     INTERNALS
 
-******************************************************************************/
-
+*****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
+    struct IFFHandle *iff;
 
-    D(bug("MUIS_ClosePubFile(%p)\n", pf));
+    D(bug("MUIS_ClosePubFile(%lx)\n", (ULONG)pf));
 
-    struct IFFHandle *iff = (struct IFFHandle *) pf;
-
+    iff = (struct IFFHandle *)pf;
     if (iff)
     {
-        if(iff->iff_Flags & IFFF_WRITE)
+        if (iff->iff_Flags & IFFF_WRITE)
             PopChunk(iff);
 
         CloseIFF(iff);
-        Close((BPTR) iff->iff_Stream);
+        Close((BPTR)iff->iff_Stream);
         FreeIFF(iff);
     }
-
-    AROS_LIBFUNC_EXIT
 }

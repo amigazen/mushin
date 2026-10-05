@@ -84,6 +84,10 @@ IPTR ZuneWindowDrawBackground(Object *obj, LONG left, LONG top, LONG width,
     LONG height, LONG xoffset, LONG yoffset, LONG flags);
 IPTR ZuneLayout(Object *obj);
 
+/* True if obj's ancestor Group is in MUIM_Group_InitChange (commercial:
+ * ShowMe must not RecalcDisplay until ExitChange). */
+BOOL Zune_GroupExchangeActive(Object *obj);
+
 /* returns next node of this node */
 void *Node_Next(APTR node);
 /* returns first node of this list */

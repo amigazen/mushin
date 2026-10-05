@@ -1,107 +1,246 @@
 /*
     Copyright (C) 2009-2025, The AROS Development Team. All rights reserved.
+
+    AmigaOS / SAS/C library init and expunge for muiscreen.library.
+    Opens the libraries SAS/C pragmas need as real globals, starts the
+    autoclosure task, and tears everything down on expunge.
 */
+
+#include <exec/types.h>
+#include <exec/libraries.h>
+#include <exec/memory.h>
+#include <exec/tasks.h>
+#include <exec/execbase.h>
+#include <intuition/intuitionbase.h>
+#include <graphics/gfxbase.h>
+
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/iffparse.h>
+
+#include <clib/alib_protos.h>
+
+#include "muiscreen_intern.h"
 
 #define DEBUG 0
 #include <aros/debug.h>
 
-#include <proto/exec.h>
-#include <proto/intuition.h>
-
-#include <exec/libraries.h>
-#include <exec/lists.h>
-#include <aros/symbolsets.h>
-#include "muiscreen_intern.h"
-
 #define MUIS_STACKSIZE 4096
 
-static VOID GM_UNIQUENAME(pubscreenClose_Task)();
+#define DOS_MIN_VERSION         37
+#define UTILITY_MIN_VERSION     37
+#define GRAPHICS_MIN_VERSION    39
+#define INTUITION_MIN_VERSION   39
+#define IFFPARSE_MIN_VERSION    37
 
-static int GM_UNIQUENAME(libInit)(LIBBASETYPEPTR LIBBASE)
+/*
+ * Same pattern as muimaster_init.c: pragma libcalls resolve against these
+ * globals by identifier, so macros that redirect into the base struct are
+ * useless for SAS/C.  Assign both the globals and the struct fields.
+ */
+struct IntuitionBase *IntuitionBase;
+struct GfxBase *GfxBase;
+struct DosLibrary *DOSBase;
+struct Library *UtilityBase;
+struct Library *IFFParseBase;
+struct Library *MUIScreenBase;
+
+#define LC_LIBHEADERTYPEPTR struct Library *
+
+void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIScreenBase);
+
+static void SAVEDS pubscreenClose_Task(void);
+
+/****************************************************************************************/
+
+ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIScreenBase)
 {
-    NEWLIST(&LIBBASE->clients);
-    NEWLIST(&LIBBASE->muisb_autocScreens);
+    struct MUIScreenBase_intern *libBase;
+    struct Task *task;
+    APTR stack;
 
-    LIBBASE->muisb_closeTask = AllocMem(sizeof (struct Task), MEMF_PUBLIC|MEMF_CLEAR);
-    if (NULL != LIBBASE->muisb_closeTask) {
-        APTR stack;
+    libBase = (struct MUIScreenBase_intern *)_MUIScreenBase;
+    MUIScreenBase = (struct Library *)libBase;
 
-        NEWLIST(&LIBBASE->muisb_closeTask->tc_MemEntry);
-        LIBBASE->muisb_closeTask->tc_Node.ln_Type = NT_TASK;
-        LIBBASE->muisb_closeTask->tc_Node.ln_Name = "PUBSCREEN handler";
-        LIBBASE->muisb_closeTask->tc_Node.ln_Pri = 0;
+    D(bug("Inside Init func of muiscreen.library\n"));
 
-        stack=AllocMem(MUIS_STACKSIZE, MEMF_PUBLIC);
-        if(NULL != stack) {
-            LIBBASE->muisb_closeTask->tc_SPLower = stack;
-            LIBBASE->muisb_closeTask->tc_SPUpper = (BYTE *)stack + MUIS_STACKSIZE;
-            LIBBASE->muisb_closeTask->tc_UserData = LIBBASE;
+    if (!(DOSBase = (struct DosLibrary *)OpenLibrary("dos.library", DOS_MIN_VERSION)))
+        goto fail;
+    libBase->dosbase = DOSBase;
 
-#if AROS_STACK_GROWS_DOWNWARDS
-            LIBBASE->muisb_closeTask->tc_SPReg = (BYTE *)LIBBASE->muisb_closeTask->tc_SPUpper - SP_OFFSET - sizeof(APTR);
-#else
-            LIBBASE->muisb_closeTask->tc_SPReg = (BYTE *)LIBBASE->muisb_closeTask->tc_SPLower - SP_OFFSET + sizeof(APTR);
-#endif
-            if (AddTask(LIBBASE->muisb_closeTask, GM_UNIQUENAME(pubscreenClose_Task), NULL) != NULL) {
-                return TRUE;
-            }
-        } else {
-            FreeMem(LIBBASE->muisb_closeTask, sizeof (struct Task));
-            LIBBASE->muisb_closeTask = NULL;
-        }
+    if (!(UtilityBase = OpenLibrary("utility.library", UTILITY_MIN_VERSION)))
+        goto fail;
+    libBase->utilitybase = UtilityBase;
+
+    if (!(GfxBase = (struct GfxBase *)OpenLibrary("graphics.library", GRAPHICS_MIN_VERSION)))
+        goto fail;
+    libBase->gfxbase = GfxBase;
+
+    if (!(IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", INTUITION_MIN_VERSION)))
+        goto fail;
+    libBase->intuibase = IntuitionBase;
+
+    if (!(IFFParseBase = OpenLibrary("iffparse.library", IFFPARSE_MIN_VERSION)))
+        goto fail;
+    libBase->iffparsebase = IFFParseBase;
+
+    NewList(&libBase->clients);
+    NewList(&libBase->muisb_autocScreens);
+    InitSemaphore(&libBase->muisb_acLock);
+
+    libBase->muisb_def = NULL;
+    libBase->muisb_taskMsgPort = NULL;
+    libBase->muisb_closeTask = NULL;
+
+    task = AllocMem(sizeof(struct Task), MEMF_PUBLIC | MEMF_CLEAR);
+    if (task == NULL)
+        goto fail;
+
+    NewList(&task->tc_MemEntry);
+    task->tc_Node.ln_Type = NT_TASK;
+    task->tc_Node.ln_Name = "PUBSCREEN handler";
+    task->tc_Node.ln_Pri = 0;
+    task->tc_UserData = libBase;
+
+    stack = AllocMem(MUIS_STACKSIZE, MEMF_PUBLIC);
+    if (stack == NULL)
+    {
+        FreeMem(task, sizeof(struct Task));
+        goto fail;
     }
+
+    /* Classic Amiga: stacks grow downwards; SP starts at the upper end. */
+    task->tc_SPLower = stack;
+    task->tc_SPUpper = (BYTE *)stack + MUIS_STACKSIZE;
+    task->tc_SPReg = task->tc_SPUpper;
+
+    Forbid();
+    if (AddTask(task, pubscreenClose_Task, NULL) == NULL)
+    {
+        Permit();
+        FreeMem(stack, MUIS_STACKSIZE);
+        FreeMem(task, sizeof(struct Task));
+        goto fail;
+    }
+    libBase->muisb_closeTask = task;
+    Permit();
+
+    return TRUE;
+
+fail:
+    L_ExpungeLib(_MUIScreenBase);
     return FALSE;
 }
 
-static VOID GM_UNIQUENAME(pubscreenClose_Task)()
+/****************************************************************************************/
+
+static void SAVEDS pubscreenClose_Task(void)
 {
-    struct Task *thistask = FindTask(NULL);
-    struct MUIScreenBase_intern *MUIScreenBase = thistask->tc_UserData;
+    struct Task *thistask;
+    struct MUIScreenBase_intern *MUIScreenBase;
+    ULONG signals;
+    ULONG sigs;
+    struct Node *autocNode;
+    struct Node *tmp;
+    struct Screen *screen;
 
-    D(
-        bug("[MUIScreen] %s()\n", __func__);
-        bug("[MUIScreen] %s: thisTask = 0x%p\n", __func__, thistask);
-        bug("[MUIScreen] %s: MUIScreenBase = 0x%p\n", __func__, MUIScreenBase);
-    )
+    thistask = FindTask(NULL);
+    MUIScreenBase = (struct MUIScreenBase_intern *)thistask->tc_UserData;
 
-    InitSemaphore(&MUIScreenBase->muisb_acLock);
+    D(bug("[MUIScreen] close task thisTask=%lx base=%lx\n",
+        (ULONG)thistask, (ULONG)MUIScreenBase));
 
-    if ((MUIScreenBase->muisb_taskMsgPort = CreateMsgPort())) {
-        do {
-            ULONG sigs, signals = (1L << MUIScreenBase->muisb_taskMsgPort->mp_SigBit) | SIGBREAKF_CTRL_C;
+    if ((MUIScreenBase->muisb_taskMsgPort = CreateMsgPort()) != NULL)
+    {
+        signals = (1L << MUIScreenBase->muisb_taskMsgPort->mp_SigBit) | SIGBREAKF_CTRL_C;
+        do
+        {
             sigs = Wait(signals);
-            if (sigs && (1L << MUIScreenBase->muisb_taskMsgPort->mp_SigBit)) {
-                struct Node *autocNode, *tmp;
+            if (sigs & (1L << MUIScreenBase->muisb_taskMsgPort->mp_SigBit))
+            {
+                D(bug("[MUIScreen] msgport signal received\n"));
 
-                D(bug("[MUIScreen] %s: msgport signal received\n", __func__);)
-
-                ObtainSemaphore(&LIBBASE->muisb_acLock);
-                ForeachNodeSafe(&LIBBASE->muisb_autocScreens, autocNode, tmp) {
-                    struct Screen *screen = (struct Screen *)autocNode->ln_Name;
-                    if (!screen->FirstWindow) {
-                        D(bug("[MUIScreen] %s: closing Screen @ 0x%p\n", __func__, screen);)
+                ObtainSemaphore(&MUIScreenBase->muisb_acLock);
+                ForeachNodeSafe(&MUIScreenBase->muisb_autocScreens, autocNode, tmp)
+                {
+                    screen = (struct Screen *)autocNode->ln_Name;
+                    if (screen != NULL && screen->FirstWindow == NULL)
+                    {
+                        D(bug("[MUIScreen] closing Screen @ %lx\n", (ULONG)screen));
                         Remove(autocNode);
                         CloseScreen(screen);
                         FreeVec(autocNode);
                     }
                 }
-                ReleaseSemaphore(&LIBBASE->muisb_acLock);
+                ReleaseSemaphore(&MUIScreenBase->muisb_acLock);
             }
-            if (sigs & SIGBREAKF_CTRL_C) {
+            if (sigs & SIGBREAKF_CTRL_C)
                 break;
-            }
         } while (1);
+
+        DeleteMsgPort(MUIScreenBase->muisb_taskMsgPort);
+        MUIScreenBase->muisb_taskMsgPort = NULL;
     }
-    LIBBASE->muisb_closeTask = NULL;
+
+    MUIScreenBase->muisb_closeTask = NULL;
 }
 
-int GM_UNIQUENAME(libExpunge)(LIBBASETYPEPTR LIBBASE)
+/****************************************************************************************/
+
+void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIScreenBase)
 {
-    if (LIBBASE->muisb_taskMsgPort) {
-        Signal(LIBBASE->muisb_closeTask, SIGBREAKF_CTRL_C);
-    }
-    return TRUE;
-}
+    struct MUIScreenBase_intern *libBase;
+    LONG waits;
 
-ADD2INITLIB(GM_UNIQUENAME(libInit), 0);
-ADD2EXPUNGELIB(GM_UNIQUENAME(libExpunge), 0);
+    libBase = (struct MUIScreenBase_intern *)_MUIScreenBase;
+
+    if (libBase->muisb_closeTask != NULL)
+    {
+        Signal(libBase->muisb_closeTask, SIGBREAKF_CTRL_C);
+        /*
+         * Brief wait so the handler can DeleteMsgPort and clear
+         * muisb_closeTask before we tear down the library base.
+         */
+        for (waits = 0; libBase->muisb_closeTask != NULL && waits < 50; waits++)
+        {
+            if (DOSBase != NULL)
+                Delay(1);
+        }
+    }
+
+    if (libBase->iffparsebase)
+    {
+        CloseLibrary(libBase->iffparsebase);
+        libBase->iffparsebase = NULL;
+        IFFParseBase = NULL;
+    }
+    if (libBase->intuibase)
+    {
+        CloseLibrary((struct Library *)libBase->intuibase);
+        libBase->intuibase = NULL;
+        IntuitionBase = NULL;
+    }
+    if (libBase->gfxbase)
+    {
+        CloseLibrary((struct Library *)libBase->gfxbase);
+        libBase->gfxbase = NULL;
+        GfxBase = NULL;
+    }
+    if (libBase->utilitybase)
+    {
+        CloseLibrary(libBase->utilitybase);
+        libBase->utilitybase = NULL;
+        UtilityBase = NULL;
+    }
+    if (libBase->dosbase)
+    {
+        CloseLibrary((struct Library *)libBase->dosbase);
+        libBase->dosbase = NULL;
+        DOSBase = NULL;
+    }
+
+    MUIScreenBase = NULL;
+}

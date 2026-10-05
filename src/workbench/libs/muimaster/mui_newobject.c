@@ -13,6 +13,9 @@
 /* #define MYDEBUG 1 */
 #include "debug.h"
 
+/* Stack-safe helpers (LVO forms expect args in registers). */
+extern __asm __saveds struct IClass *MUI_GetClass(register __a0 ClassID classid);
+extern VOID ZUNE_FreeClass(Class *cl);
 /*****************************************************************************
 
     NAME */
@@ -53,7 +56,7 @@
 
         ZuneTrace("zune: NewObject failed class=%s\n",
             classid ? classid : (CONST_STRPTR) "(null)");
-        MUI_FreeClass(cl);
+        ZUNE_FreeClass(cl);
     }
     else
     {

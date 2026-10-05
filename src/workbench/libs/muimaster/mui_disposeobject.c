@@ -67,5 +67,12 @@
     ZuneTrace("zune: DisposeObject obj=%lx cl=%lx id=%s flags=%lx ud=%ld\n",
         (ULONG) obj, clsave, id, flags, ud);
     DisposeObject(obj);
-    MUI_FreeClass((Class *) clsave);
+    /*
+     * Use stack-safe ZUNE_FreeClass.  A C call to MUI_FreeClass leaves A0
+     * as obj and FreeClass then operates on the wrong pointer.
+     */
+    {
+        extern VOID ZUNE_FreeClass(Class *cl);
+        ZUNE_FreeClass((Class *) clsave);
+    }
 } /* MUI_DisposeObject */

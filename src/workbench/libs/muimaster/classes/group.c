@@ -6,6 +6,7 @@
 */
 
 #include <exec/types.h>
+#include <string.h>
 
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
@@ -15,6 +16,9 @@
 #include <proto/muimaster.h>
 
 extern struct Library *MUIMasterBase;
+
+/* Private LVO: undo/apply virtgroup scroll on child boxes. */
+extern VOID MUI_Offset(Object *obj, LONG addx, LONG addy);
 
 #include "muimaster_intern.h"
 #include "mui.h"
@@ -49,7 +53,7 @@ extern struct Library *MUIMasterBase;
 
 #define ROUND(x) ((int)(x + 0.5))
 #define IS_HIDDEN(obj) (! (_flags(obj) & MADF_SHOWME) \
- || (_flags(obj) & MADF_BORDERGADGET))
+ || (muiAreaData(obj)->mad_Flags2 & MADF2_BORDERGADGET))
 
 /* Attributes filtered out in OM_SET, before OM_SET gets passed to children.
    Tested with MUI under UAE/AOS.
@@ -155,7 +159,12 @@ struct MUI_GroupData
 #define GROUP_HSPACING    (1<<7)
 #define GROUP_VSPACING    (1<<8)
 #define GROUP_CHANGED     (1<<9)
-
+/* Nest depth for InitChange/ExitChange lives in flags[23:16].  Voyager nests
+ * ShowNStream InitChange around GotData's InitChange/ExitChange; a plain
+ * flag made the inner ExitChange RecalcDisplay while the outer swap was
+ * still in progress (empty layout, then crash on the real one). */
+#define GROUP_CHANGE_NEST_SHIFT 16
+#define GROUP_CHANGE_NEST_MASK  (0x00FFUL << GROUP_CHANGE_NEST_SHIFT)
 
 /* During minmax calculations objects with a weight of 0 shall
    be treated like they had identical min/def/max size, ie. fixed size.
@@ -172,6 +181,72 @@ struct MUI_GroupData
 
 static const int __version = 1;
 static const int __revision = 1;
+
+/* UI is single-threaded; skip Virtgroup_Update while MUIM_Layout runs so a
+ * post-hook scroll clamp cannot Hide/Redraw/BeginRefresh mid-layout. */
+static int group_layout_depth;
+
+static ULONG group_get_change_nest(struct MUI_GroupData *data)
+{
+    return (data->flags & GROUP_CHANGE_NEST_MASK) >> GROUP_CHANGE_NEST_SHIFT;
+}
+
+static void group_set_change_nest(struct MUI_GroupData *data, ULONG nest)
+{
+    data->flags = (data->flags & ~GROUP_CHANGE_NEST_MASK)
+        | ((nest << GROUP_CHANGE_NEST_SHIFT) & GROUP_CHANGE_NEST_MASK);
+}
+
+/*
+ * True if an ancestor Group is in InitChange.  Resolve Group.mui InstOffset
+ * along each parent's class chain so subclass ExitChange (cl != Group) does
+ * not INST_DATA the wrong slice and miss htmlwin's CHANGING flag.
+ */
+static BOOL group_ancestor_changing(Object *obj, struct IClass *fallback_cl)
+{
+    Object *win;
+    Object *parent;
+
+    win = _win(obj);
+    parent = obj;
+    while ((parent = _parent(parent)) != NULL)
+    {
+        struct IClass *c;
+        struct IClass *gcl;
+        struct MUI_GroupData *pdata;
+
+        if (parent == win)
+            break;
+
+        if (!(_flags(parent) & MADF_GROUP))
+            continue;
+
+        gcl = NULL;
+        for (c = OCLASS(parent); c != NULL; c = c->cl_Super)
+        {
+            if (c->cl_ID != NULL && strcmp(c->cl_ID, MUIC_Group) == 0)
+            {
+                gcl = c;
+                break;
+            }
+        }
+        if (gcl == NULL)
+            gcl = fallback_cl;
+        if (gcl == NULL)
+            continue;
+
+        pdata = INST_DATA(gcl, parent);
+        if (pdata->flags & GROUP_CHANGING)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/* Area.mui ShowMe (and others) need this without Instantiating GroupData. */
+BOOL Zune_GroupExchangeActive(Object *obj)
+{
+    return group_ancestor_changing(obj, NULL);
+}
 
 IPTR Group__MUIM_Show(struct IClass *cl, Object *obj,
     struct MUIP_Show *msg);
@@ -239,7 +314,7 @@ static void change_active_page(struct IClass *cl, Object *obj, LONG page)
 
 /**************************************************************************
  Returns the number of visible children. Visible children are all children
- that have MADF_SHOWME and not MADF_BORDERGADGET set.
+ that have MADF_SHOWME and not MADF2_BORDERGADGET set.
 **************************************************************************/
 static int Group_GetNumVisibleChildren(struct MUI_GroupData *data,
     struct MinList *children)
@@ -314,7 +389,7 @@ static IPTR Group__MUIM_AddObject(struct IClass *cl, Object *obj, Msg msg)
      * added to application tree */
     muiNotifyData(msgint->obj)->mnd_ParentObject = obj;
 
-    if (_flags(obj) & MADF_SETUP)
+    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
     {
         DoSetupMethod(msgint->obj, muiRenderInfo(obj));
     }
@@ -457,6 +532,9 @@ IPTR Group__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
          * Also MUI_Layout() uses this. Probably for speed up reason  */
         _flags(obj) |= MADF_ISVIRTUALGROUP;
     }
+
+    /* Voyager _isgroup() tests commercial MADF_GROUP (bit 8). */
+    _flags(obj) |= MADF_GROUP;
 
 #if (0)
     // kalamatee : disabled as unnecessary.
@@ -677,16 +755,44 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
 
     if (virt_offx != data->virt_offx || virt_offy != data->virt_offy)
     {
-        if (_flags(obj) & MADF_CANDRAW)
-            Group__MUIM_Hide(cl, obj, NULL);
+        data->old_virt_offx = data->virt_offx;
+        data->old_virt_offy = data->virt_offy;
         data->virt_offx = virt_offx;
         data->virt_offy = virt_offy;
-        /* Relayout ourselves. This will also relayout all the children */
-        ZuneLayout(obj);
-        if (_flags(obj) & MADF_CANDRAW)
-            Group__MUIM_Show(cl, obj, NULL);
-        data->update = 2;
-        MUI_Redraw(obj, MADF_DRAWUPDATE);
+
+        /*
+         * Commercial Virtgroup scrolls via MUIM_Virtgroup_Update (Offset
+         * children).  Hide/ZuneLayout/Show re-runs layout hooks and does
+         * not move Voyager LayoutObj children -- HTML appears stuck.
+         * Skip Update while MUIM_Layout is on the stack: a post-hook scroll
+         * clamp must not Hide/Redraw/BeginRefresh mid-layout (reload hang).
+         */
+        if (group_layout_depth == 0
+            && (_flags(obj) & MADF_ISVIRTUALGROUP))
+        {
+            struct
+            {
+                ULONG MethodID;
+                LONG layout;
+            } umsg;
+
+            umsg.MethodID = (MUIB_MUI | 0x0042ffbf); /* MUIM_Virtgroup_Update */
+            umsg.layout = 0;
+            ZuneTrace("zune: Virtgroup scroll Update top=%ld left=%ld\n",
+                (LONG) data->virt_offy, (LONG) data->virt_offx);
+            DoMethodA(obj, (Msg) & umsg);
+            data->update = 2;
+        }
+        else if (group_layout_depth == 0)
+        {
+            if (_flags(obj) & MADF_CANDRAW)
+                Group__MUIM_Hide(cl, obj, NULL);
+            ZuneLayout(obj);
+            if (_flags(obj) & MADF_CANDRAW)
+                Group__MUIM_Show(cl, obj, NULL);
+            data->update = 2;
+            MUI_Redraw(obj, MADF_DRAWUPDATE);
+        }
     }
 
     return retval;
@@ -809,7 +915,7 @@ IPTR Group__MUIM_Remove(struct IClass *cl, Object *obj,
 
     if (_flags(obj) & MADF_CANDRAW)
         DoHideMethod(msg->obj);
-    if (_flags(obj) & MADF_SETUP)
+    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
         DoMethod(msg->obj, MUIM_Cleanup);
     if (muiNotifyData(obj)->mnd_GlobalInfo)
     {
@@ -887,23 +993,78 @@ IPTR Group__MUIM_DisconnectParent(struct IClass *cl, Object *obj,
     while ((child = NextObject(&cstate)))
     {
         DoMethodA(child, (Msg) msg);
-        muiNotifyData(child)->mnd_ParentObject = NULL;
-        _flags(child) &= ~MADF_INVIRTUALGROUP;
+        /*
+         * MUIA_Parent tracks group/family membership, not GlobalInfo.
+         * Clearing it here (AROS did) breaks apps that RemMember a Window
+         * from the Application then still RemMember children via _parent()
+         * before disposing the Window — Voyager HTMLWin_ToDormant.  Parent
+         * is cleared only in Group/Family Remove when the child actually
+         * leaves the family list.  INVIRTUALGROUP stays with membership.
+         */
     }
     DoSuperMethodA(cl, obj, (Msg) msg);
     return TRUE;
 }
 
 /*
- * Put group in exchange state
+ * Put group in exchange state.
+ * Voyager layout_detach/attach InitChanges the htmlview Virtgroup while
+ * Virtgroup_Top may still be non-zero (htmlview never resets Top).  Scroll
+ * used MUI_Offset(-top) on children; forgetting Top without undoing that
+ * leaves the surviving dummy (and any not-yet-removed kids) shifted.  Reload
+ * then dies inside the htmlview layout hook.  Offset children back first,
+ * then zero scroll so a later set(Top) cannot apply a stale delta to new
+ * LayoutObj children.
+ *
+ * Nesting: ShowNStream InitChanges htmlwin, then GotData InitChange/ExitChange
+ * around layout_do.  Count nests so only the outermost ExitChange RecalcDisplays.
  */
 IPTR Group__MUIM_InitChange(struct IClass *cl, Object *obj,
     struct MUIP_Group_InitChange *msg)
 {
     struct MUI_GroupData *data = INST_DATA(cl, obj);
+    ULONG nest;
+
+    (void)msg;
+
+    nest = group_get_change_nest(data);
+    if (nest < 255)
+        nest++;
+    group_set_change_nest(data, nest);
 
     data->flags &= ~GROUP_CHANGED;
     data->flags |= GROUP_CHANGING;
+    if (data->flags & GROUP_VIRTUAL)
+    {
+        if (data->virt_offx != 0 || data->virt_offy != 0)
+        {
+            struct List *childlist;
+            Object *child;
+            Object *cstate;
+            LONG addx, addy;
+
+            addx = data->virt_offx;
+            addy = data->virt_offy;
+            ZuneTrace("zune: Virtgroup InitChange restore scroll top=%ld left=%ld\n",
+                addy, addx);
+
+            childlist = NULL;
+            get(obj, MUIA_Group_ChildList, (IPTR *) & childlist);
+            if (childlist != NULL)
+            {
+                cstate = (Object *) ((struct MinList *)childlist)->mlh_Head;
+                while ((child = NextObject(&cstate)) != NULL)
+                    MUI_Offset(child, addx, addy);
+            }
+
+            data->virt_offx = 0;
+            data->virt_offy = 0;
+            data->old_virt_offx = 0;
+            data->old_virt_offy = 0;
+        }
+    }
+    ZuneTrace("zune: InitChange obj=%lx nest=%ld\n",
+        (ULONG) obj, (LONG) nest);
     return TRUE;
 }
 
@@ -915,8 +1076,25 @@ IPTR Group__MUIM_ExitChange(struct IClass *cl, Object *obj,
     struct MUIP_Group_ExitChange *msg)
 {
     struct MUI_GroupData *data = INST_DATA(cl, obj);
+    ULONG nest;
 
-    data->flags &= ~GROUP_CHANGING;
+    (void)msg;
+
+    nest = group_get_change_nest(data);
+    if (nest > 0)
+        nest--;
+    group_set_change_nest(data, nest);
+
+    if (nest > 0)
+    {
+        /* Outer InitChange still owns the exchange; keep CHANGING. */
+        data->flags |= GROUP_CHANGING;
+        ZuneTrace("zune: ExitChange nested obj=%lx remaining=%ld\n",
+            (ULONG) obj, (LONG) nest);
+        return TRUE;
+    }
+
+    data->flags &= ~(GROUP_CHANGING | GROUP_CHANGED);
 
 #if 0
     /* Code is invalid. ExitChange needs to re-layout each time (tested
@@ -925,34 +1103,20 @@ IPTR Group__MUIM_ExitChange(struct IClass *cl, Object *obj,
     if (data->flags & GROUP_CHANGED)
 #endif
     {
-        data->flags &= ~GROUP_CHANGED;
-
-        if ((_flags(obj) & MADF_SETUP) && _win(obj))
+        if ((muiAreaData(obj)->mad_Flags2 & MADF2_SETUP) && _win(obj))
         {
             Object *win = _win(obj);
-            Object *parent = obj;
 
-            /* CHECKME: Don't call RecalcDisplay if one of our parents is
-               in GROUP_CHANGING state to prevent  crash with Zune prefs
-               program NListtree page because NList/NListtree when
-               killing tree images in MUIM_Cleanup uses InitChange/
-               ExitChange. Zune prefs program uses InitChange/ExitChange
-               when switching page -> nesting -> mess. */
-
-            while ((parent = _parent(parent)))
+            /* Don't RecalcDisplay if an ancestor is still exchanging children
+             * (nested InitChange, or NListtree Cleanup during page switch). */
+            if (group_ancestor_changing(obj, cl))
             {
-                struct MUI_GroupData *pdata = INST_DATA(cl, parent);
-
-                if (parent == win)
-                    break;
-
-                if (pdata->flags & GROUP_CHANGING)
-                {
-                    return TRUE;
-                }
-
+                ZuneTrace("zune: ExitChange skip Recalc (ancestor changing) obj=%lx\n",
+                    (ULONG) obj);
+                return TRUE;
             }
 
+            ZuneTrace("zune: ExitChange RecalcDisplay obj=%lx\n", (ULONG) obj);
             DoMethod(win, MUIM_Window_RecalcDisplay, (IPTR) obj);
         }
     }
@@ -968,39 +1132,41 @@ IPTR Group__MUIM_ExitChange2(struct IClass *cl, Object *obj,
     struct MUIP_Group_ExitChange2 *msg)
 {
     struct MUI_GroupData *data = INST_DATA(cl, obj);
+    ULONG nest;
 
-    if (data->flags & GROUP_CHANGING)
+    (void)msg;
+
+    nest = group_get_change_nest(data);
+    if (nest == 0 && !(data->flags & GROUP_CHANGING))
+        return TRUE;
+
+    if (nest > 0)
+        nest--;
+    group_set_change_nest(data, nest);
+
+    if (nest > 0)
     {
-        data->flags &= ~(GROUP_CHANGING | GROUP_CHANGED);
+        data->flags |= GROUP_CHANGING;
+        ZuneTrace("zune: ExitChange2 nested obj=%lx remaining=%ld\n",
+            (ULONG) obj, (LONG) nest);
+        return TRUE;
+    }
 
-        if ((_flags(obj) & MADF_SETUP) && _win(obj))
+    data->flags &= ~(GROUP_CHANGING | GROUP_CHANGED);
+
+    if ((muiAreaData(obj)->mad_Flags2 & MADF2_SETUP) && _win(obj))
+    {
+        Object *win = _win(obj);
+
+        if (group_ancestor_changing(obj, cl))
         {
-            Object *win = _win(obj);
-            Object *parent = obj;
-
-            /* CHECKME: Don't call RecalcDisplay if one of our parents is
-               in GROUP_CHANGING state to prevent  crash with Zune prefs
-               program NListtree page because NList/NListtree when
-               killing tree images in MUIM_Cleanup uses InitChange/
-               ExitChange. Zune prefs program uses InitChange/ExitChange
-               when switching page -> nesting -> mess. */
-
-            while ((parent = _parent(parent)))
-            {
-                struct MUI_GroupData *pdata = INST_DATA(cl, parent);
-
-                if (parent == win)
-                    break;
-
-                if (pdata->flags & GROUP_CHANGING)
-                {
-                    return TRUE;
-                }
-
-            }
-
-            DoMethod(win, MUIM_Window_RecalcDisplay, (IPTR) obj);
+            ZuneTrace("zune: ExitChange2 skip Recalc (ancestor changing) obj=%lx\n",
+                (ULONG) obj);
+            return TRUE;
         }
+
+        ZuneTrace("zune: ExitChange2 RecalcDisplay obj=%lx\n", (ULONG) obj);
+        DoMethod(win, MUIM_Window_RecalcDisplay, (IPTR) obj);
     }
 
     return TRUE;
@@ -1646,6 +1812,10 @@ static void group_minmax_vert(struct IClass *cl, Object *obj,
     {
         tmp.MaxWidth = tmp.MinWidth;
     }
+
+    ZuneTrace("zune: minmax_vert obj=%lx vwsum=%ld minH=%ld defH=%ld maxH=%ld\n",
+        (ULONG) obj, (LONG) data->vert_weight_sum,
+        (LONG) tmp.MinHeight, (LONG) tmp.DefHeight, (LONG) tmp.MaxHeight);
 
     END_MINMAX();
 }
@@ -2905,10 +3075,25 @@ IPTR Group__MUIM_Layout(struct IClass *cl, Object *obj,
 {
     struct MUI_GroupData *data = INST_DATA(cl, obj);
     struct MUI_LayoutMsg lm = { 0 };
+    STRPTR id;
+
+    (void)msg;
+
+    id = (STRPTR) "?";
+    if (cl->cl_ID != NULL)
+        id = cl->cl_ID;
+    ZuneTrace("zune: Layout enter obj=%lx cl=%s %ldx%ld\n",
+        (ULONG) obj, id, (ULONG) _mwidth(obj), (ULONG) _mheight(obj));
+
+    group_layout_depth++;
 
     get(data->family, MUIA_Family_List, &(lm.lm_Children));
     if (lm.lm_Children == NULL)
+    {
+        ZuneTrace("zune: Layout no children obj=%lx\n", (ULONG) obj);
+        group_layout_depth--;
         return 0;
+    }
     if (data->flags & GROUP_PAGEMODE)
     {
         group_layout_pagemode(cl, obj, lm.lm_Children);
@@ -2919,7 +3104,29 @@ IPTR Group__MUIM_Layout(struct IClass *cl, Object *obj,
         lm.lm_Layout.Width = _mwidth(obj);
         lm.lm_Layout.Height = _mheight(obj);
 
+        ZuneTrace("zune: Layout hook=%lx obj=%lx\n",
+            (ULONG) data->layout_hook, (ULONG) obj);
+        {
+            Object *probe;
+            Object *pstate;
+            LONG nchild;
+
+            nchild = 0;
+            pstate = (Object *) lm.lm_Children->mlh_Head;
+            while ((probe = NextObject(&pstate)) != NULL)
+            {
+                nchild++;
+                if (nchild <= 3)
+                {
+                    ZuneTrace("zune: Layout child[%ld]=%lx\n",
+                        nchild, (ULONG) probe);
+                }
+            }
+            ZuneTrace("zune: Layout children=%ld before hook obj=%lx\n",
+                nchild, (ULONG) obj);
+        }
         CallHookPkt(data->layout_hook, obj, &lm);
+        ZuneTrace("zune: Layout hook returned obj=%lx\n", (ULONG) obj);
 
         if (data->flags & GROUP_VIRTUAL)
         {
@@ -2972,6 +3179,10 @@ IPTR Group__MUIM_Layout(struct IClass *cl, Object *obj,
         }
 
     }
+
+    group_layout_depth--;
+
+    ZuneTrace("zune: Layout leave obj=%lx cl=%s\n", (ULONG) obj, id);
 
     return 0;
 }

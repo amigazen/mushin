@@ -478,7 +478,7 @@ IPTR Dtpic__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                 data->name = (STRPTR)tag->ti_Data;
 
                 /* Run immediate setup only if base class is setup up */
-                if (_flags(obj) & MADF_SETUP)
+                if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
                     setup_datatype(cl, obj);
                 needs_redraw = 1;
             }
@@ -493,7 +493,7 @@ IPTR Dtpic__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     }
 
     update_alpha(data);
-    if (_flags(obj) & MADF_SETUP)
+    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
         change_event_handler(obj, data);
 
     if (needs_redraw)

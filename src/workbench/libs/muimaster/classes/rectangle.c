@@ -284,7 +284,7 @@ IPTR Rectangle__MUIM_Draw(struct IClass *cl, Object *obj,
             obj, _left(obj), _top(obj), _right(obj), _bottom(obj),
             _mwidth(obj), _mheight(obj))); */
 
-        SetAPen(_rp(obj), _pens(obj)[MPEN_SHADOW]);
+        SetAPen(_rp(obj), _pens(obj)[MPEN_TEXT]);
         if ((muiGlobalInfo(obj))->mgi_Prefs->group_title_color ==
             GROUP_TITLE_COLOR_3D)
         {
@@ -294,6 +294,7 @@ IPTR Rectangle__MUIM_Draw(struct IClass *cl, Object *obj,
             x1 -= 1;
             x2 = x1 + tw;
             yt = _mtop(obj) + (_mheight(obj) - th) / 2;
+            SetAPen(_rp(obj), _pens(obj)[MPEN_SHADOW]);
             zune_text_draw(data->ztext, obj, x1 + 1, x2, yt + 1);
             SetAPen(_rp(obj), _pens(obj)[MPEN_SHINE]);
             zune_text_draw(data->ztext, obj, x1, x2 - 1, yt);
@@ -319,6 +320,8 @@ IPTR Rectangle__MUIM_Draw(struct IClass *cl, Object *obj,
             if ((muiGlobalInfo(obj))->mgi_Prefs->group_title_color ==
                 GROUP_TITLE_COLOR_HILITE)
                 SetAPen(_rp(obj), _pens(obj)[MPEN_SHINE]);
+            else
+                SetAPen(_rp(obj), _pens(obj)[MPEN_TEXT]);
 
             tw = data->ztext->width;
             th = data->ztext->height;

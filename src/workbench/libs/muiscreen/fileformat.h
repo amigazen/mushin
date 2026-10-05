@@ -2,12 +2,13 @@
 #define FILEFORMAT_H
 
 /*
-    Copyright © 2009, The AROS Development Team. All rights reserved.
+    Copyright (C) 2009, The AROS Development Team. All rights reserved.
     $Id$
 */
 
 #include <exec/types.h>
 #include <libraries/iffparse.h>
+#include <libraries/muiscreen.h>
 
 struct FilePrefHeader
 {

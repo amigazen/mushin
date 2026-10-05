@@ -34,6 +34,7 @@ SUPPORTOBJS = \
   objs/imspec_gradientdraw.o \
   objs/menu.o \
   objs/penspec.o \
+  objs/reactionprefs.o \
   objs/support.o \
   objs/support_amigaos.o \
   objs/support_classes.o \
@@ -59,6 +60,7 @@ LIBOBJS = \
   objs/mui_freeclass.o\
   objs/mui_getclass.o\
   objs/mui_layout.o\
+  objs/mui_layoutpriv.o\
   objs/mui_makeobject.o\
   objs/mui_newobject.o\
   objs/mui_obtainpen.o\
@@ -90,6 +92,7 @@ CLASSESOBJS= \
   objs/classes/dirlist.o \
   objs/classes/dtpic.o \
   objs/classes/family.o \
+  objs/classes/floattext.o \
   objs/classes/frameadjust.o \
   objs/classes/framedisplay.o \
   objs/classes/gauge.o \
@@ -243,6 +246,7 @@ FROM objs/mui_addclipregion.o objs/mui_addclipping.o \
   objs/mui_createcustomclass.o objs/mui_deletecustomclass.o \
   objs/mui_disposeobject.o objs/mui_endrefresh.o objs/mui_error.o \
   objs/mui_freeaslrequest.o objs/mui_freeclass.o objs/mui_layout.o \
+  objs/mui_layoutpriv.o \
   objs/mui_makeobject.o objs/mui_newobject.o objs/mui_obtainpen.o \
   objs/mui_private.o objs/mui_redraw.o objs/mui_rejectidcmp.o \
   objs/mui_releasepen.o \
@@ -260,7 +264,7 @@ FROM objs/classes/aboutmui.o objs/classes/application.o \
   objs/classes/coloradjust.o objs/classes/colorfield.o \
   objs/classes/crawling.o objs/classes/cycle.o objs/classes/dataspace.o \
   objs/classes/dirlist.o objs/classes/dtpic.o \
-  objs/classes/family.o objs/classes/frameadjust.o \
+  objs/classes/family.o objs/classes/floattext.o objs/classes/frameadjust.o \
   objs/classes/framedisplay.o objs/classes/gauge.o objs/classes/group.o \
   objs/classes/image.o objs/classes/imageadjust.o \
   objs/classes/imagedisplay.o objs/classes/knob.o \
@@ -278,7 +282,7 @@ FROM objs/classes/aboutmui.o objs/classes/application.o \
   objs/classes/settingsgroup.o objs/classes/slider.o objs/classes/string.o \
   objs/classes/text.o objs/classes/virtgroup.o objs/classes/volumelist.o \
   objs/classes/window.o
-LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib lib:small.lib sc:lib/scm.lib
+LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib sc:lib/scm.lib
 NOICONS
 SC
 SD
@@ -314,7 +318,7 @@ FROM objs/muimaster_lib.o objs/muimaster_init.o
 FROM $(LIBOBJS)
 FROM $(SUPPORTOBJS)
 FROM $(CLASSESOBJS)
-LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib lib:small.lib sc:lib/scm.lib
+LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib sc:lib/scm.lib
 NOICONS
 SC
 SD
@@ -378,6 +382,9 @@ objs/penspec.o: penspec.c
 objs/prefs.o: prefs.c
   sc $(CFLAGS) prefs.c objname=$@
 
+objs/reactionprefs.o: reactionprefs.c
+  sc $(CFLAGS) reactionprefs.c objname=$@
+
 
 objs/mui_addclipping.o: mui_addclipping.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_addclipping.c objname=$@
@@ -427,6 +434,9 @@ objs/mui_getclass.o: mui_getclass.c
 
 objs/mui_layout.o: mui_layout.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_layout.c objname=$@
+
+objs/mui_layoutpriv.o: mui_layoutpriv.c
+  sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_layoutpriv.c objname=$@
 
 objs/mui_makeobject.o: mui_makeobject.c
   sc $(CFLAGS) $(LIBSDIRS) $(LIBCODE) mui_makeobject.c objname=$@
@@ -515,6 +525,9 @@ objs/classes/dtpic.o: classes/dtpic.c
 
 objs/classes/family.o: classes/family.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/family.c objname=$@
+
+objs/classes/floattext.o: classes/floattext.c
+  sc $(CFLAGS) $(CLASSESDIRS) classes/floattext.c objname=$@
 
 objs/classes/frameadjust.o: classes/frameadjust.c
   sc $(CFLAGS) $(CLASSESDIRS) classes/frameadjust.c objname=$@
@@ -671,13 +684,24 @@ opentest: objs/opentest.o
 objs/opentest.o
 <
 
+# Voyager-shaped MUI startup probe (open/muigfx/MCC/CreateCustomClass/App).
+voyagertest: objs/voyagertest.o
+  sc link lib lib:amiga.lib to voyagertest with <<
+objs/voyagertest.o
+<
+
 wb: all.gst objs/wanderer.o  $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
   sc link lib lib:debug.lib lib sc:lib/scm.lib to wb with <<
 objs/wanderer.o $(SUPPORTOBJS) $(LIBOBJS) $(CLASSESOBJS)
 <
 
-demos: muimaster.lib
-  smake -f //demos/smakefile
+# Tutorial examples under tutorial/examples (HelloZune, groups, Notify).
+# They OpenLibrary at runtime; no static link against the .library build.
+demos:
+  execute <<
+cd tutorial/examples
+smake all
+<
 
 include: buildincludes zunemaster_lib.sfd
 #  -delete include all
@@ -724,9 +748,13 @@ buildincludes: buildincludes.c
 objs/opentest.o: opentest.c
   sc $(CFLAGS_COMMON) incdir=include opentest.c objname=objs/opentest.o
 
+objs/voyagertest.o: voyagertest.c
+  sc $(CFLAGS_COMMON) incdir=include voyagertest.c objname=objs/voyagertest.o
+
 clean:
   -delete objs all
   -delete test
   -delete opentest
+  -delete voyagertest
   -delete zunemaster.library
   -delete muimaster.library

@@ -228,6 +228,7 @@ struct MUI_WindowData
 #define MUIWF_OPENONUNHIDE     0x00004000 /* Open the window when unhiding */
 #define MUIWF_SCREENLOCKED     0x00008000 /* A pub screen was locked in SetupRenderInfo. Unlock it in CleanupRenderInfo! */
 #define MUIWF_OBJECTGOACTIVESENT 0x00010000 /* A MUIM_GoActive msg was sent to window's active object */
+#define MUIWF_RECALCING        0x00020000 /* MUIM_Window_RecalcDisplay on stack */
 
 #define BUBBLEHELP_TICKER_FIRST 10
 #define BUBBLEHELP_TICKER_LATER 10
@@ -688,8 +689,27 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
        { 
        data->wd_Y=winp->y1;
        data->wd_Height=winp->h1;
-       }  
-
+       }
+       /*
+        * Re-clamp after winpos restore.  A previous chrome-only open
+        * (MaxHeight collapsed to MinHeight) can stick 528x85 in winpos
+        * and starve the htmlview forever.
+        */
+       data->wd_Width = CLAMP(data->wd_Width, data->wd_MinMax.MinWidth,
+           data->wd_MinMax.MaxWidth);
+       data->wd_Height = CLAMP(data->wd_Height, data->wd_MinMax.MinHeight,
+           data->wd_MinMax.MaxHeight);
+       if (data->wd_Height <= data->wd_MinMax.MinHeight
+           && data->wd_MinMax.DefHeight > data->wd_MinMax.MinHeight)
+       {
+           ZuneTrace("zune: winpos height %ld ~min, use def %ld\n",
+               (LONG) data->wd_Height, (LONG) data->wd_MinMax.DefHeight);
+           data->wd_Height = data->wd_MinMax.DefHeight;
+           data->wd_Height = CLAMP(data->wd_Height, data->wd_MinMax.MinHeight,
+               data->wd_MinMax.MaxHeight);
+       }
+       ZuneTrace("zune: winpos restore -> %ldx%ld\n",
+           (LONG) data->wd_Width, (LONG) data->wd_Height);
     }                                           
 //new e
 
@@ -752,11 +772,14 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
        //new
         SetDrMd(win->RPort,JAM1); //text is draw wrong in toolbarclass if not set
         //new end
+        ZuneTrace("zune: WindowOpen after SetDrMd\n");
 
         if (menu)
         {
             data->wd_Menu = menu;
+            ZuneTrace("zune: WindowOpen SetMenuStrip %lx\n", (ULONG) menu);
 	    SetMenuStrip(win,menu);
+            ZuneTrace("zune: WindowOpen SetMenuStrip done\n");
         }
 
         if (flags & WFLG_ACTIVATE)
@@ -766,6 +789,7 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
 
         if (data->wd_Flags & MUIWF_ISAPPWINDOW)
         {
+            ZuneTrace("zune: WindowOpen AddAppWindow\n");
             data->wd_AppWindow = AddAppWindowA(0, (IPTR) obj, win,
                 (muiGlobalInfo(obj))->mgi_AppPort, NULL);
         }
@@ -1560,7 +1584,7 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
         }
         DeleteDragNDrop(data->wd_dnd);
 	DoMethod(data->wd_DragObject,MUIM_DeleteDragImage, (IPTR)data->wd_DragImage);
-        muiAreaData(data->wd_DragObject)->mad_Flags &= ~MADF_DRAGGING;
+        muiAreaData(data->wd_DragObject)->mad_Flags2 &= ~MADF2_DRAGGING;
         data->wd_DragImage = NULL;
         data->wd_DragObject = NULL;
         data->wd_DropWindow = NULL;
@@ -1828,10 +1852,6 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
         break;
 
     case IDCMP_MOUSEBUTTONS:
-        //new wp
-        DoMethod(oWin,MUIM_Window_Snapshot,0);
-        //new end wp 
-
         KillHelpBubble(data, oWin, TRUE);
         is_handled = FALSE;
         break;
@@ -2631,6 +2651,12 @@ static void SetActiveObject (struct MUI_WindowData *data, Object *obj, IPTR newv
  */
 static void WindowSelectDimensions (struct MUI_WindowData *data)
 {
+    /*
+     * Width and height must be chosen independently.  Nesting height
+     * under `if (!wd_Width)` skipped ReqHeight whenever width was already
+     * set (winpos / prior open), leaving height at 0 then CLAMP'd to
+     * MinHeight -- chrome-only windows (~85px) with a 1x1 htmlview.
+     */
     if (!data->wd_Width)
     {
 	if (data->wd_ReqWidth > 0) data->wd_Width = data->wd_ReqWidth;
@@ -2658,7 +2684,10 @@ static void WindowSelectDimensions (struct MUI_WindowData *data)
 	    data->wd_Width = data->wd_RenderInfo.mri_Screen->Width
 		* (- (data->wd_ReqWidth + 100)) / 100;
         }
+    }
 
+    if (!data->wd_Height)
+    {
 	if (data->wd_ReqHeight > 0) data->wd_Height = data->wd_ReqHeight;
         else if (data->wd_ReqHeight == MUIV_Window_Height_Default)
             data->wd_Height = data->wd_MinMax.DefHeight;
@@ -2695,19 +2724,29 @@ static void WindowSelectDimensions (struct MUI_WindowData *data)
 	    data->wd_Height = data->wd_RenderInfo.mri_Screen->Height
 		* (- (data->wd_ReqHeight + 100)) / 100;
         }
-
-        /* scaled */
-        if (data->wd_ReqWidth == MUIV_Window_Width_Scaled)
-            data->wd_Width = data->wd_Height * data->wd_MinMax.MinWidth
-                / data->wd_MinMax.MinHeight;
-        else if (data->wd_ReqHeight == MUIV_Window_Width_Scaled)
-            data->wd_Height = data->wd_Width * data->wd_MinMax.MinHeight
-                / data->wd_MinMax.MinWidth;
     }
+
+    /* scaled (needs both axes considered) */
+    if (data->wd_ReqWidth == MUIV_Window_Width_Scaled
+        && data->wd_MinMax.MinHeight > 0)
+        data->wd_Width = data->wd_Height * data->wd_MinMax.MinWidth
+            / data->wd_MinMax.MinHeight;
+    else if (data->wd_ReqHeight == MUIV_Window_Width_Scaled
+        && data->wd_MinMax.MinWidth > 0)
+        data->wd_Height = data->wd_Width * data->wd_MinMax.MinHeight
+            / data->wd_MinMax.MinWidth;
+
     data->wd_Width = CLAMP(data->wd_Width, data->wd_MinMax.MinWidth,
         data->wd_MinMax.MaxWidth);
     data->wd_Height = CLAMP(data->wd_Height, data->wd_MinMax.MinHeight,
         data->wd_MinMax.MaxHeight);
+
+    ZuneTrace("zune: SelectDim req=%ldx%ld min=%ldx%ld def=%ldx%ld max=%ldx%ld -> %ldx%ld\n",
+        (LONG) data->wd_ReqWidth, (LONG) data->wd_ReqHeight,
+        (LONG) data->wd_MinMax.MinWidth, (LONG) data->wd_MinMax.MinHeight,
+        (LONG) data->wd_MinMax.DefWidth, (LONG) data->wd_MinMax.DefHeight,
+        (LONG) data->wd_MinMax.MaxWidth, (LONG) data->wd_MinMax.MaxHeight,
+        (LONG) data->wd_Width, (LONG) data->wd_Height);
 }
 
 
@@ -2764,7 +2803,12 @@ IPTR Window__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     data->wd_ReqWidth = MUIV_Window_Width_Default;
     data->wd_RootObject = NULL;
     data->wd_DefaultObject = NULL;
-    data->wd_ScreenTitle = StrDup("Zune Screen");
+    /*
+     * Title/ScreenTitle are owned by the application (commercial MUI).
+     * Do not StrDup/FreeVec -- Voyager passes static/ENV strings and
+     * FreeVec on those gurus during dispose.
+     */
+    data->wd_ScreenTitle = (STRPTR)"Zune Screen";
 /* alternate dimensions */
 /* no change in coordinates */
     data->wd_AltDim.Top = MUIV_Window_AltTopEdge_NoChange;
@@ -3051,12 +3095,16 @@ struct MQNode {
 //    return FALSE;
 //}
 
+static ULONG WindowOpen(struct IClass *cl, Object *obj);
+static ULONG WindowClose(struct IClass *cl, Object *obj);
+
 /**************************************************************************
  OM_DISPOSE
 **************************************************************************/
 IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
+    IPTR rc;
 
 /*      D(bug("Window_Dispose(%p)\n", obj)); */
      //while (application_do_pushed_method(data));
@@ -3072,8 +3120,21 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     }
 #endif
 
-    ZuneTrace("zune: Window DISPOSE obj=%lx root=%lx\n",
-        (ULONG) obj, (ULONG) data->wd_RootObject);
+    ZuneTrace("zune: Window DISPOSE obj=%lx root=%lx flags=%lx\n",
+        (ULONG) obj, (ULONG) data->wd_RootObject, data->wd_Flags);
+
+    /*
+     * Voyager closes via PushMethod after CloseRequest; dispose can race
+     * while MUIWF_OPENED is still set.  Tear down Intuition first so
+     * gadgets/menustrip are not freed under a live window.
+     */
+    if (data->wd_Flags & MUIWF_OPENED)
+    {
+        ZuneTrace("zune: Window DISPOSE still OPENED, WindowClose\n");
+        WindowClose(cl, obj);
+        ZuneTrace("zune: Window DISPOSE WindowClose done\n");
+    }
+
     if (data->wd_RootObject)
     {
         Object *root;
@@ -3088,7 +3149,7 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
             DoHideMethod(root);
             ZuneTrace("zune: Window DISPOSE Hide done\n");
         }
-        if (_flags(root) & MADF_SETUP)
+        if (muiAreaData(root)->mad_Flags2 & MADF2_SETUP)
         {
             ZuneTrace("zune: Window DISPOSE Cleanup root\n");
             cmsg.MethodID = MUIM_Cleanup;
@@ -3104,27 +3165,29 @@ IPTR Window__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 
     if (data->wd_ChildMenustrip)
     {
+        ZuneTrace("zune: Window DISPOSE ChildMenustrip %lx\n",
+            (ULONG) data->wd_ChildMenustrip);
         MUI_DisposeObject(data->wd_ChildMenustrip);
         data->wd_ChildMenustrip = NULL;
+        ZuneTrace("zune: Window DISPOSE ChildMenustrip done\n");
     }
 
-    if (data->wd_ScreenTitle)
-    {
-        FreeVec(data->wd_ScreenTitle);
-        data->wd_ScreenTitle = NULL;
-    }
+    data->wd_ScreenTitle = NULL;
 
     if (data->wd_MemoryPool)
+    {
+        ZuneTrace("zune: Window DISPOSE DeletePool %lx\n",
+            (ULONG) data->wd_MemoryPool);
         DeletePool(data->wd_MemoryPool);
+    }
     data->wd_MemoryPool = NULL;
 
     ZuneTrace("zune: Window DISPOSE super cl=%lx super=%lx obj=%lx\n",
         (ULONG) cl, cl ? (ULONG) cl->cl_Super : 0L, (ULONG) obj);
-    return DoSuperMethodA(cl, obj, msg);
+    rc = DoSuperMethodA(cl, obj, msg);
+    ZuneTrace("zune: Window DISPOSE super done rc=%lx\n", (ULONG) rc);
+    return rc;
 }
-
-static ULONG WindowOpen(struct IClass *cl, Object *obj);
-static ULONG WindowClose(struct IClass *cl, Object *obj);
 
 /**************************************************************************
  OM_SET
@@ -3657,13 +3720,26 @@ static void WindowMinMax(Object *obj, struct MUI_WindowData *data)
     ammsg.MethodID = MUIM_AskMinMax;
     ammsg.MinMaxInfo = &data->wd_MinMax;
     DoMethodA(data->wd_RootObject, (Msg)&ammsg);
-/*      D(bug("*** root minmax = %ld,%ld => %ld,%ld\n", data->wd_MinMax.MinWidth, */
-/*  	  data->wd_MinMax.MinHeight, */
-/*  	  data->wd_MinMax.MaxWidth, data->wd_MinMax.MaxHeight)); */
     __area_finish_minmax(data->wd_RootObject, &data->wd_MinMax);
-/*      D(bug("*** root minmax2 = %ld,%ld => %ld,%ld\n", data->wd_MinMax.MinWidth, */
-/*  	  data->wd_MinMax.MinHeight, */
-/*  	  data->wd_MinMax.MaxWidth, data->wd_MinMax.MaxHeight)); */
+    /*
+     * If MaxHeight collapses onto MinHeight while the window is still
+     * horizontally flexible, treat that as a stuck vertical max (old
+     * AreaData ABI / weight bugs) and open MaxHeight again.  Do not invent
+     * a DefHeight: Aboutmui and MUI_Request intentionally have
+     * Min==Def==Max height for SetVMax text, and adding +400 made those
+     * dialogs open far too tall.
+     */
+    if (data->wd_MinMax.MaxHeight <= data->wd_MinMax.MinHeight + 2
+        && data->wd_MinMax.MaxWidth > data->wd_MinMax.MinWidth + 2)
+    {
+        ZuneTrace("zune: WindowMinMax max~min (%ld), expand MaxHeight\n",
+            (LONG) data->wd_MinMax.MaxHeight);
+        data->wd_MinMax.MaxHeight = MUI_MAXMAX;
+    }
+    ZuneTrace("zune: WindowMinMax min=%ldx%ld def=%ldx%ld max=%ldx%ld\n",
+        (LONG) data->wd_MinMax.MinWidth, (LONG) data->wd_MinMax.MinHeight,
+        (LONG) data->wd_MinMax.DefWidth, (LONG) data->wd_MinMax.DefHeight,
+        (LONG) data->wd_MinMax.MaxWidth, (LONG) data->wd_MinMax.MaxHeight);
 }
 
 
@@ -3710,18 +3786,29 @@ static void WindowShow (struct IClass *cl, Object *obj)
     struct MUIP_Layout lmsg;
 /*      D(bug("window_show %s %d\n", __FILE__, __LINE__)); */
 
+    ZuneTrace("zune: WindowShow enter root=%lx win=%lx %ldx%ld\n",
+        (ULONG) data->wd_RootObject, (ULONG) win,
+        (ULONG) data->wd_Width, (ULONG) data->wd_Height);
+
     _left(data->wd_RootObject) = win->BorderLeft;
     _top(data->wd_RootObject)  = win->BorderTop;
     _width(data->wd_RootObject) = data->wd_Width;
     _height(data->wd_RootObject) = data->wd_Height;
+    muiAreaData(data->wd_RootObject)->mad_VirtualTop = win->BorderTop;
 
+    ZuneTrace("zune: WindowShow MUIM_Layout root\n");
     lmsg.MethodID = MUIM_Layout;
     DoMethodA(data->wd_RootObject, (Msg)&lmsg);
+    ZuneTrace("zune: WindowShow MUIM_Layout done\n");
 
     ShowRenderInfo(&data->wd_RenderInfo);
+    ZuneTrace("zune: WindowShow after ShowRenderInfo rp=%lx\n",
+        (ULONG) data->wd_RenderInfo.mri_RastPort);
 /*      D(bug("zune_imspec_show %s %d\n", __FILE__, __LINE__)); */
     zune_imspec_show(data->wd_Background, obj);
+    ZuneTrace("zune: WindowShow DoShowMethod root\n");
     DoShowMethod(data->wd_RootObject);
+    ZuneTrace("zune: WindowShow DoShowMethod done\n");
 }
 
 static ULONG WindowOpen(struct IClass *cl, Object *obj)
@@ -3762,10 +3849,12 @@ static ULONG WindowOpen(struct IClass *cl, Object *obj)
     }
 
     InstallBackbuffer(cl, obj);
+    ZuneTrace("zune: WindowOpen after InstallBackbuffer\n");
 
     data->wd_Flags |= MUIWF_OPENED;
 
     WindowShow(cl, obj);
+    ZuneTrace("zune: WindowOpen after WindowShow\n");
 
     /*
      * Smart-refresh window: backing store is valid, LAYERREFRESH is not
@@ -3849,8 +3938,23 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Wind
     BOOL resized;
     Object *current_obj;
 
+    (void)left;
+    (void)top;
+    (void)width;
+    (void)height;
+
     if (!(data->wd_Flags & MUIWF_OPENED))
         return 0;
+
+    /* Nested RecalcDisplay (ExitChange during layout/hide) deadlocks the
+     * layer lock vs Hide/Show/Redraw.  Voyager content swaps used to nest. */
+    if (data->wd_Flags & MUIWF_RECALCING)
+    {
+        ZuneTrace("zune: RecalcDisplay reenter skipped origin=%lx\n",
+            (ULONG) msg->originator);
+        return TRUE;
+    }
+    data->wd_Flags |= MUIWF_RECALCING;
 
     current_obj = msg->originator;
 
@@ -3891,8 +3995,13 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Wind
         current_obj = data->wd_RootObject;
 
     WindowMinMax(obj, data);
-        DoHideMethod(current_obj);
-    /* resize window ? */
+    /*
+     * Do not DoHideMethod before Layout.  After Voyager disposes a document
+     * and rebuilds under InitChange, Hide of the still-CANDRAW htmlview
+     * (ShowClipped leftovers, clip, INVIRTUAL kids) then Layout dies inside
+     * the htmlview layout hook.  First open never hits that path the same
+     * way.  Layout + Show + Redraw is enough for newly Setup children.
+     */
     WindowSelectDimensions(data);
     resized = WindowResize(data);
 
@@ -3903,7 +4012,9 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Wind
         _width(data->wd_RootObject) = data->wd_Width;
         _height(data->wd_RootObject) = data->wd_Height;
     }
+    ZuneTrace("zune: RecalcDisplay layout origin=%lx\n", (ULONG) current_obj);
             ZuneLayout(current_obj);
+    ZuneTrace("zune: RecalcDisplay layout done origin=%lx\n", (ULONG) current_obj);
         DoShowMethod(current_obj);
 
             MUI_Redraw(current_obj, MADF_DRAWOBJECT);
@@ -3928,6 +4039,8 @@ IPTR Window__MUIM_RecalcDisplay(struct IClass *cl, Object *obj, struct MUIP_Wind
 
     ActivateObject(data);
 
+    data->wd_Flags &= ~MUIWF_RECALCING;
+    (void)resized;
     return TRUE;
 }
 
@@ -3961,10 +4074,20 @@ IPTR Window__MUIM_RemEventHandler(struct IClass *cl, Object *obj,
     struct MUIP_Window_RemEventHandler *msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
+    struct Node *node;
 
-    //D(bug("muimaster.library/window.c: Rem Eventhandler %p\n", msg->ehnode));
+    /*
+     * Voyager Virtgroup_Update Hide/ShowClipped can Rem a handler that
+     * was never re-Added (ShowClipped overlap miss).  Remove() on a node
+     * not in a list corrupts memory -- reload after scroll crashed here.
+     */
+    node = (struct Node *)msg->ehnode;
+    if (node == NULL || node->ln_Succ == NULL || node->ln_Pred == NULL)
+        return TRUE;
 
-    Remove((struct Node *)msg->ehnode);
+    Remove(node);
+    node->ln_Succ = NULL;
+    node->ln_Pred = NULL;
     ChangeEvents(data, GetDefaultEvents());
     return TRUE;
 }
@@ -4111,7 +4234,7 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj, struct MUIP_Window_
             return 0;
         }
 
-        muiAreaData(msg->obj)->mad_Flags |= MADF_DRAGGING;
+        muiAreaData(msg->obj)->mad_Flags2 |= MADF2_DRAGGING;
 
         data->wd_DragObject = msg->obj;
         data->wd_dnd = dnd;

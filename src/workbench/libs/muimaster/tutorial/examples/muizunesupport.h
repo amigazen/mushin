@@ -8,8 +8,10 @@
 #define _ZUNE_MUISUPPORT_H
 
 #include <string.h>
+#include <stdio.h>
 
 #include <exec/memory.h>
+#include <exec/types.h>
 
 #include <libraries/asl.h>
 #include <libraries/mui.h>
@@ -21,74 +23,61 @@
 #include <proto/intuition.h>
 #include <proto/utility.h>
 #include <proto/iffparse.h>
-
-#ifdef __AROS__
 #include <proto/muimaster.h>
-#endif
 
-Object *MakeLabel(STRPTR str);
-LONG xget(Object * obj, ULONG attr);
-
-#define getstring(obj) (char *) xget(obj, MUIA_String_Contents)
-
-#define SimpleText(text) TextObject, MUIA_Text_Contents, (IPTR) text, End
-
-
-#ifndef __AROS__
-
+/* Single-TU examples: provide the base the pragmas expect. */
 struct Library *MUIMasterBase;
 
-/* On AmigaOS we build a fake library base, because it's not compiled as sharedlibrary yet */
-#include "muimaster_intern.h"
+Object *MakeLabel(STRPTR str);
+LONG xget(Object *obj, ULONG attr);
 
-int open_muimaster(void)
+#define getstring(obj) (char *)xget(obj, MUIA_String_Contents)
+
+#define SimpleText(text) TextObject, MUIA_Text_Contents, (IPTR)text, End
+
+/*
+ * Open the installed MUI/Zune library.  MUIMASTER_NAME comes from
+ * <libraries/mui.h>: "zunemaster.library" unless the example was compiled
+ * with MUIMASTER_DROPIN (then "muimaster.library").  Pass a library name on
+ * the command line to override, same idea as opentest.
+ */
+int open_muimaster(CONST_STRPTR name)
 {
-    static struct MUIMasterBase_intern MUIMasterBase_instance;
-    MUIMasterBase = (struct Library*)&MUIMasterBase_instance;
+    if (name == NULL || name[0] == '\0')
+        name = MUIMASTER_NAME;
 
-    MUIMasterBase_instance.sysbase      = *((struct ExecBase **)4);
-    MUIMasterBase_instance.dosbase      = (void *)OpenLibrary("dos.library",        37);
-    MUIMasterBase_instance.utilitybase  = (void *)OpenLibrary("utility.library",    37);
-    MUIMasterBase_instance.aslbase      =         OpenLibrary("asl.library",        37);
-    MUIMasterBase_instance.gfxbase      = (void *)OpenLibrary("graphics.library",   37);
-    MUIMasterBase_instance.layersbase   =         OpenLibrary("layers.library",     37);
-    MUIMasterBase_instance.intuibase    = (void *)OpenLibrary("intuition.library",  37);
-    MUIMasterBase_instance.cxbase       =         OpenLibrary("commodities.library",37);
-    MUIMasterBase_instance.keymapbase   =         OpenLibrary("keymap.library",     37);
-    MUIMasterBase_instance.gadtoolsbase =         OpenLibrary("gadtools.library",   37);
-    MUIMasterBase_instance.iffparsebase =         OpenLibrary("iffparse.library",   37);
-    MUIMasterBase_instance.diskfontbase =         OpenLibrary("diskfont.library",   37);
-    __zune_prefs_init(&__zprefs);
-    InitSemaphore(&MUIMB(MUIMasterBase)->ZuneSemaphore);
+    MUIMasterBase = OpenLibrary(name, MUIMASTER_VMIN);
+    if (MUIMasterBase == NULL)
+    {
+        printf("OpenLibrary(\"%s\", %ld) failed\n",
+            name, (long)MUIMASTER_VMIN);
+        printf("Build/install the library first, or pass another name:\n");
+        printf("  HelloZune muimaster.library\n");
+        printf("  HelloZune zunemaster.library\n");
+        return 0;
+    }
+    printf("Using %s at 0x%08lx\n", name, (unsigned long)MUIMasterBase);
     return 1;
 }
-
-#else
-
-int open_muimaster(void)
-{
-    return 1;
-}
-
-#endif
 
 void close_muimaster(void)
 {
+    if (MUIMasterBase != NULL)
+    {
+        CloseLibrary(MUIMasterBase);
+        MUIMasterBase = NULL;
+    }
 }
 
 /****************************************************************
  Open needed libraries
 *****************************************************************/
-int open_libs(void)
+int open_libs(CONST_STRPTR libname)
 {
-    if (open_muimaster())
-    {
+    if (open_muimaster(libname))
         return 1;
-    }
-
     return 0;
 }
-
 
 /****************************************************************
  Close opened libraries
@@ -98,7 +87,6 @@ void close_libs(void)
     close_muimaster();
 }
 
-
 /****************************************************************
  Create a simple label
 *****************************************************************/
@@ -107,16 +95,15 @@ Object *MakeLabel(STRPTR str)
     return (MUI_MakeObject(MUIO_Label, str, 0));
 }
 
-
 /****************************************************************
  Easy getting an attributes value
 *****************************************************************/
-LONG xget(Object * obj, ULONG attr)
+LONG xget(Object *obj, ULONG attr)
 {
     LONG x = 0;
+
     get(obj, attr, &x);
     return x;
 }
-
 
 #endif /* _ZUNE_MUISUPPORT_H */

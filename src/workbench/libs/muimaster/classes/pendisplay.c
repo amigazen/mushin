@@ -172,7 +172,7 @@ IPTR Pendisplay__OM_SET(struct IClass *cl, Object *obj,
         }
     }
 
-    if (newcol && (_flags(obj) & MADF_SETUP))
+    if (newcol && (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP))
     {
         if (data->pen != -1)
         {

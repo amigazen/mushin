@@ -119,7 +119,7 @@ IPTR Scrollbar__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     }
     else
     {
-        _flags(obj) |= MADF_BORDERGADGET;
+        muiAreaData(obj)->mad_Flags2 |= MADF2_BORDERGADGET;
         DoMethod(obj, OM_ADDMEMBER, (IPTR) data->prop);
     }
 
@@ -134,7 +134,7 @@ IPTR Scrollbar__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
     if (!DoSuperMethodA(cl, obj, msg))
         return FALSE;
 
-    if (!(_flags(obj) & MADF_BORDERGADGET) && !data->sb_pos)
+    if (!(muiAreaData(obj)->mad_Flags2 & MADF2_BORDERGADGET) && !data->sb_pos)
     {
         switch ((muiGlobalInfo(obj))->mgi_Prefs->scrollbar_arrangement)
         {

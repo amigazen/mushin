@@ -53,6 +53,7 @@ static const struct __MUIBuiltinClass *const builtins[] = {
     &_MUI_List_desc,
     ZUNE_POPASL_DESC & _MUI_Popobject_desc,
     ZUNE_GAUGE_DESC
+        ZUNE_FLOATTEXT_DESC
         ZUNE_ABOUTMUI_DESC
         ZUNE_SETTINGSGROUP_DESC
         ZUNE_IMAGEADJUST_DESC
@@ -96,49 +97,80 @@ static const struct __MUIBuiltinClass *const builtins[] = {
 Class *ZUNE_GetExternalClass(ClassID classname,
     struct Library *MUIMasterBase)
 {
-    struct Library *mcclib = NULL;
-    struct MUI_CustomClass *mcc = NULL;
+    struct Library *mcclib;
+    struct MUI_CustomClass *mcc;
     CONST_STRPTR const *pathptr;
     TEXT s[255];
 
+    /*
+     * Classic MUI loads externals with OpenLibrary("mui/%s", 0) into
+     * LIBS:mui/Name.mcc (MUImaster.doc).  Open-source MCCs (Textinput,
+     * BetterString, NList, TextEditor, TheBar, HTMLview) install there and
+     * open muimaster themselves in LibInit to MUI_CreateCustomClass before
+     * exporting via MCC_Query LVO -30.
+     *
+     * AROS paths stay for Classes/Zune installs.  "MUI/%s" kept after "mui/%s"
+     * for odd case-sensitive assigns.
+     */
     static CONST_STRPTR const searchpaths[] = {
+        "mui/%s",
+        "MUI/%s",
         "Zune/%s",
         "Classes/Zune/%s",
-        "MUI/%s",
         NULL,
     };
+
+    mcclib = NULL;
+    mcc = NULL;
+
+    if (classname == NULL || classname[0] == '\0')
+        return NULL;
+
+    ZuneTrace("zune: GetExternalClass \"%s\"\n", classname);
 
     for (pathptr = searchpaths; *pathptr; pathptr++)
     {
         snprintf(s, 255, *pathptr, classname);
 
-        D(bug("Trying opening of %s\n", s));
+        ZuneTrace("zune: OpenLibrary(\"%s\")\n", s);
+        mcclib = OpenLibrary(s, 0);
+        if (!mcclib)
+            continue;
 
-        if ((mcclib = OpenLibrary(s, 0)))
+        ZuneTrace("zune: MCC open ok base=%lx, MCC_Query(0)\n",
+            (ULONG) mcclib);
+
+        mcc = MCC_Query(0);
+        if (!mcc)
         {
-            D(bug("Calling MCC Query. Librarybase at 0x%p\n", mcclib));
-
-            mcc = MCC_Query(0);
-            if (!mcc)
-                mcc = MCC_Query(1);     /* MCP? */
-
-            if (mcc)
-            {
-                if (mcc->mcc_Class)
-                {
-                    mcc->mcc_Module = mcclib;
-                    D(bug("Successfully opened %s as external class\n",
-                            classname));
-
-                    return mcc->mcc_Class;
-                }
-            }
-
-            CloseLibrary(mcclib);
+            ZuneTrace("zune: MCC_Query(0) null, try Query(1)\n");
+            mcc = MCC_Query(1);     /* MCP? */
         }
+
+        if (mcc && mcc->mcc_Class)
+        {
+            /*
+             * Track GetClass refs in cl_UserData (same field builtins use).
+             * FreeClass still CloseLibrarys every time to balance OpenLibrary;
+             * OpenCnt is what keeps the MCC segment alive while
+             * CreateCustomClass holds the class as mcc_Super.
+             */
+            mcc->mcc_Module = mcclib;
+            mcc->mcc_Class->cl_UserData++;
+            ZuneTrace("zune: external class ok \"%s\" cl=%lx mcc=%lx ud=%ld\n",
+                classname, (ULONG) mcc->mcc_Class, (ULONG) mcc,
+                mcc->mcc_Class->cl_UserData);
+            return mcc->mcc_Class;
+        }
+
+        ZuneTrace("zune: MCC_Query failed for \"%s\" (CreateCustomClass in MCC LibInit?)\n",
+            classname);
+        CloseLibrary(mcclib);
+        mcclib = NULL;
+        mcc = NULL;
     }
 
-    D(bug("Failed to open external class %s\n", classname));
+    ZuneTrace("zune: GetExternalClass failed \"%s\"\n", classname);
     return NULL;
 }
 
@@ -164,8 +196,9 @@ static Class *ZUNE_MakeBuiltinClass(ClassID classid,
     struct Library *MUIMasterBase)
 {
     int i;
-    Class *cl = NULL;
-    struct Library *mb = NULL;
+    Class *cl;
+
+    cl = NULL;
 
     D(bug("Makeing Builtinclass %s\n", classid));
 
@@ -176,19 +209,14 @@ static Class *ZUNE_MakeBuiltinClass(ClassID classid,
             Class *supercl;
             ClassID superclid;
 
-            /* This may seem strange, but opening muimaster.library here is
-               done in order to increase muimaster.library's open count, so
-               that it doesn't get expunged while some of its internal
-               classes are still in use. We don't use muimaster.library
-               directly but the name of the library stored inside the base,
-               because the library can be compiled also as zunemaster.library
+            /*
+             * Do not OpenLibrary() ourselves here.  Each successful MakeClass
+             * used to self-open muimaster and never CloseLibrary until
+             * Expunge, so lib_OpenCnt stuck at ~20+ and LibExpunge never
+             * ran - a rebuilt muimaster.library stayed resident until reboot.
+             * Real clients already hold OpenCnt via their OpenLibrary; when
+             * the last client closes, Expunge tears down BuiltinClasses.
              */
-
-            mb = OpenLibrary(MUIMasterBase->lib_Node.ln_Name, 0);
-
-            /* It can't possibly fail, but well... */
-            if (!mb)
-                break;
 
             if (strcmp(builtins[i]->supername, ROOTCLASS) == 0)
             {
@@ -198,7 +226,9 @@ static Class *ZUNE_MakeBuiltinClass(ClassID classid,
             else
             {
                 superclid = NULL;
-                supercl = MUI_GetClass(builtins[i]->supername);
+                /* Stack-safe; do not call MUI_GetClass LVO from here. */
+                supercl = ZUNE_GetBuiltinClass(builtins[i]->supername,
+                    MUIMasterBase);
 
                 if (!supercl)
                     break;
@@ -240,9 +270,6 @@ static Class *ZUNE_MakeBuiltinClass(ClassID classid,
             break;
         }
     }
-
-    if (!cl && mb)
-        CloseLibrary(mb);
 
     return cl;
 }

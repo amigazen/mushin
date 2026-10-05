@@ -4,28 +4,24 @@
 
 #include <libraries/muiscreen.h>
 #include <proto/exec.h>
+
 #define DEBUG 0
 #include <aros/debug.h>
+
+#include "muiscreen_intern.h"
 
 /*****************************************************************************
 
     NAME */
-#include <proto/muiscreen.h>
-
-        AROS_LH1(BOOL, MUIS_FreePubScreenDesc,
-
-/*  SYNOPSIS */
-        AROS_LHA(struct MUI_PubScreenDesc *, psd,  A0),
-
-/*  LOCATION */
-        struct Library *, MUIScreenBase, 6, MUIScreen)
+        __asm __saveds BOOL MUIS_FreePubScreenDesc(
+            register __a0 struct MUI_PubScreenDesc *psd)
 
 /*  FUNCTION
 
     INPUTS
 
     RESULT
-    
+
     NOTES
 
     EXAMPLE
@@ -36,16 +32,12 @@
 
     INTERNALS
 
-******************************************************************************/
-
+*****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
+    D(bug("MUIS_FreePubScreenDesc(%lx)\n", (ULONG)psd));
 
-    D(bug("MUIS_FreePubScreenDesc(%p)\n", psd));
-
-    FreeMem(psd, sizeof(struct MUI_PubScreenDesc));
+    if (psd)
+        FreeMem(psd, sizeof(struct MUI_PubScreenDesc));
 
     return TRUE;
-    
-    AROS_LIBFUNC_EXIT
 }

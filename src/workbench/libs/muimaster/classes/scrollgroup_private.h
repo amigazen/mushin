@@ -11,7 +11,6 @@ struct Scrollgroup_DATA
     Object *contents;
     Object *vert, *horiz, *button;
     struct Hook hook;
-    struct Hook *layout_hook;
     BOOL usewinborder;
 };
 

@@ -1,0 +1,6 @@
+*.o
+*.uaem
+*.map
+output.txt
+amiga_compiler.h
+*cybergraph*

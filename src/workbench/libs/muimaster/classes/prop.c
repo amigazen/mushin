@@ -229,7 +229,7 @@ IPTR Prop__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     data->ehn.ehn_Class = cl;
 
     if (data->usewinborder)
-        _flags(obj) |= MADF_BORDERGADGET;
+        muiAreaData(obj)->mad_Flags2 |= MADF2_BORDERGADGET;
 
     calcscale16(data);
 

@@ -345,8 +345,11 @@ void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBas
      * Builtin IClasses used to be FreeClass()'d from MUI_FreeClass when
      * the last NewObject ref dropped.  That destroyed Notify while
      * Application was still in OM_DISPOSE.  Tear them down here, newest
-     * first, before Intuition is closed.  Each MakeClass OpenLibrary is
-     * balanced by CloseLibrary.
+     * first, before Intuition is closed.
+     *
+     * Do not CloseLibrary(self) here.  MakeBuiltinClass no longer self-opens
+     * per class; CloseLibrary(self) during Expunge (OpenCnt already 0)
+     * underflowed OpenCnt and matched the old "balance" for those opens.
      */
     {
         Class *cl;
@@ -355,8 +358,7 @@ void SAVEDS STDARGS LC_BUILDNAME(L_ExpungeLib)(LC_LIBHEADERTYPEPTR _MUIMasterBas
             &libBase->BuiltinClasses)) != NULL)
         {
             cl->cl_Flags &= ~CLF_INLIST;
-            if (FreeClass(cl))
-                CloseLibrary((struct Library *)_MUIMasterBase);
+            FreeClass(cl);
         }
     }
 

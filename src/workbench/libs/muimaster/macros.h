@@ -451,6 +451,10 @@ struct __dummyAreaData__
 #define _mheight(obj)      (_height(obj) - _subheight(obj))
 #define _mright(obj)       (_mleft(obj) + _mwidth(obj) - 1)
 #define _mbottom(obj)      (_mtop(obj) + _mheight(obj) - 1)
+#define _vleft(obj)        (_left(obj))
+#define _vtop(obj)         (muiAreaData(obj)->mad_VirtualTop)
+#define _vright(obj)       (_vleft(obj) + _width(obj) - 1)
+#define _vbottom(obj)      (_vtop(obj) + _height(obj) - 1)
 
 /* the following macros are only valid inbetween MUIM_Show and MUIM_Hide */
 #define _window(obj)       (muiRenderInfo(obj)->mri_Window)

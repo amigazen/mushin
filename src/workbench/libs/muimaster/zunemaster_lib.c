@@ -25,6 +25,9 @@ LONG ReturnError2(void)
 
 #include "muimaster_intern.h"
 
+/* Avoid support.h here: its STACKED/libcall macros corrupt the LVO prototypes. */
+extern void ZuneTrace(CONST_STRPTR fmt, ...);
+
 /* Function declarations for MUI functions - matching muimaster_lib.sfd */
 extern Object *MUI_NewObjectA(CONST_STRPTR classname, struct TagItem *tags);
 extern Object *MUI_NewObject(CONST_STRPTR classname, ...);
@@ -56,11 +59,18 @@ extern APTR MUI_AddClipRegion(struct MUI_RenderInfo *mri, struct Region *r);
 extern VOID MUI_RemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle);
 extern BOOL MUI_BeginRefresh(struct MUI_RenderInfo *mri, ULONG flags);
 extern VOID MUI_EndRefresh(struct MUI_RenderInfo *mri, ULONG flags);
+extern APTR MUIP_ObtainImage(struct MUI_RenderInfo *mri, APTR spec, ULONG flags);
+extern VOID MUIP_ReleaseImage(struct MUI_RenderInfo *mri, APTR image);
+extern ULONG MUI_Show(Object *obj);
+extern ULONG MUI_Hide(Object *obj);
+extern BOOL MUI_LayoutObj(Object *obj, LONG left, LONG top, LONG width, LONG height, ULONG flags);
+extern VOID MUI_Offset(Object *obj, LONG addx, LONG addy);
+extern VOID MUIP_GetVirtualRect(Object *obj, APTR r);
 
 #define VERSION   19
-#define REVISION  50
-#define DATETXT   "27.06.2003"
-#define VERSTXT   "19.50"
+#define REVISION  75
+#define DATETXT   "25.09.2026"
+#define VERSTXT   "19.75"
 /*
  * The name exec puts in the RomTag, which is also the name callers have to
  * pass to OpenLibrary().  These cannot be allowed to disagree: OpenLibrary()
@@ -244,6 +254,15 @@ ASM SAVEDS struct Library *LibOpen(REG(a6, struct MUIMasterBase_intern * MUIMast
   MUIMasterBase->library.lib_Flags &= ~LIBF_DELEXP;
   MUIMasterBase->library.lib_OpenCnt++;
 
+  /*
+   * One-shot identity in the Voyager serial log so a stale LIBS: copy is
+   * obvious.  OpenCnt==1 is the first opener after LoadSeg/LibInit.
+   */
+  if (MUIMasterBase->library.lib_OpenCnt == 1)
+  {
+    ZuneTrace("zune: LibOpen %s opencnt=1\n", VERSTXT);
+  }
+
   return &MUIMasterBase->library;
 }
 
@@ -278,11 +297,16 @@ ASM SAVEDS SEGLISTPTR LibExpunge(REG(a6, struct MUIMasterBase_intern *mb))
 /* Close the library, as called by CloseLibrary() */
 ASM SAVEDS SEGLISTPTR LibClose(REG(a6, struct MUIMasterBase_intern *mb))
 {
-  if(!(--mb->library.lib_OpenCnt))
-  {
-    if (mb->library.lib_Flags & LIBF_DELEXP)
-      return LibExpunge(mb);
-  }
+  /*
+   * CLib39x CloseLib only Expunges when LIBF_DELEXP is already set
+   * (RemLibrary / Avail flush).  That left this library resident at
+   * OpenCnt==0 so the next OpenLibrary() reused the old segment - a
+   * rebuilt drop-in never loaded without a reboot.  Expunge whenever
+   * the last client closes so the next open LoadSegs the file again.
+   */
+  if (!(--mb->library.lib_OpenCnt))
+    return LibExpunge(mb);
+
   return 0;
 }
 
@@ -325,7 +349,15 @@ ASM SAVEDS struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct M
   D(bug("Librarybase at 0x%p\n",mb));
 
   if (L_InitLib(&mb->library))
+  {
+    /* AreaData ABI must match Voyager: VirtualTop@72, VertWeight@42 */
+    D(bug("zune: LibInit %s AreaData=%ld VTop=%ld VW=%ld\n",
+        VERSTXT,
+        (LONG) sizeof(struct MUI_AreaData),
+        (LONG) OFFSET(MUI_AreaData, mad_VirtualTop),
+        (LONG) OFFSET(MUI_AreaData, mad_VertWeight)));
     return &mb->library;
+  }
 
   FreeMem((STRPTR)mb - mb->library.lib_NegSize,
   mb->library.lib_NegSize +
@@ -335,9 +367,9 @@ ASM SAVEDS struct Library *LibInit(REG(a0, SEGLISTPTR seglist), REG(d0, struct M
 
 /************************************************************************/
 /* LVO jump table (CLib39x FuncTab[] pattern): four mandatory library
-   vectors, then muimaster_lib.fd entries through MUI_EndRefresh, -1.
-   Slot indices 4..32 map to LVO 0x1e..0xc6 (bias 30); Priv1-4 occupy
-   0x84..0x96.  No trailing mui38dev/MUI 5 slots until implemented. */
+   vectors, then public muimaster entries through MUI_EndRefresh, then
+   the private MUI3 slots Voyager needs (ObtainImage..GetVirtualRect),
+   then -1.  Slot indices map to LVO bias 30 (0x1e, 0x24, ...). */
 
 static const APTR LibVectors[] = {
   (APTR) LibOpen,
@@ -373,6 +405,14 @@ static const APTR LibVectors[] = {
   (APTR) MUI_RemoveClipRegion,
   (APTR) MUI_BeginRefresh,
   (APTR) MUI_EndRefresh,
+  /* -0xCC .. -0xF0: private; missing LayoutObj hung Voyager HTML layout */
+  (APTR) MUIP_ObtainImage,
+  (APTR) MUIP_ReleaseImage,
+  (APTR) MUI_Show,
+  (APTR) MUI_Hide,
+  (APTR) MUI_LayoutObj,
+  (APTR) MUI_Offset,
+  (APTR) MUIP_GetVirtualRect,
   (APTR) -1
 };
 

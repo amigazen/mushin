@@ -2,13 +2,19 @@
 #define MUISCREEN_H
 
 /*
-    Copyright © 2009-2025, The AROS Development Team. All rights reserved.
+    Copyright ï¿½ 2009-2025, The AROS Development Team. All rights reserved.
     $Id$
 */
 
 #include <exec/types.h>
-#include <libraries/mui.h>
 #include <exec/lists.h>
+#include <libraries/iffparse.h>
+#include <libraries/mui.h>
+
+#ifndef MAKE_ID
+#define MAKE_ID(a,b,c,d) \
+    ((ULONG)(a)<<24 | (ULONG)(b)<<16 | (ULONG)(c)<<8 | (ULONG)(d))
+#endif
 
 #define PSD_INITIAL_NAME   "(unnamed)"
 #define PSD_INITIAL_TITLE  "Zune Public Screen"

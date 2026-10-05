@@ -213,7 +213,7 @@ IPTR Image__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                 if ((_flags(obj) & MADF_CANDRAW) && data->img)
                     zune_imspec_hide(data->img);
 
-                if (_flags(obj) & MADF_SETUP)
+                if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
                 {
                     if (data->img)
                         zune_imspec_cleanup(data->img);

@@ -9,6 +9,7 @@
 #include "muimaster_intern.h"
 #include "support.h"
 
+extern VOID ZUNE_FreeClass(Class *cl);
 /*****************************************************************************
 
     NAME */
@@ -45,7 +46,7 @@
         {
             mui_free(mcc);
 
-            MUI_FreeClass(super);
+            ZUNE_FreeClass(super);
 
             return TRUE;
         }

@@ -18,6 +18,7 @@
 #include "muimaster_intern.h"
 #include "mui.h"
 #include "support.h"
+#include "classes/area.h"
 #include "area_macros.h"
 
 extern struct Library *MUIMasterBase;

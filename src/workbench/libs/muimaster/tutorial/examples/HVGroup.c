@@ -135,7 +135,7 @@ void loop(void)
 
 int main(int argc, char *argv[])
 {
-    if(open_libs())
+    if(open_libs(argc > 1 ? argv[1] : NULL))
     {
         if(init_gui())
         {

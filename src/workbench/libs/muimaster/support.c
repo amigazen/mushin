@@ -136,9 +136,22 @@ IPTR DoShowMethod(Object * obj)
 {
     struct MUIP_Show smsg;
     IPTR ret;
+    Class *cl;
+    STRPTR id;
 
+    cl = NULL;
+    id = (STRPTR) "?";
+    if (obj != NULL)
+        cl = OCLASS(obj);
+    if (cl != NULL && cl->cl_ID != NULL)
+        id = cl->cl_ID;
+
+    ZuneTrace("zune: Show enter obj=%lx cl=%s\n", (ULONG) obj, id);
     smsg.MethodID = MUIM_Show;
+    smsg.clip = NULL;
     ret = DoMethodA(obj, (Msg)&smsg);
+    ZuneTrace("zune: Show leave obj=%lx cl=%s ret=%ld\n",
+        (ULONG) obj, id, (ULONG) ret);
     if (ret)
         ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags |= MADF_CANDRAW;
     return ret;

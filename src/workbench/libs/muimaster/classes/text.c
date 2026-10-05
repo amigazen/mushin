@@ -182,7 +182,7 @@ IPTR Text__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                     }
                     FreeVec(data->contents);
                     data->contents = new_contents;
-                    if (_flags(obj) & MADF_SETUP)
+                    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
                         setup_text(data, obj);
                     MUI_Redraw(obj, MADF_DRAWOBJECT); /* should be optimized */
                 }
@@ -203,7 +203,7 @@ IPTR Text__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                     }
                     FreeVec((APTR) data->preparse);
                     data->preparse = new_preparse;
-                    if (_flags(obj) & MADF_SETUP)
+                    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
                         setup_text(data, obj);
                     MUI_Redraw(obj, MADF_DRAWOBJECT); /* should be optimized */
                 }

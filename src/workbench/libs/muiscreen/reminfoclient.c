@@ -5,6 +5,7 @@
 #include <libraries/muiscreen.h>
 #include <exec/nodes.h>
 #include <proto/exec.h>
+
 #define DEBUG 0
 #include <aros/debug.h>
 
@@ -13,22 +14,15 @@
 /*****************************************************************************
 
     NAME */
-#include <proto/muiscreen.h>
-
-        AROS_LH1(void, MUIS_RemInfoClient,
-
-/*  SYNOPSIS */
-        AROS_LHA(struct MUIS_InfoClient *, sic,  A0),
-
-/*  LOCATION */
-        struct Library *, MUIScreenBase_intern, 14, MUIScreen)
+        __asm __saveds void MUIS_RemInfoClient(
+            register __a0 struct MUIS_InfoClient *sic)
 
 /*  FUNCTION
 
     INPUTS
 
     RESULT
-    
+
     NOTES
 
     EXAMPLE
@@ -39,14 +33,10 @@
 
     INTERNALS
 
-******************************************************************************/
-
+*****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
+    D(bug("MUIS_RemInfoClient(%lx)\n", (ULONG)sic));
 
-    D(bug("MUIS_RemInfoClient(%p)\n", sic));
-
-    Remove((struct Node*) sic);
-
-    AROS_LIBFUNC_EXIT
+    if (sic)
+        Remove((struct Node *)sic);
 }

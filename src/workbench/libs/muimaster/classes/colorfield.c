@@ -250,7 +250,7 @@ IPTR Colorfield__OM_SET(struct IClass *cl, Object *obj,
     
     retval = DoSuperMethodA(cl, obj, (Msg) &supMsg);
 
-    if (newcol && (_flags(obj) & MADF_SETUP)
+    if (newcol && (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
         && !(data->flags & FLAG_NO_PEN))
     {
         if (_screen(obj))
@@ -425,7 +425,7 @@ IPTR Colorfield__MUIM_ConnectParent(struct IClass *cl, Object *obj,
 
     retval = DoSuperMethodA(cl, obj, (Msg) msg);
 
-    if ((_flags(obj) & MADF_SETUP) && !(data->cm))
+    if ((muiAreaData(obj)->mad_Flags2 & MADF2_SETUP) && !(data->cm))
     {
         Colorfield_SetupPen(obj, data);
     }

@@ -67,6 +67,12 @@
 #   define ZUNE_GAUGE_DESC
 #endif
 
+#if ZUNE_BUILTIN_FLOATTEXT
+#   define ZUNE_FLOATTEXT_DESC (&_MUI_Floattext_desc),
+#else
+#   define ZUNE_FLOATTEXT_DESC
+#endif
+
 #if ZUNE_BUILTIN_ICONLISTVIEW
 #   define ZUNE_ICONLISTVIEW_DESC (&_MUI_IconListview_desc),
 #else
@@ -219,6 +225,7 @@
 
 Class *ZUNE_GetBuiltinClass(ClassID className, struct Library *mb);
 Class *ZUNE_GetExternalClass(ClassID className, struct Library *mb);
+VOID ZUNE_FreeClass(Class *cl);
 
 
 #define ZUNE_AddBuiltinClass(cl, mb)                                         \
@@ -308,6 +315,7 @@ extern const struct __MUIBuiltinClass _MUI_Listview_desc;
 extern const struct __MUIBuiltinClass _MUI_List_desc;
 extern const struct __MUIBuiltinClass _MUI_Popobject_desc;
 extern const struct __MUIBuiltinClass _MUI_Gauge_desc;
+extern const struct __MUIBuiltinClass _MUI_Floattext_desc;
 extern const struct __MUIBuiltinClass _MUI_Aboutmui_desc;
 extern const struct __MUIBuiltinClass _MUI_Settingsgroup_desc;
 extern const struct __MUIBuiltinClass _MUI_Imageadjust_desc;

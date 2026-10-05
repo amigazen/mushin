@@ -502,7 +502,7 @@ IPTR Coloradjust__OM_SET(struct IClass *cl, Object *obj,
                 nnset(data->grad, GRAD_CurVal,
                     0xFFFF - (hsb.cw_Brightness >> 16));
 
-            if ((_flags(obj) & MADF_SETUP) && (data->gradpen != -1))
+            if ((muiAreaData(obj)->mad_Flags2 & MADF2_SETUP) && (data->gradpen != -1))
             {
                 hsb.cw_Brightness = 0xFFFFFFFF;
                 ConvertHSBToRGB(&hsb, &cw);

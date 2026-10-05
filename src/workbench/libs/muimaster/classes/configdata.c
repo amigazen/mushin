@@ -30,6 +30,7 @@ extern struct Library *MUIScreenBase;
 #include "support.h"
 #include "prefs.h"
 #include "imspec.h"
+#include "reactionprefs.h"
 
 /*
  * A local copy of MUIA_Configdata_ZunePrefs used to sit here.  It is declared
@@ -58,6 +59,9 @@ struct MUI_ConfigdataData
     struct MUI_InputHandlerNode fsNotifyIHN;
     struct NotifyRequest        fsNotifyRequest;
     struct List                 pubscreens;
+    /* Owned copies from reaction.prefs font name arrays (FreeVec on dispose). */
+    STRPTR                      reaction_font_normal;
+    STRPTR                      reaction_font_button;
 };
 
 static CONST_STRPTR GetConfigString(Object *obj, ULONG id)
@@ -223,7 +227,8 @@ const static struct def_ulval DefULValues[] = {
     {MUICFG_Listview_Refresh, LISTVIEW_REFRESH_MIXED},
     {MUICFG_Listview_Multi, LISTVIEW_MULTI_SHIFTED},
     {MUICFG_GroupTitle_Position, GROUP_TITLE_POSITION_CENTERED},
-    {MUICFG_GroupTitle_Color, GROUP_TITLE_COLOR_HILITE},
+    /* Standard = MPEN_TEXT (black on WB). Hilite used shine and looked grey. */
+    {MUICFG_GroupTitle_Color, GROUP_TITLE_COLOR_STANDARD},
     {MUICFG_Scrollbar_Type, SCROLLBAR_TYPE_STANDARD},
     {MUICFG_Scrollbar_Arrangement, SCROLLBAR_ARRANGEMENT_TOP},
     {MUICFG_Balance_Look, BALANCING_SHOW_FRAMES},
@@ -328,6 +333,8 @@ IPTR Configdata__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 
     NewList(&data->pubscreens);
     InitSemaphore(&data->psLock);
+    data->reaction_font_normal = NULL;
+    data->reaction_font_button = NULL;
 
     for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)
     {
@@ -554,6 +561,14 @@ IPTR Configdata__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     /*---------- Special ----------*/
     /* all taken care of in frames and images */
 
+    /*
+     * Overlay ENV:sys/reaction.prefs (IFF PREF/RACT) onto the shared look
+     * settings after Zune defaults/dataspace so ReAction L&F wins where the
+     * two systems overlap.
+     */
+    Zune_ApplyReactionPrefs(&data->prefs,
+        &data->reaction_font_normal, &data->reaction_font_button);
+
     return (IPTR) obj;
 }
 
@@ -590,6 +605,11 @@ IPTR Configdata__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 
     if (MUIScreenBase)
         Configdata__DisposeDescriptors(data);
+
+    if (data->reaction_font_normal)
+        FreeVec(data->reaction_font_normal);
+    if (data->reaction_font_button)
+        FreeVec(data->reaction_font_button);
 
     return DoSuperMethodA(cl, obj, msg);
 }

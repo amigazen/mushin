@@ -15,32 +15,11 @@
 extern struct Library *MUIMasterBase;
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
 
-/*****************************************************************************
-
-    NAME */
-        __asm __saveds VOID MUI_FreeClass(register __a0 Class *cl)
-
-/*  FUNCTION
-        Frees a class returned by MUI_GetClass(). This function is
-        obsolete. Use MUI_DeleteCustomClass() instead.
-
-    INPUTS
-        cl - The pointer to the class.
-
-    RESULT
-
-    NOTES
-
-    EXAMPLE
-
-    BUGS
-
-    SEE ALSO
-        MUI_GetClass(), MUI_CreateCustomClass(), MUI_DeleteCustomClass()
-
-    INTERNALS
-
-*****************************************************************************/
+/*
+ * Stack-callable FreeClass body.  Library code must use this (or an LVO
+ * trampoline that loads A0), never a direct C call to MUI_FreeClass().
+ */
+VOID ZUNE_FreeClass(Class *cl)
 {
     STRPTR id;
     ULONG flags;
@@ -84,27 +63,67 @@ typedef struct MUIMasterBase_intern MUIMasterBase_intern;
     }
     else
     {
-        ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
+        /*
+         * External MCC: h_Data is the MCC library base (set by
+         * MUI_CreateCustomClass).  Always CloseLibrary once per
+         * GetExternalClass OpenLibrary so OpenCnt stays balanced.
+         * cl_UserData is the GetClass count (for traces / parity with
+         * builtins); do not gate CloseLibrary on it or OpenCnt leaks
+         * and Expunge never runs.
+         *
+         * Builtin dispatchers stash MUIMasterBase in h_Data for A6 -
+         * never CloseLibrary that.  Also reject non-Library pointers.
+         */
+        if (cl->cl_UserData > 0)
+            cl->cl_UserData--;
 
         lib = (struct Library *)cl->cl_Dispatcher.h_Data;
-        /*
-         * External MCCs stash their library base in h_Data.  Builtin
-         * dispatchers stash MUIMasterBase there for A6 - never CloseLibrary
-         * that.  Also reject pointers that are not a struct Library
-         * (smashed A0 used to CloseLibrary random memory and guru).
-         */
+
+        ReleaseSemaphore(&((struct MUIMasterBase_intern *)MUIMasterBase)->ZuneSemaphore);
+
         if (lib != NULL && lib != MUIMasterBase
             && lib->lib_Node.ln_Type == NT_LIBRARY)
         {
-            ZuneTrace("zune: FreeClass CloseLibrary %lx\n", (ULONG) lib);
+            ZuneTrace("zune: FreeClass CloseLibrary %lx (ud now %ld)\n",
+                (ULONG) lib, cl->cl_UserData);
             CloseLibrary(lib);
         }
         else
         {
-            ZuneTrace("zune: FreeClass skip CloseLibrary hdata=%lx type=%ld\n",
-                (ULONG) lib,
+            ZuneTrace("zune: FreeClass skip CloseLibrary hdata=%lx ud=%ld type=%ld\n",
+                (ULONG) lib, cl->cl_UserData,
                 (ULONG) (lib ? lib->lib_Node.ln_Type : 0));
         }
     }
     ZuneTrace("zune: FreeClass return cl=%lx\n", (ULONG) cl);
+}
+
+/*****************************************************************************
+
+    NAME */
+        __asm __saveds VOID MUI_FreeClass(register __a0 Class *cl)
+
+/*  FUNCTION
+        Frees a class returned by MUI_GetClass(). This function is
+        obsolete. Use MUI_DeleteCustomClass() instead.
+
+    INPUTS
+        cl - The pointer to the class.
+
+    RESULT
+
+    NOTES
+
+    EXAMPLE
+
+    BUGS
+
+    SEE ALSO
+        MUI_GetClass(), MUI_CreateCustomClass(), MUI_DeleteCustomClass()
+
+    INTERNALS
+
+*****************************************************************************/
+{
+    ZUNE_FreeClass(cl);
 } /* MUI_FreeClass */

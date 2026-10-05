@@ -7,31 +7,27 @@
 #include <dos/dos.h>
 #include <proto/iffparse.h>
 #include <prefs/prefhdr.h>
+#include <libraries/iffparse.h>
+
 #define DEBUG 0
 #include <aros/debug.h>
 
 #include "fileformat.h"
+#include "muiscreen_intern.h"
 
 /*****************************************************************************
 
     NAME */
-#include <proto/muiscreen.h>
-
-        AROS_LH2(APTR, MUIS_OpenPubFile,
-
-/*  SYNOPSIS */
-        AROS_LHA(char*, name,  A0),
-        AROS_LHA(ULONG, mode, D0),
-
-/*  LOCATION */
-        struct Library *, MUIScreenBase, 9, MUIScreen)
+        __asm __saveds APTR MUIS_OpenPubFile(
+            register __a0 char *name,
+            register __d0 ULONG mode)
 
 /*  FUNCTION
 
     INPUTS
 
     RESULT
-    
+
     NOTES
 
     EXAMPLE
@@ -42,52 +38,65 @@
 
     INTERNALS
 
-******************************************************************************/
-
+*****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
     struct IFFHandle *iff;
+    struct FilePrefHeader head;
+    BPTR fh;
 
-    D(bug("MUIS_OpenPubFile(%s, %d)\n", name, mode));
+    D(bug("MUIS_OpenPubFile(%s, %ld)\n", name ? name : "(null)", mode));
 
-    if ((iff = AllocIFF()))
+    if (name == NULL)
+        return NULL;
+
+    iff = AllocIFF();
+    if (iff == NULL)
+        return NULL;
+
+    fh = Open(name, mode);
+    if (fh == 0)
     {
-        if ((iff->iff_Stream = (IPTR) Open(name, mode)))
-        {
-            InitIFFasDOS(iff);
-            if (!OpenIFF(iff, (mode == MODE_OLDFILE ? IFFF_READ : IFFF_WRITE)))
-            {
-                if (mode == MODE_NEWFILE)
-                {
-                    if (!PushChunk(iff, ID_PREF, ID_FORM, IFFSIZE_UNKNOWN))
-                    {
-                        if (!PushChunk(iff, ID_PREF, ID_PRHD, sizeof(struct FilePrefHeader)))
-                        {
-                            struct FilePrefHeader head;
-    
-                            head.ph_Version  = 0; // FIXME: shouold be PHV_CURRENT, but see <prefs/prefhdr.h>
-                            head.ph_Type     = 0;
-                            head.ph_Flags[0] =
-                            head.ph_Flags[1] =
-                            head.ph_Flags[2] =
-                            head.ph_Flags[3] = 0;
-    
-                            if (WriteChunkBytes(iff, &head, sizeof(head)) == sizeof(head))
-                            {
-                                PopChunk(iff);
-                                return (APTR) iff;
-                            }
-                        }
-                    }
-                }
-                else
-                    return (APTR) iff;
-            }
-        }
+        FreeIFF(iff);
+        return NULL;
     }
 
-    return NULL;
+    iff->iff_Stream = (ULONG)fh;
+    InitIFFasDOS(iff);
 
-    AROS_LIBFUNC_EXIT
+    if (OpenIFF(iff, (mode == MODE_OLDFILE ? IFFF_READ : IFFF_WRITE)))
+    {
+        Close(fh);
+        FreeIFF(iff);
+        return NULL;
+    }
+
+    if (mode == MODE_NEWFILE)
+    {
+        if (PushChunk(iff, ID_PREF, ID_FORM, IFFSIZE_UNKNOWN))
+            goto fail_write;
+
+        if (PushChunk(iff, ID_PREF, ID_PRHD, sizeof(struct FilePrefHeader)))
+            goto fail_write;
+
+        head.ph_Version = 0; /* FIXME: should be PHV_CURRENT */
+        head.ph_Type = 0;
+        head.ph_Flags[0] = 0;
+        head.ph_Flags[1] = 0;
+        head.ph_Flags[2] = 0;
+        head.ph_Flags[3] = 0;
+
+        if (WriteChunkBytes(iff, &head, sizeof(head)) != sizeof(head))
+            goto fail_write;
+
+        PopChunk(iff);
+        return (APTR)iff;
+
+fail_write:
+        CloseIFF(iff);
+        Close(fh);
+        FreeIFF(iff);
+        return NULL;
+    }
+
+    return (APTR)iff;
 }

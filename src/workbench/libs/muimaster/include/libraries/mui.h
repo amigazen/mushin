@@ -365,7 +365,7 @@ for                                            \
 #define _MUI_IDENTIFIERS_H
 
 /*
-    Copyright © 2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -465,7 +465,7 @@ struct __MUIBuiltinClass {
 #define _MUI_CLASSES_NOTIFY_H
 
 /*
-    Copyright ï¿½ 2002-2012, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -692,8 +692,8 @@ enum
 #define _CLASSES_FAMILY_H
 
 /* 
-    Copyright © 1999, David Le Corfec.
-    Copyright © 2002-2012, The AROS Development Team.
+    Copyright ? 1999, David Le Corfec.
+    Copyright ? 2002-2012, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -1363,8 +1363,8 @@ struct MUI_AlphaData
 #define _MUI_CLASSES_WINDOW_H
 
 /*
-    Copyright ï¿½ 1999, David Le Corfec.
-    Copyright ï¿½ 2002-2025, The AROS Development Team.
+    Copyright ? 1999, David Le Corfec.
+    Copyright ? 2002-2025, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2080,6 +2080,7 @@ struct MUIP_Setup
 struct MUIP_Show
 {
     STACKED ULONG MethodID;
+    STACKED APTR clip;          /* commercial / Voyager ShowClipped */
 };
 
 #define MUIM_Layout \
@@ -2259,60 +2260,52 @@ struct MUI_AreaData
     BYTE mad_subwidth;          /* additional width (frame & innerspacing) */
     BYTE mad_subheight;         /* additional height (frame & innerspacing) */
     ULONG mad_Flags;            /* some flags; see below */
-    ULONG mad_Flags2;
-// 40 bytes up to here
-
-    /* The following data is private */
-// offset 40
-    UWORD mad_HorizWeight;      /* weight values for layout. default 100 */
-    UWORD mad_VertWeight;
-// offset 44
-// ?
-// offset 48
-    ULONG mad_IDCMP;            /* IDCMP flags this listens to (for HandleInput) */
-// offset 52
+    /*
+     * Through mad_Flags2 the layout matches commercial MUI 3.x so Voyager
+     * macros (_vtop, _shorthelp, weights, FixWidth/Height) hit the right
+     * offsets.  Zune-only fields follow after mad_Flags2.
+     */
+    WORD mad_HorizWeight;
+    WORD mad_VertWeight;
+    WORD mad_HorizDisappear;
+    WORD mad_VertDisappear;
+    ULONG mad_IDCMP;
     CONST_STRPTR mad_BackgroundSpec;
-// offset 56
-    IPTR mad_FontPreset;        /* MUIV_Font_xxx or pointer to struct TextFont */
-// offset 76
-    CONST_STRPTR mad_FrameTitle;        /* for groups. Req. mad_Frame > 0 */
-// Inner values at offset 88 in MUI:
-    BYTE mad_InnerLeft;         /* frame or hardcoded */
+    IPTR mad_FontPreset;        /* MUIV_Font_xxx or TextFont * (FontSpec slot) */
+    CONST_STRPTR mad_ShortHelp;
+    LONG mad_FixWidth;
+    LONG mad_FixHeight;
+    LONG mad_VirtualTop;        /* Voyager _vtop / virtgroup scroll */
+    ULONG mad_Flags2;
+
+    /* Zune-private tail */
+    CONST_STRPTR mad_FrameTitle;
+    BYTE mad_InnerLeft;
     BYTE mad_InnerTop;
     BYTE mad_InnerRight;
     BYTE mad_InnerBottom;
-// offset 94
-    BYTE mad_FrameOBSOLETE;     /* frame setting -- private */
-// offset 95
-    BYTE mad_InputMode;         /* how to react to events */
-// offset 96
-    TEXT mad_ControlChar;       /* key shortcut */
-    BYTE mad_TitleHeightAdd;    /* frame title height = mad_TitleBelow + mad_TitleBaseline */
-    BYTE mad_TitleHeightBelow;  /* height below frame */
-    BYTE mad_TitleHeightAbove;  /* height above frame */
-// 100
-// ?
+    BYTE mad_FrameOBSOLETE;
+    BYTE mad_InputMode;
+    TEXT mad_ControlChar;
+    BYTE mad_TitleHeightAdd;
+    BYTE mad_TitleHeightBelow;
+    BYTE mad_TitleHeightAbove;
     IPTR mad_Frame;
-    WORD mad_HardHeight;        /* if harcoded dim (see flags)  */
-    WORD mad_HardWidth;         /* if harcoded dim (see flags)  */
+    WORD mad_HardHeight;
+    WORD mad_HardWidth;
     CONST_STRPTR mad_HardWidthTxt;
     CONST_STRPTR mad_HardHeightTxt;
-// TODO: move SelBack in RenderInfo as it's common for all objects
-    struct MUI_ImageSpec_intern *mad_SelBack;   /* selected state background */
-    CONST_STRPTR mad_ShortHelp; /* bubble help */
-// there's an event handler at 114
+    struct MUI_ImageSpec_intern *mad_SelBack;
     struct MUI_EventHandlerNode mad_ehn;
-    struct MUI_InputHandlerNode mad_Timer;      /* MUIA_Timer */
-    ULONG mad_Timeval;          /* just to trigger notifications */
-    struct MUI_EventHandlerNode mad_ccn;        /* gross hack for control char */
-    Object *mad_ContextMenu;    /* menu strip */
-    LONG mad_ClickX;            /* x position of the initial SELECTDOWN click */
-    LONG mad_ClickY;            /* y position of the intiial SELECTDOWN click */
+    struct MUI_InputHandlerNode mad_Timer;
+    ULONG mad_Timeval;
+    struct MUI_EventHandlerNode mad_ccn;
+    Object *mad_ContextMenu;
+    LONG mad_ClickX;
+    LONG mad_ClickY;
     struct ZMenu *mad_ContextZMenu;
-    struct MUI_EventHandlerNode mad_hiehn;      /* Eventhandler to simulate MUIM_HandleInput */
-
-    LONG mad_DisableCount;      /* counts number of disables */
-// only 148 bytes for the struct in MUI !
+    struct MUI_EventHandlerNode mad_hiehn;
+    LONG mad_DisableCount;
 };
 
 /*
@@ -2328,18 +2321,25 @@ struct MUI_AreaData
  * ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left instead of _left(obj).
  */
 
-/* Flags during MUIM_Draw */
+/* Flags during MUIM_Draw ? commercial MUI 3.8 layout (see classes/area.h) */
 #define MADF_DRAWOBJECT        (1<< 0)  /* draw object completely */
 #define MADF_DRAWUPDATE        (1<< 1)  /* update object */
-
-#define MADF_DRAWALL           (1<< 31)
+#define MADF_DRAWACTIVE        (1<< 2)
+#define MADF_DRAWOUTER         (1<<11)
+#define MADF_DRAWCHILD         (1<<12)
+#define MADF_DRAWALL           (MADF_DRAWACTIVE | MADF_DRAWOUTER | MADF_DRAWOBJECT)
+#define MADF_DRAWMASK          (MADF_DRAWOUTER | MADF_DRAWOBJECT | MADF_DRAWCHILD \
+    | MADF_DRAWUPDATE | MADF_DRAWACTIVE)
+#define MADF_DRAWFLAGS         MADF_DRAWMASK
+#define MADF_DRAW_XXX          MADF_DRAWACTIVE
+#define MADF_DRAWFRAME         MADF_DRAWOUTER
+#define MADF_DRAW_XXX_2        MADF_DRAWCHILD
 
 
 /* mad_Flags, private one */
 
 
-#define MADF_DRAWFLAGS (MADF_DRAWOBJECT | MADF_DRAWUPDATE | MADF_DRAW_XXX \
-    | MADF_DRAWFRAME | MADF_DRAW_XXX_2 | MADF_DRAWALL)
+/* (full mad_Flags set lives in classes/area.h ? keep DRAWFLAGS in sync) */
 
 
 // offset 94 (byte) (frame << 1) (lsb is SETUP_DONE flag)
@@ -2411,8 +2411,8 @@ enum
 #define _MUI_CLASSES_GROUP_H
 
 /* 
-    Copyright © 1999, David Le Corfec.
-    Copyright © 2002-2012, The AROS Development Team.
+    Copyright ? 1999, David Le Corfec.
+    Copyright ? 2002-2012, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2555,8 +2555,8 @@ enum
 #define _MUI_CLASSES_RECTANGLE_H
 
 /* 
-    Copyright © 1999, David Le Corfec.
-    Copyright © 2002-2003, The AROS Development Team.
+    Copyright ? 1999, David Le Corfec.
+    Copyright ? 2002-2003, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2582,8 +2582,8 @@ enum
 #define _MUI_CLASSES_TEXT_H
 
 /* 
-    Copyright © 1999, David Le Corfec.
-    Copyright © 2002-2003, The AROS Development Team.
+    Copyright ? 1999, David Le Corfec.
+    Copyright ? 2002-2003, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2634,7 +2634,7 @@ enum
 #define _MUI_CLASSES_NUMERIC_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2729,8 +2729,8 @@ struct MUIP_Numeric_ValueToScaleExt
 #define _MUI_CLASSES_SLIDER_H
 
 /* 
-    Copyright © 1999, David Le Corfec.
-    Copyright © 2002-2003, The AROS Development Team.
+    Copyright ? 1999, David Le Corfec.
+    Copyright ? 2002-2003, The AROS Development Team.
     All rights reserved.
 
     $Id$
@@ -2763,7 +2763,7 @@ struct MUIP_Numeric_ValueToScaleExt
 #define _MUI_CLASSES_STRING_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2917,7 +2917,7 @@ struct MUIP_String_Insert
 #define _MUI_CLASSES_PROP_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -2981,7 +2981,7 @@ enum
 #define _MUI_CLASSES_SCROLLBAR_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3012,7 +3012,7 @@ enum
 #define _MUI_CLASSES_REGISTER_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3038,7 +3038,7 @@ enum
 #define _MUI_CLASSES_MENUITEM_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3110,7 +3110,7 @@ enum
 #define _MUI_CLASSES_DATASPACE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3188,7 +3188,7 @@ struct MUIP_Dataspace_WriteIFF
 #define _MUI_CLASSES_VIRTGROUP_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3216,7 +3216,7 @@ struct MUIP_Dataspace_WriteIFF
 #define _MUI_CLASSES_SCROLLGROUP_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3289,7 +3289,7 @@ struct MUIP_Dataspace_WriteIFF
 #define _MUI_CLASSES_SEMAPHORE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3410,7 +3410,7 @@ struct MUIP_Semaphore_Release
 #define _MUI_CLASSES_CHUNKYIMAGE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3440,7 +3440,7 @@ struct MUIP_Semaphore_Release
 #define _CLASSES_LISTVIEW_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3502,7 +3502,7 @@ enum
 #define _MUI_CLASSES_LIST_H
 
 /*
-    Copyright © 2002-2013, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2013, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3855,7 +3855,7 @@ enum
 #define _MUI_CLASSES_FLOATTEXT_H
 
 /*
-    Copyright © 2002-2014, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2014, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3894,7 +3894,7 @@ struct MUIP_Floattext_Append
 #define _MUI_CLASSES_POPSTRING_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3941,7 +3941,7 @@ struct MUIP_Popstring_Open
 #define _MUI_CLASSES_POPOBJECT_H
 
 /*
-    Copyright © 2002-2006, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2006, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -3978,7 +3978,7 @@ struct MUIP_Popstring_Open
 #define _MUI_CLASSES_CYCLE_H
 
 /*
-    Copyright © 2002-2013, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2013, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4007,7 +4007,7 @@ enum
 #define _MUI_CLASSES_GAUGE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4081,7 +4081,7 @@ enum
 #define _MUI_CLASSES_IMAGEDISPLAY_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4112,7 +4112,7 @@ enum
 #define _MUI_CLASSES_POPASL_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4143,7 +4143,7 @@ enum
 #define _MUI_CLASSES_SETTINGSGROUP_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4181,7 +4181,7 @@ struct MUIP_Settingsgroup_GadgetsToConfig
 #define _MUI_CLASSES_SETTINGS_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4501,7 +4501,7 @@ struct MUIP_Configdata_SetString
 #define _MUI_CLASSES_IMAGEADJUST_H
 
 /* 
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4538,7 +4538,7 @@ enum
 #define _MUI_CLASSES_POPIMAGE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4562,7 +4562,7 @@ enum
 #define _MUI_CLASSES_SCALE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4585,7 +4585,7 @@ enum
 #define _MUI_CLASSES_RADIO_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4634,7 +4634,7 @@ enum
 #define _MUI_CLASSES_PENDISPLAY_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4689,7 +4689,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_PENADJUST_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4714,7 +4714,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_POPPEN_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4809,7 +4809,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_FRAMEADJUST_H
 
 /* 
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4833,7 +4833,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_FRAMEDISPLAY_H
 
 /*
-    Copyright © 2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4856,7 +4856,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_POPFRAME_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4880,7 +4880,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_VOLUMELIST_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4899,7 +4899,7 @@ struct MUIP_Pendisplay_SetRGB
 #define _MUI_CLASSES_DIRLIST_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -4984,7 +4984,7 @@ enum
 #define _MUI_CLASSES_NUMERICBUTTON_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5003,7 +5003,7 @@ enum
 #define _MUI_CLASSES_POPLIST_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5027,7 +5027,7 @@ enum
 #define _MUI_CLASSES_POPSCREEN_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5048,7 +5048,7 @@ enum
 #define _MUI_CLASSES_CRAWLING_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5068,7 +5068,7 @@ enum
 #define _MUI_CLASSES_LEVELMETER_H
 
 /*
-    Copyright © 2002-2006, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2006, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5091,7 +5091,7 @@ enum
 #define _MUI_CLASSES_KNOB_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5110,7 +5110,7 @@ enum
 #define _MUI_CLASSES_DTPIC_H
 
 /*
-    Copyright © 2002-2014, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2014, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5138,7 +5138,7 @@ enum
 #define _MUI_CLASSES_PALETTE_H
 
 /*
-    Copyright © 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2003, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5176,7 +5176,7 @@ struct MUI_Palette_Entry
 #define _MUI_CLASSES_TITLE_H
 
 /*
-    Copyright © 2012, The AROS Development Team. All rights reserved.
+    Copyright ? 2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5198,7 +5198,7 @@ struct MUI_Palette_Entry
 #define _MUI_CLASSES_PROCESS_H
 
 /*
-    Copyright © 2012, The AROS Development Team. All rights reserved.
+    Copyright ? 2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5263,8 +5263,8 @@ struct MUIP_Process_Signal
 #define _MUI_CLASSES_PIXMAP_H
 
 /*
-    Copyright © 2011, Thore Böckelmann. All rights reserved.
-    Copyright © 2012, The AROS Development Team. All rights reserved.
+    Copyright ? 2011, Thore B?ckelmann. All rights reserved.
+    Copyright ? 2012, The AROS Development Team. All rights reserved.
     $Id$
 */
 
@@ -5427,7 +5427,7 @@ struct MUI_Command
 #define _MUI_MACROS_H
 
 /*
-    Copyright ï¿½ 2002-2025, The AROS Development Team. All rights reserved.
+    Copyright ? 2002-2025, The AROS Development Team. All rights reserved.
     $Id$
 
     Macros available in original MUI and also some additional ones.

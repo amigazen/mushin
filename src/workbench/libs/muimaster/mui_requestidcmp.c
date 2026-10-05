@@ -45,7 +45,7 @@
 *****************************************************************************/
 {
     /* Use the Eventhandler to simulate a MUIM_HandleInput */
-    if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo && (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_SETUP) && ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_WindowObject)
+    if (((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo && (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags2 & MADF2_SETUP) && ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo->mri_WindowObject)
     {
         if (((struct __dummyAreaData__ *)(obj))->mad.mad_hiehn.ehn_Events)
         {

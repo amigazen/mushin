@@ -7,31 +7,26 @@
 #include <proto/iffparse.h>
 #include <prefs/prefhdr.h>
 #include <proto/exec.h>
+
 #define DEBUG 0
 #include <aros/debug.h>
 
 #include "fileformat.h"
+#include "muiscreen_intern.h"
 
 /*****************************************************************************
 
     NAME */
-#include <proto/muiscreen.h>
-
-        AROS_LH2(BOOL, MUIS_WritePubFile,
-
-/*  SYNOPSIS */
-        AROS_LHA(APTR, pf,  A0),
-        AROS_LHA(struct MUI_PubScreenDesc *, desc,  A1),
-
-/*  LOCATION */
-        struct Library *, MUIScreenBase, 12, MUIScreen)
+        __asm __saveds BOOL MUIS_WritePubFile(
+            register __a0 APTR pf,
+            register __a1 struct MUI_PubScreenDesc *desc)
 
 /*  FUNCTION
 
     INPUTS
 
     RESULT
-    
+
     NOTES
 
     EXAMPLE
@@ -42,16 +37,19 @@
 
     INTERNALS
 
-******************************************************************************/
-
+*****************************************************************************/
 {
-    AROS_LIBFUNC_INIT
-
-    D(bug("MUIS_WritePubFile(%p, %p)\n", pf, desc));
-
-    struct IFFHandle *iff = (struct IFFHandle *) pf;
-    BOOL retval = FALSE;
+    struct IFFHandle *iff;
+    BOOL retval;
     struct MUI_PubScreenDescArray desc_tmp;
+
+    D(bug("MUIS_WritePubFile(%lx, %lx)\n", (ULONG)pf, (ULONG)desc));
+
+    iff = (struct IFFHandle *)pf;
+    retval = FALSE;
+
+    if (iff == NULL || desc == NULL)
+        return FALSE;
 
     LONG_TO_ARRAY(desc->Version, desc_tmp.Version);
     CopyMem(desc->Name, desc_tmp.Name, sizeof(desc_tmp.Name));
@@ -81,7 +79,8 @@
 
     if (!PushChunk(iff, ID_PREF, ID_MPUB, sizeof(struct MUI_PubScreenDescArray)))
     {
-        if (WriteChunkBytes(iff, &desc_tmp, sizeof(struct MUI_PubScreenDescArray)) == sizeof(struct MUI_PubScreenDescArray))
+        if (WriteChunkBytes(iff, &desc_tmp, sizeof(struct MUI_PubScreenDescArray))
+            == sizeof(struct MUI_PubScreenDescArray))
         {
             retval = TRUE;
         }
@@ -89,6 +88,4 @@
     }
 
     return retval;
-
-    AROS_LIBFUNC_EXIT
 }

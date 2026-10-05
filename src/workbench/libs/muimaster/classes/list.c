@@ -828,7 +828,7 @@ static int CalcDimsOfEntry(struct IClass *cl, Object *obj, int pos)
     if (!entry)
         return ret;
 
-    if (!(_flags(obj) & MADF_SETUP))
+    if (!(muiAreaData(obj)->mad_Flags2 & MADF2_SETUP))
         return ret;
 
     DisplayEntry(cl, obj, pos);
@@ -885,7 +885,7 @@ static void CalcWidths(struct IClass *cl, Object *obj)
     int i, j;
     struct MUI_ListData *data = INST_DATA(cl, obj);
 
-    if (!(_flags(obj) & MADF_SETUP))
+    if (!(muiAreaData(obj)->mad_Flags2 & MADF2_SETUP))
         return;
 
     for (j = 0; j < data->columns; j++)
@@ -1028,7 +1028,7 @@ static void List_HandleScrollerPos(struct IClass *cl, Object *obj)
 
     /* Disallow any changes after setup. This function should basically be
      * creation-time only */
-    if (_flags(obj) & MADF_SETUP)
+    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
         return;
 
     /* Remove both objects */
@@ -1580,7 +1580,7 @@ IPTR List__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                     /* Make new active entry visible (if there is one and
                        list is visible) */
                     if (new_entries_active != -1
-                        && (_flags(obj) & MADF_SETUP))
+                        && (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP))
                     {
                         DoMethod(obj, MUIM_List_Jump,
                             MUIV_List_Jump_Active);
@@ -1662,7 +1662,7 @@ IPTR List__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_Disabled:
-            if (_flags(obj) & MADF_SETUP)
+            if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
             {
                 /* Stop listening for events we only listen to when mouse
                    button is down: we will not be informed of the button
@@ -2935,7 +2935,7 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
 
         data->flags |= LIST_CHANGED;
 
-        if (_flags(obj) & MADF_SETUP)
+        if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
         {
             /* We have to calculate the width and height of the newly
              * inserted entry. This has to be done after inserting the
@@ -2950,7 +2950,7 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
     pos--;
 
     /* Recalculate the number of visible entries */
-    if (_flags(obj) & MADF_SETUP)
+    if (muiAreaData(obj)->mad_Flags2 & MADF2_SETUP)
         CalcVertVisible(cl, obj);
 
     if (data->entries_num != data->confirm_entries_num)
@@ -3249,7 +3249,7 @@ IPTR List__MUIM_CreateImage(struct IClass *cl, Object *obj,
         return 0;
 
     /* List must be already setup in Setup of your subclass */
-    if (!(_flags(obj) & MADF_SETUP))
+    if (!(muiAreaData(obj)->mad_Flags2 & MADF2_SETUP))
         return 0;
     li = AllocPooled(data->pool, sizeof(struct ListImage));
     if (!li)

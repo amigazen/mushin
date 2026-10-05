@@ -4,9 +4,6 @@
 
 #define MUIMASTER_YES_INLINE_STDARG
 
-#define DEBUG 0
-#include <aros/debug.h>
-
 #include <exec/memory.h>
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
@@ -23,6 +20,9 @@
 #include "support.h"
 #include "support_classes.h"
 #include "floattext_private.h"
+
+/*  #define MYDEBUG 1 */
+#include "debug.h"
 
 extern struct Library *MUIMasterBase;
 
@@ -558,22 +558,20 @@ IPTR Floattext__MUIM_Floattext_Append(struct IClass *cl, Object *obj,
     struct MUIP_Floattext_Append *msg)
 {
     struct Floattext_DATA *data = INST_DATA(cl, obj);
+    ULONG newlen;
+    STRPTR newtext;
 
     if (msg->Text)
     {
-        ULONG newlen = strlen(msg->Text) + 1;
+        newlen = strlen(msg->Text) + 1;
         if (data->text)
-        {
             newlen += strlen(data->text);
-        }
-        TEXT *newtext = AllocVec(newlen, MEMF_ANY);
+        newtext = AllocVec(newlen, MEMF_ANY);
         if (newtext)
         {
             newtext[0] = '\0';
             if (data->text)
-            {
                 strcpy(newtext, data->text);
-            }
             strcat(newtext, msg->Text);
             FreeVec(data->text);
             data->text = newtext;
