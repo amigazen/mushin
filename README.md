@@ -78,10 +78,17 @@ MUI had a reputation for complexity, often running slowly and using large amount
 
 _mushin_ on the other hand is intended to be pared back, designed to be a more lightweight implementation, with intentionally fewer configurable options, while also being a more complete package, including a full set of third party components where source code is available.
 
+Ways in which mushin differs from MUI include:
+* mushin will load a Reaction.prefs file if it exists in ENV:Sys/ and apply the same styles as the user has set in ReAction prefs.
+* mushin will load sysiclass and optionally glyph.image and will use the system provided images for checkmarks and other icon symbols
+* mushin embeds all .mui built-in classes in the primary muimaster.library rather than loading them dynamically from disk on demand. Although this means the muimaster.library is a larger binary than the original, in practice the builtins are all used by most MUI programs, and integrating the built-ins this way it reduces disk accesses and disk clutter. Larger .mcc plugins are still dynamically loaded on demand
+* Although mushin does support look and feel preferences like the original Zune code it is forked from, a prefs app is not shipped by default
+
 ### Which applications have been tested with _mushin_?
 
-- Voyager
-- iBrowse
+- Voyager (Partially working)
+- iBrowse (Not working)
+- xSysInfo (Working)
 
 ## Contact 
 
@@ -91,4 +98,4 @@ _mushin_ on the other hand is intended to be pared back, designed to be a more l
 
 ## Acknowledgements
 
-*Amiga* is a trademark of **Amiga Inc**. 
+*Amiga* is a trademark of **Amiga Inc**.

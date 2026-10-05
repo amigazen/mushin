@@ -97,8 +97,7 @@ static void set_frame(struct ZunePrefsNew *prefs, LONG id, CONST_STRPTR spec)
     zune_frame_spec_to_intern(spec, &prefs->frames[id]);
 }
 
-static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel,
-    BOOL look3d)
+static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel)
 {
     CONST_STRPTR button;
     CONST_STRPTR stringf;
@@ -107,47 +106,52 @@ static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel,
     CONST_STRPTR propf;
 
     /*
-     * framespec: type, recessed, L, R, U, D (see DefFramespecValues).
-     * Map ReAction bevel families onto the closest builtin FST_*.
+     * framespec: type, recessed, L, R, U, D.
+     * rp_BevelType is the frame style and is independent of rp_3DLook.
+     * Type 3 (FST_THIN_BORDER) is the separator: raised bevel plus a
+     * recessed inner bevel. ReAction bevels are a single direction, so
+     * buttons must not use type 3.
+     * Type 6 is the builtin Zune marks as zin31/xen.
+     * Strings and groups stay recessed (state 1); buttons stay raised.
      */
-    if (!look3d)
-        bevel = BVT_THIN;
-
     switch (bevel)
     {
     case BVT_THIN:
-        button = "302111";
-        stringf = "302111";
-        groupf = "302222";
-        textf = "302111";
-        propf = "302111";
+        /* ClassAct 1:1 bevel: single-pixel shine/shadow, not a separator. */
+        button = "201111";
+        stringf = "211111";
+        groupf = "212222";
+        textf = "211111";
+        propf = "201111";
         break;
     case BVT_THICK:
-        button = "402211";
-        stringf = "402211";
-        groupf = "404444";
-        textf = "402211";
-        propf = "402211";
+        /* 2:1 bevel. Type 4 is a double relief, so keep a plain bevel. */
+        button = "202222";
+        stringf = "212222";
+        groupf = "214444";
+        textf = "212222";
+        propf = "202222";
         break;
     case BVT_XEN:
-        button = "502211";
-        stringf = "502211";
-        groupf = "504444";
-        textf = "502211";
-        propf = "502211";
+        button = "602222";
+        stringf = "612222";
+        groupf = "614444";
+        textf = "612222";
+        propf = "602222";
         break;
     case BVT_XENTHIN:
-        button = "802111";
-        stringf = "802111";
-        groupf = "802222";
-        textf = "802111";
-        propf = "802111";
+        /* Type 8 is the 1:1 half-shine xen bevel. */
+        button = "801111";
+        stringf = "811111";
+        groupf = "812222";
+        textf = "811111";
+        propf = "801111";
         break;
     case BVT_GT:
     default:
         button = "202211";
-        stringf = "302211";
-        groupf = "314444";
+        stringf = "212211";
+        groupf = "214444";
         textf = "212211";
         propf = "202211";
         break;
@@ -285,7 +289,7 @@ BOOL Zune_ApplyReactionPrefs(struct ZunePrefsNew *prefs,
         (LONG) rp.labelpen, (LONG) rp.label3d,
         (LONG) rp.simplerefresh, (LONG) rp.look3d));
 
-    apply_bevel_frames(prefs, rp.bevel, rp.look3d);
+    apply_bevel_frames(prefs, rp.bevel);
 
     spacing = rp.spacing;
     if (spacing < 1)

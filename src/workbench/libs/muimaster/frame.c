@@ -858,50 +858,47 @@ static void frame_round_thick_border_down_draw(struct dt_frame_image *fi,
  8 : FST_ROUND_THIN_BORDER
 **************************************************************************/
 /**
- * Draw a rounded thin border - complex multi-pen effect
- * Uses 5 pens to create gradient-like rounded appearance
+ * 1:1 Xen bevel. Shine along the top and left, shadow along the bottom
+ * and right, with half-tone pixels on the two lit corners. The other two
+ * corners are left in the background so the bevels do not meet.
+ * pen1 top/left, pen2 top-left corner, pen4 bottom-right corner, pen5
+ * bottom/right. pen3 is unused.
  */
 static void round_thin_border_draw(struct dt_frame_image *fi,
                                    struct MUI_RenderInfo *mri, int left,
                                    int top, int width, int height, MPen pen1,
                                    MPen pen2, MPen pen3, MPen pen4, MPen pen5)
 {
-    struct RastPort *rp = mri->mri_RastPort;
+    struct RastPort *rp;
+    int right;
+    int bottom;
 
-    if (width <= 6 || height <= 6)
-        return; /* Safety check */
+    (void) fi;
+    (void) pen3;
 
-    /* Draw main border lines */
-    rect_draw(fi, mri, left, top, width - 1, height - 1, pen1);
-    rect_draw(fi, mri, left + 1, top + 1, width - 1, height - 1, pen5);
+    rp = mri->mri_RastPort;
+    if (rp == NULL || width < 3 || height < 3)
+        return;
 
-    /* Draw outer corners with pen2 */
+    right = left + width - 1;
+    bottom = top + height - 1;
+
     SetAPen(rp, mri->mri_Pens[pen2]);
-    RectFill(rp, left, top, left + 1, top + 1); /* Top-left outer */
-    RectFill(rp, left + width - 4, top + height - 4, left + width - 3,
-             top + height - 3); /* Bottom-right outer */
-    WritePixel(rp, left, top + height - 2);
-    WritePixel(rp, left + 2, top + height - 2);
-    WritePixel(rp, left + width - 2, top);
-    WritePixel(rp, left + width - 2, top + 2);
-
-    /* Draw middle corners with pen3 */
-    SetAPen(rp, mri->mri_Pens[pen3]);
-    RectFill(rp, left + 1, top + 1, left + 2, top + 2); /* Top-left middle */
-    RectFill(rp, left + width - 3, top + height - 3, left + width - 2,
-             top + height - 2); /* Bottom-right middle */
-
-    /* Draw inner corners and edges with pen4 */
+    WritePixel(rp, left, top);
     SetAPen(rp, mri->mri_Pens[pen4]);
-    RectFill(rp, left + 2, top + 2, left + 3, top + 3); /* Top-left inner */
-    RectFill(rp, left + width - 2, top + height - 2, left + width - 1,
-             top + height - 1); /* Bottom-right inner */
-    RectFill(rp, left + 1, top + height - 3, left + 1,
-             top + height - 1); /* Left edge */
-    RectFill(rp, left + width - 3, top + 1, left + width - 1,
-             top + 1); /* Top edge */
-    WritePixel(rp, left + 2, top + height - 3);
-    WritePixel(rp, left + width - 3, top + 2);
+    WritePixel(rp, right, bottom);
+
+    SetAPen(rp, mri->mri_Pens[pen1]);
+    RectFill(rp, left + 1, top, right - 1, top);
+    RectFill(rp, left, top + 1, left, bottom - 1);
+
+    SetAPen(rp, mri->mri_Pens[pen5]);
+    RectFill(rp, left + 1, bottom, right - 1, bottom);
+    RectFill(rp, right, top + 1, right, bottom - 1);
+
+    SetAPen(rp, mri->mri_Pens[MPEN_BACKGROUND]);
+    WritePixel(rp, right, top);
+    WritePixel(rp, left, bottom);
 }
 
 /**************************************************************************
@@ -1273,10 +1270,10 @@ static const struct ZuneFrameGfx __builtinFrameGfx[] = {
     {frame_round_thick_border_up_draw, 0, 4, 4, 4, 4, NULL, FALSE, 4, 3},
     {frame_round_thick_border_down_draw, 0, 4, 4, 4, 4, NULL, FALSE, 4, 3},
 
-    /* rounded thin border */
+    /* 1:1 xen bevel (half-shine corners) */
     /* 8 : FST_ROUND_THIN_BORDER */
-    {frame_round_thin_border_up_draw, 0, 4, 4, 4, 4, NULL, FALSE, 2, 2},
-    {frame_round_thin_border_down_draw, 0, 4, 4, 4, 4, NULL, FALSE, 2, 2},
+    {frame_round_thin_border_up_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
+    {frame_round_thin_border_down_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
 
     /* strange gray border */
     /* 9 : FST_GRAY_BORDER */

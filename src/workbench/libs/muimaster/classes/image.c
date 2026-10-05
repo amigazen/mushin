@@ -325,8 +325,7 @@ IPTR Image__MUIM_Setup(struct IClass *cl, Object *obj, struct MUIP_Setup *msg)
                 set(obj, MUIA_FillArea, FALSE);
             else if (zune_imspec_is_sysimage(data->img))
             {
-                /* CHECKIMAGE and the other sysiclass images already
-                 * include their own bevel. */
+                /* The radio image already includes its bevel. */
                 set(obj, MUIA_Frame, MUIV_Frame_None);
                 set(obj, MUIA_FillArea, FALSE);
             }

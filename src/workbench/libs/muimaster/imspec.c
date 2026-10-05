@@ -471,29 +471,16 @@ static void zune_imspec_free(struct MUI_ImageSpec_intern *spec)
 }
 
 /*
- * Arrows, the checkmark and the radio button have sysiclass images.
- * Cycle and popup pictures use glyph.image when that class is installed.
- * Anything left over stays a vector drawing.
+ * The radio button is a sysiclass image. Arrows and the checkmark are
+ * glyph.image pictures: sysiclass UPIMAGE/DOWNIMAGE are the window-border
+ * arrows (filled with FILLPEN) and MENUCHECK is the menu tick (drawn on
+ * SHINEPEN). Cycle and popup pictures are glyphs too. Anything left over
+ * stays a vector drawing.
  */
 static BOOL vector_to_sysi(LONG vect, ULONG *which)
 {
     switch (vect)
     {
-    case 0:
-        *which = UPIMAGE;
-        return TRUE;
-    case 1:
-        *which = DOWNIMAGE;
-        return TRUE;
-    case 2:
-        *which = LEFTIMAGE;
-        return TRUE;
-    case 3:
-        *which = RIGHTIMAGE;
-        return TRUE;
-    case 4:
-        *which = CHECKIMAGE;
-        return TRUE;
     case 5:
         *which = MXIMAGE;
         return TRUE;
@@ -502,11 +489,26 @@ static BOOL vector_to_sysi(LONG vect, ULONG *which)
     }
 }
 
-/* Builtin vector index to a glyph.image picture. Sysiclass indices are absent. */
+/* Builtin vector index to a glyph.image picture. */
 static BOOL vector_to_glyph(LONG vect, LONG *glyph)
 {
     switch (vect)
     {
+    case 0:
+        *glyph = GLYPH_UPARROW;
+        return TRUE;
+    case 1:
+        *glyph = GLYPH_DOWNARROW;
+        return TRUE;
+    case 2:
+        *glyph = GLYPH_LEFTARROW;
+        return TRUE;
+    case 3:
+        *glyph = GLYPH_RIGHTARROW;
+        return TRUE;
+    case CHECKBOX_IMAGE:
+        *glyph = GLYPH_CHECKMARK;
+        return TRUE;
     case 6:
         *glyph = GLYPH_CYCLE;
         return TRUE;
@@ -984,7 +986,16 @@ void zune_imspec_drawbuffered(struct MUI_ImageSpec_intern *spec,
             drawmsg.imp_DrInfo = mri->mri_DrawInfo;
             drawmsg.imp_Dimensions.Width = (WORD) width;
             drawmsg.imp_Dimensions.Height = (WORD) height;
-            DoMethodA(spec->u.vect.glyphimage, (Msg) &drawmsg);
+            /*
+             * GLYPH_CHECKMARK is the tick. An empty checkbox is just the
+             * frame, filled with the button background.
+             */
+            if (spec->u.vect.type != CHECKBOX_IMAGE
+                || state == IDS_SELECTED
+                || state == IDS_INACTIVESELECTED)
+            {
+                DoMethodA(spec->u.vect.glyphimage, (Msg) &drawmsg);
+            }
         }
         else if (spec->u.vect.draw)
         {
