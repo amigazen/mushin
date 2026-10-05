@@ -187,7 +187,7 @@ int VARARGS68K SPrintf(char *buf, const char *fmt, ...);
  * RawDoFmt format dialect, so all integer conversions need the 'l' modifier.
  */
 #ifndef __amigaos4__                                          /* PRIV */
-int snprintf(char *buf, size_t size, const char *fmt, ...);      /* PRIV */
+int snprintf(char *buf, int size, const char *fmt, ...);      /* PRIV */
 int sprintf(char *buf, const char *fmt, ...);                 /* PRIV */
 #endif                                                        /* PRIV */
 

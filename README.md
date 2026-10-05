@@ -88,7 +88,10 @@ Ways in which mushin differs from MUI include:
 
 - Voyager (Partially working)
 - iBrowse (Not working)
-- xSysInfo (Working)
+
+## Contributing
+
+Contributions are welcome. The rules for names, credit, and the AROS Public License are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contact 
 
