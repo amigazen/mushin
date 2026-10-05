@@ -1,0 +1,103 @@
+# Options shared by every compile in this makefile.
+#
+# IDIR=include is first so local aros/debug.h and amiga_compiler.h win.
+# IDIR=../muimaster/include supplies <libraries/mui.h> (MUI_RGBcolor,
+# MUI_PenSpec, MPEN_COUNT) that <libraries/muiscreen.h> needs.
+CFLAGS = NOVERS idlen=40 \
+  IDIR=include \
+  IDIR=/muimaster/include \
+  IGNORE=63 IGNORE=100 IGNORE=224 NOCHECKABORT
+
+# Deliberately empty: same rationale as muimaster - LIBRARYCODE would make
+# __saveds derive A4 from A6, which is wrong for Intuition callbacks and
+# for our single shared data segment.
+LIBCODE =
+
+LIBOBJS = \
+  objs/allocpubscreendesc.o \
+  objs/freepubscreendesc.o \
+  objs/openpubscreen.o \
+  objs/closepubscreen.o \
+  objs/openpubfile.o \
+  objs/closepubfile.o \
+  objs/readpubfile.o \
+  objs/writepubfile.o \
+  objs/addinfoclient.o \
+  objs/reminfoclient.o
+
+all: dirs muiscreen.library
+
+dirs:
+  -makedir objs
+
+# Full LVO harness under test/ (Alloc/Free, IFF round-trip, screen, InfoClient).
+# Needs muiscreen.library already on LIBS: (or in the current directory path).
+muiscreentest: dirs objs/muiscreentest.o
+  sc link lib lib:amiga.lib to muiscreentest with <<
+objs/muiscreentest.o
+<
+
+objs/muiscreentest.o: test/muiscreentest.c
+  sc $(CFLAGS) test/muiscreentest.c objname=$@
+
+muiscreen.library: objs/muiscreen_lib.o objs/muiscreen_init.o $(LIBOBJS)
+  slink <WITH <
+TO muiscreen.library
+FROM objs/muiscreen_lib.o objs/muiscreen_init.o
+FROM $(LIBOBJS)
+LIB sc:lib/sc.lib lib:amiga.lib lib:debug.lib sc:lib/scm.lib
+NOICONS
+SC
+SD
+ND
+<
+
+objs/muiscreen_lib.o: muiscreen_lib.c
+  sc $(CFLAGS) stringmerge muiscreen_lib.c objname=$@
+
+objs/muiscreen_init.o: muiscreen_init.c
+  sc $(CFLAGS) muiscreen_init.c objname=$@
+
+objs/allocpubscreendesc.o: allocpubscreendesc.c
+  sc $(CFLAGS) allocpubscreendesc.c objname=$@
+
+objs/freepubscreendesc.o: freepubscreendesc.c
+  sc $(CFLAGS) freepubscreendesc.c objname=$@
+
+objs/openpubscreen.o: openpubscreen.c
+  sc $(CFLAGS) openpubscreen.c objname=$@
+
+objs/closepubscreen.o: closepubscreen.c
+  sc $(CFLAGS) closepubscreen.c objname=$@
+
+objs/openpubfile.o: openpubfile.c
+  sc $(CFLAGS) openpubfile.c objname=$@
+
+objs/closepubfile.o: closepubfile.c
+  sc $(CFLAGS) closepubfile.c objname=$@
+
+objs/readpubfile.o: readpubfile.c
+  sc $(CFLAGS) readpubfile.c objname=$@
+
+objs/writepubfile.o: writepubfile.c
+  sc $(CFLAGS) writepubfile.c objname=$@
+
+objs/addinfoclient.o: addinfoclient.c
+  sc $(CFLAGS) addinfoclient.c objname=$@
+
+objs/reminfoclient.o: reminfoclient.c
+  sc $(CFLAGS) reminfoclient.c objname=$@
+
+opentest: objs/opentest.o
+  sc link lib lib:amiga.lib to opentest with <<
+objs/opentest.o
+<
+
+objs/opentest.o: opentest.c
+  sc $(CFLAGS) opentest.c objname=$@
+
+clean:
+  -delete objs all
+  -delete muiscreen.library
+  -delete opentest
+  -delete muiscreentest
