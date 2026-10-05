@@ -71,12 +71,12 @@ Object *list2;
 Object *drawer_iconlist;
 Object *volume_iconlist;
 
-__saveds void repeat_function(void)
+__SAVE_DS__ void repeat_function(void)
 {
     printf("MUI_Timer\n");
 }
 
-__saveds void wheel_function(void)
+__SAVE_DS__ void wheel_function(void)
 {
     nnset(r_slider,MUIA_Numeric_Value, (XGET(wheel,WHEEL_Red) >> 24) & 0xff);
     nnset(g_slider,MUIA_Numeric_Value, (XGET(wheel,WHEEL_Green) >> 24) & 0xff);
@@ -84,7 +84,7 @@ __saveds void wheel_function(void)
     set(hue_gauge, MUIA_Gauge_Current, XGET(wheel,WHEEL_Hue));
 }
 
-__saveds void slider_function(void)
+__SAVE_DS__ void slider_function(void)
 {
     struct ColorWheelRGB cw;
     ULONG red = XGET(r_slider,MUIA_Numeric_Value);
@@ -99,7 +99,7 @@ __saveds void slider_function(void)
     set(hue_gauge, MUIA_Gauge_Current, XGET(wheel,WHEEL_Hue));
 }
 
-__saveds void objects_function(void)
+__SAVE_DS__ void objects_function(void)
 {
     Object *new_obj = MUI_MakeObject(MUIO_Button,"Button");
     if (new_obj)
@@ -125,7 +125,7 @@ void about_function(void)
     if (about_wnd) set(about_wnd,MUIA_Window_Open,TRUE);
 }
 
-__saveds __asm void display_function(register __a0 struct Hook *h, register __a2 char **strings, register __a1 struct list_entry *entry)
+__SAVE_DS__ __ASM__ void display_function(__REG__(a0, struct Hook *h), __REG__(a2, char **strings), __REG__(a1, struct list_entry *entry))
 {
     static char buf[100];
     if (entry)
@@ -142,7 +142,7 @@ __saveds __asm void display_function(register __a0 struct Hook *h, register __a2
     }
 }
 
-__saveds __asm void display2_function(register __a0 struct Hook *h, register __a2 char **strings, register __a1 struct list_entry *entry)
+__SAVE_DS__ __ASM__ void display2_function(__REG__(a0, struct Hook *h), __REG__(a2, char **strings), __REG__(a1, struct list_entry *entry))
 {
     static char buf[100];
     if (entry)
@@ -256,7 +256,7 @@ struct Library *KeymapBase;
 #endif
 
 #ifndef __AROS__
-__saveds __asm IPTR dispatcher(register __a0 struct IClass *cl, register __a2 Object *obj, register __a1 Msg msg)
+__SAVE_DS__ __ASM__ IPTR dispatcher(__REG__(a0, struct IClass *cl), __REG__(a2, Object *obj), __REG__(a1, Msg msg))
 #else
 AROS_UFH3S(IPTR, dispatcher,
         AROS_UFHA(Class  *, cl,  A0),
@@ -291,7 +291,7 @@ struct MUI_CustomClass *CL_DropText;
 
 static struct Hook hook_standard;
 
-__saveds static __asm void hook_func_standard(register __a0 struct Hook *h, register __a1 ULONG * funcptr)
+static __SAVE_DS__ __ASM__ void hook_func_standard(__REG__(a0, struct Hook *h), __REG__(a1, ULONG *funcptr))
 {
         void (*func) (ULONG *) = (void (*)(ULONG *)) (*funcptr);
 //      putreg(REG_A4,(long)h->h_Data);
@@ -754,7 +754,7 @@ End,
 // ---- old test -------
 
 #if 0
-__asm __saveds void hook_function(register __a1 int *pval)
+__ASM__ __SAVE_DS__ void hook_function(__REG__(a1, int *pval))
 {
     printf("get notification of the userdata: %ld\n",*pval);
 }

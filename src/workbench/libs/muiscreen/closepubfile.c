@@ -15,8 +15,8 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds void MUIS_ClosePubFile(
-            register __a0 APTR pf)
+        __ASM__ __SAVE_DS__ void MUIS_ClosePubFile(
+            __REG__(a0, APTR pf))
 
 /*  FUNCTION
 

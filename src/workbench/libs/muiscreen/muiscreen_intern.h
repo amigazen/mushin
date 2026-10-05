@@ -42,32 +42,30 @@ struct MUIScreenBase_intern
 /* Registerised LVO prototypes for intra-library calls.
  * a6 is the library base on every jump-table entry (Amiga convention);
  * it is listed only where the implementation reads it. */
-#ifdef __SASC
-extern __asm __saveds struct MUI_PubScreenDesc *MUIS_AllocPubScreenDesc(
-    register __a0 struct MUI_PubScreenDesc *src);
-extern __asm __saveds BOOL MUIS_FreePubScreenDesc(
-    register __a0 struct MUI_PubScreenDesc *psd);
-extern __asm __saveds char *MUIS_OpenPubScreen(
-    register __a0 struct MUI_PubScreenDesc *desc,
-    register __a6 struct MUIScreenBase_intern *MUIScreenBase);
-extern __asm __saveds BOOL MUIS_ClosePubScreen(
-    register __a0 char *name,
-    register __a6 struct MUIScreenBase_intern *MUIScreenBase);
-extern __asm __saveds APTR MUIS_OpenPubFile(
-    register __a0 char *name,
-    register __d0 ULONG mode);
-extern __asm __saveds void MUIS_ClosePubFile(
-    register __a0 APTR pf);
-extern __asm __saveds struct MUI_PubScreenDesc *MUIS_ReadPubFile(
-    register __a0 APTR pf);
-extern __asm __saveds BOOL MUIS_WritePubFile(
-    register __a0 APTR pf,
-    register __a1 struct MUI_PubScreenDesc *desc);
-extern __asm __saveds void MUIS_AddInfoClient(
-    register __a0 struct MUIS_InfoClient *sic,
-    register __a6 struct MUIScreenBase_intern *MUIScreenBase);
-extern __asm __saveds void MUIS_RemInfoClient(
-    register __a0 struct MUIS_InfoClient *sic);
-#endif
+extern __ASM__ __SAVE_DS__ struct MUI_PubScreenDesc *MUIS_AllocPubScreenDesc(
+    __REG__(a0, struct MUI_PubScreenDesc *src));
+extern __ASM__ __SAVE_DS__ BOOL MUIS_FreePubScreenDesc(
+    __REG__(a0, struct MUI_PubScreenDesc *psd));
+extern __ASM__ __SAVE_DS__ char *MUIS_OpenPubScreen(
+    __REG__(a0, struct MUI_PubScreenDesc *desc),
+    __REG__(a6, struct MUIScreenBase_intern *MUIScreenBase));
+extern __ASM__ __SAVE_DS__ BOOL MUIS_ClosePubScreen(
+    __REG__(a0, char *name),
+    __REG__(a6, struct MUIScreenBase_intern *MUIScreenBase));
+extern __ASM__ __SAVE_DS__ APTR MUIS_OpenPubFile(
+    __REG__(a0, char *name),
+    __REG__(d0, ULONG mode));
+extern __ASM__ __SAVE_DS__ void MUIS_ClosePubFile(
+    __REG__(a0, APTR pf));
+extern __ASM__ __SAVE_DS__ struct MUI_PubScreenDesc *MUIS_ReadPubFile(
+    __REG__(a0, APTR pf));
+extern __ASM__ __SAVE_DS__ BOOL MUIS_WritePubFile(
+    __REG__(a0, APTR pf),
+    __REG__(a1, struct MUI_PubScreenDesc *desc));
+extern __ASM__ __SAVE_DS__ void MUIS_AddInfoClient(
+    __REG__(a0, struct MUIS_InfoClient *sic),
+    __REG__(a6, struct MUIScreenBase_intern *MUIScreenBase));
+extern __ASM__ __SAVE_DS__ void MUIS_RemInfoClient(
+    __REG__(a0, struct MUIS_InfoClient *sic));
 
 #endif

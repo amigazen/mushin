@@ -17,8 +17,8 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds struct MUI_PubScreenDesc *MUIS_AllocPubScreenDesc(
-            register __a0 struct MUI_PubScreenDesc *src)
+        __ASM__ __SAVE_DS__ struct MUI_PubScreenDesc *MUIS_AllocPubScreenDesc(
+            __REG__(a0, struct MUI_PubScreenDesc *src))
 
 /*  FUNCTION
 

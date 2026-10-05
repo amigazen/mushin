@@ -80,6 +80,22 @@
 
 /* Some SDI internal header */
 
+/*
+ * Calling-convention names come from the NDK.  Same AMIGA / __SAVE_DS__
+ * setup as support_amigaos.h, so whichever header is included first wins.
+ */
+#if defined(__GNUC__) && !defined(AMIGA) && !defined(__MORPHOS__) && !defined(__AROS__)
+#if defined(__mc68000__) || defined(__AMIGA__) || defined(__amigaos__)
+#define AMIGA 1
+#endif
+#endif
+#if defined(__GNUC__) && defined(MUSHIN_GCC_NATIVE)
+#ifndef __SAVE_DS__
+#define __SAVE_DS__
+#endif
+#endif
+#include <clib/compiler-specific.h>
+
 #undef ASM
 #undef REG
 #undef LREG
@@ -101,14 +117,11 @@
 /* first "exceptions" */
 
 #if defined(__MAXON__)
-  #define STDARGS
   #define STACKEXT
   #define REGARGS
-  #define SAVEDS
   #define INLINE inline
 /*************************************************************************/
 #elif defined(__VBCC__)
-  #define STDARGS
   #define STACKEXT
   #define REGARGS
   #define INLINE static
@@ -116,19 +129,12 @@
 
   #if defined(__PPC__)
     #define VARARGS68K __linearvarargs
-    #define REG(reg,arg) arg
-  #else
-    #define REG(reg,arg) __reg(#reg) arg
   #endif
 /*************************************************************************/
 #elif defined(__STORM__)
-  #define STDARGS
   #define STACKEXT
   #define REGARGS
   #define INLINE inline
-/*************************************************************************/
-#elif defined(__SASC)
-  #define ASM __asm
 /*************************************************************************/
 #elif defined(__GNUC__)
   #define UNUSED __attribute__((unused)) /* for functions, variables and types */
@@ -140,12 +146,7 @@
   #endif
   /* we have to distinguish between AmigaOS4 and MorphOS */
   #if (defined(_M68000) || defined(__M68000) || defined(__mc68000)) && !defined(__AROS__)
-    #define REG(reg,arg) arg __asm(#reg)
-    #define LREG(reg,arg) register REG(reg,arg)
   #else
-    #define REG(reg,arg) arg
-    #define SAVEDS
-    #define STDARGS
     #define REGARGS
     #define STACKEXT
     #if defined(__MORPHOS__)
@@ -160,28 +161,26 @@
   #define FAR
   #define NEAR
 #elif defined(_DCC)
-  #define REG(reg,arg) __##reg arg
   #define STACKEXT __stkcheck
-  #define STDARGS __stkargs
   #define INLINE static
 #endif
 
 /* then "common" ones */
 
 #if !defined(ASM)
-  #define ASM
+  #define ASM __ASM__
 #endif
 #if !defined(REG)
-  #define REG(reg,arg) register __##reg arg
+  #define REG(reg, arg) __REG__(reg, arg)
 #endif
 #if !defined(LREG)
-  #define LREG(reg,arg) register arg
+  #define LREG(reg, arg) __REG__(reg, arg)
 #endif
 #if !defined(CONST)
   #define CONST const
 #endif
 #if !defined(SAVEDS)
-  #define SAVEDS __saveds
+  #define SAVEDS __SAVE_DS__
 #endif
 #if !defined(INLINE)
   #define INLINE static __inline
@@ -190,7 +189,7 @@
   #define REGARGS __regargs
 #endif
 #if !defined(STDARGS)
-  #define STDARGS __stdargs
+  #define STDARGS __STDARGS__
 #endif
 #if !defined(STACKEXT)
   #define STACKEXT __stackext

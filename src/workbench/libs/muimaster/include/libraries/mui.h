@@ -181,12 +181,11 @@ VOID FreeVecPooled(APTR pool, APTR memory);
 /*** Miscellanous compiler supprot ******************************************/
 #ifndef SAVEDS
 #   ifdef __MAXON__
-#       define __asm
 #       define __inline
 #       define SAVEDS
 #       define const
 #   else
-#       define SAVEDS __saveds
+#       define SAVEDS __SAVE_DS__
 #   endif
 #endif 
 
@@ -236,23 +235,26 @@ for                                            \
    the library that ever used it, and went with that file.  AROS defines it in
    <exec/lists.h> if it is ever needed again. */
 
-/*** AROS register definitions **********************************************/
-#define __REG_D0 __d0
-#define __REG_D1 __d1
-#define __REG_D2 __d2
-#define __REG_D3 __d3
-#define __REG_D4 __d4
-#define __REG_D5 __d5
-#define __REG_D6 __d6
-#define __REG_D7 __d7
-#define __REG_A0 __a0
-#define __REG_A1 __a1
-#define __REG_A2 __a2
-#define __REG_A3 __a3
-#define __REG_A4 __a4
-#define __REG_A5 __a5
-#define __REG_A6 __a6
-#define __REG_A7 __a7
+/*
+ * AROS spells registers in uppercase (A0).  __REG__ pastes its register
+ * token, so map to a lowercase literal before the NDK macro sees it.
+ */
+#define MUI_REGPARM_D0(type, name) __REG__(d0, type name)
+#define MUI_REGPARM_D1(type, name) __REG__(d1, type name)
+#define MUI_REGPARM_D2(type, name) __REG__(d2, type name)
+#define MUI_REGPARM_D3(type, name) __REG__(d3, type name)
+#define MUI_REGPARM_D4(type, name) __REG__(d4, type name)
+#define MUI_REGPARM_D5(type, name) __REG__(d5, type name)
+#define MUI_REGPARM_D6(type, name) __REG__(d6, type name)
+#define MUI_REGPARM_D7(type, name) __REG__(d7, type name)
+#define MUI_REGPARM_A0(type, name) __REG__(a0, type name)
+#define MUI_REGPARM_A1(type, name) __REG__(a1, type name)
+#define MUI_REGPARM_A2(type, name) __REG__(a2, type name)
+#define MUI_REGPARM_A3(type, name) __REG__(a3, type name)
+#define MUI_REGPARM_A4(type, name) __REG__(a4, type name)
+#define MUI_REGPARM_A5(type, name) __REG__(a5, type name)
+#define MUI_REGPARM_A6(type, name) __REG__(a6, type name)
+#define MUI_REGPARM_A7(type, name) __REG__(a7, type name)
 
 /*** AROS library function macros *******************************************/
 #define AROS_LH0(rt, fn, bt, bn, lvo, p) \
@@ -274,11 +276,7 @@ for                                            \
 #define AROS_LH8(rt, fn, a1, a2, a3, a4, a5, a6, a7, a8, bt, bn, lvo, p) \
     ASM rt LIB_##fn (a1, a2, a3, a4, a5, a6, a7, a8)
 
-#ifdef __SASC
-#   define AROS_LHA(type, name, reg) register __REG_##reg type name
-#else
-#   define AROS_LHA(type, name, reg) type name
-#endif
+#define AROS_LHA(type, name, reg) MUI_REGPARM_##reg(type, name)
 
 /*** AROS user function macros **********************************************/
 #define AROS_USERFUNC_INIT
@@ -322,11 +320,7 @@ for                                            \
 #define AROS_UFH8S(rt, fn, a1, a2, a3, a4, a5, a6, a7, a8) \
     ASM static rt fn (a1, a2, a3, a4, a5, a6, a7, a8)
 
-#ifdef __SASC
-#   define AROS_UFHA(type, name, reg) register __REG_##reg type name
-#else
-#   define AROS_UFHA(type, name, reg) type name
-#endif
+#define AROS_UFHA(type, name, reg) MUI_REGPARM_##reg(type, name)
 
 #define AROS_UFP0 AROS_UFH0
 #define AROS_UFP1 AROS_UFH1

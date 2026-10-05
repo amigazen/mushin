@@ -14,9 +14,9 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds void MUIS_AddInfoClient(
-            register __a0 struct MUIS_InfoClient *sic,
-            register __a6 struct MUIScreenBase_intern *MUIScreenBase)
+        __ASM__ __SAVE_DS__ void MUIS_AddInfoClient(
+            __REG__(a0, struct MUIS_InfoClient *sic),
+            __REG__(a6, struct MUIScreenBase_intern *MUIScreenBase))
 
 /*  FUNCTION
 

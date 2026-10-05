@@ -156,7 +156,8 @@ static void init_syspen(struct MUI_PenSpec *spec, LONG dripen)
 /****************************************************************************************/
 
 /* Called from LibInit in zunemaster_lib.c via normal C calling convention
-   (STDARGS).  Do not use register __a0 here; the base arrives on the stack. */
+   (__STDARGS__).  The base arrives on the stack, so this is not an __REG__
+   entry. */
 ULONG SAVEDS STDARGS LC_BUILDNAME(L_InitLib)(LC_LIBHEADERTYPEPTR _MUIMasterBase)
 {
     /* C89 COMPATIBILITY: All declarations must be at the top of the function block. */

@@ -16,7 +16,7 @@
 /*
  * C-callable body.  Library code must not call the asm LVO entry as a
  * stack C function (wrong register setup).  External apps still enter via
- * the __asm MUI_AddClipRegion LVO below.
+ * the MUI_LIB_ENTRY MUI_AddClipRegion LVO below.
  */
 APTR ZuneAddClipRegion(struct MUI_RenderInfo *mri, struct Region *r)
 {

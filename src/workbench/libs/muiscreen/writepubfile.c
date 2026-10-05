@@ -17,9 +17,9 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds BOOL MUIS_WritePubFile(
-            register __a0 APTR pf,
-            register __a1 struct MUI_PubScreenDesc *desc)
+        __ASM__ __SAVE_DS__ BOOL MUIS_WritePubFile(
+            __REG__(a0, APTR pf),
+            __REG__(a1, struct MUI_PubScreenDesc *desc))
 
 /*  FUNCTION
 

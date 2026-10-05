@@ -109,7 +109,7 @@ void ZuneRedraw(ULONG obj, ULONG flags);
 #endif
 
 /*
- * Same trap as MUI_Redraw: the clipping LVOs are __asm register functions.
+ * Same trap as MUI_Redraw: the clipping LVOs are __REG__ functions.
  * A plain C stack call does not load A0/A1/D0.. correctly.  Text.mui hits
  * this on the first button paint (MUI_AddClipping -> MUI_AddClipRegion).
  * Route internal callers through C wrappers.

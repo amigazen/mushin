@@ -14,7 +14,7 @@
 #include "debug.h"
 
 /* Stack-safe helpers (LVO forms expect args in registers). */
-extern __asm __saveds struct IClass *MUI_GetClass(register __a0 ClassID classid);
+extern __ASM__ __SAVE_DS__ struct IClass *MUI_GetClass(__REG__(a0, ClassID classid));
 extern VOID ZUNE_FreeClass(Class *cl);
 /*****************************************************************************
 

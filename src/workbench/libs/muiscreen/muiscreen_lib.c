@@ -214,7 +214,7 @@ void _CXFERR(void)
 }
 
 #ifdef __SASC
-void __regargs __chkabort(void) { }
-void __regargs _CXBRK(void)     { }
-void __saveds __XCEXIT(void)  { }
+void REGARGS __chkabort(void) { }
+void REGARGS _CXBRK(void)     { }
+void __SAVE_DS__ __XCEXIT(void)  { }
 #endif

@@ -18,9 +18,9 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds BOOL MUIS_ClosePubScreen(
-            register __a0 char *name,
-            register __a6 struct MUIScreenBase_intern *MUIScreenBase)
+        __ASM__ __SAVE_DS__ BOOL MUIS_ClosePubScreen(
+            __REG__(a0, char *name),
+            __REG__(a6, struct MUIScreenBase_intern *MUIScreenBase))
 
 /*  FUNCTION
 

@@ -127,10 +127,11 @@ LONG ReturnError(void)
 /*
  * LVO 0x84 to 0x96, so these are entered straight from an application with
  * nothing but A6 set up, exactly like LibOpen() and friends below, and they
- * need __saveds for the same reason.  D() is empty while MYDEBUG is off, but
+ * need __SAVE_DS__ for the same reason.  D() is empty while MYDEBUG is off, but
  * the attribute has to stay so a later debug rebuild does not reintroduce a
  * near-data access with the caller's A4.  Every other function reachable
- * through the jump table - all of mui_*.c - is declared __asm __saveds already.
+ * through the jump table - all of mui_*.c - is declared with __ASM__ and
+ * __SAVE_DS__.
  */
 
 __asm __saveds void MUI_Priv1(register __a6 struct Library *MUIMasterBase)
@@ -434,8 +435,8 @@ void _CXFERR(void)
 
 #ifdef __SASC
 /* Stubs required when linking sc.lib into a shared library (CLib39x LibInit.c). */
-void __regargs __chkabort(void) { }
-void __regargs _CXBRK(void)     { }
-void __saveds __XCEXIT(void)  { }
+void REGARGS __chkabort(void) { }
+void REGARGS _CXBRK(void)     { }
+void __SAVE_DS__ __XCEXIT(void)  { }
 #endif
 

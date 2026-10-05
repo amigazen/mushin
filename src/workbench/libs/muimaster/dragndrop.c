@@ -45,17 +45,6 @@ struct DiskObject *GetIconTags(CONST_STRPTR name, ...)
     return GetIconTagList(name, (struct TagItem *)(((ULONG *) & name) + 1));
 }
 
-
-#define ASM
-
-#else
-
-#ifdef __SASC
-#define ASM __asm
-#else
-#define ASM
-#endif
-
 #endif
 
 //-------------------------------------

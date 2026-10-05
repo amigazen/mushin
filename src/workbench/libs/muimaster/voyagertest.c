@@ -28,6 +28,7 @@
 #include <clib/alib_protos.h>
 #include <dos/dos.h>
 #include <intuition/classes.h>
+#include <clib/compiler-specific.h>
 #include <libraries/gadtools.h>
 #include <libraries/mui.h>
 #include <stdio.h>
@@ -141,10 +142,10 @@ static LONG vt_xget(Object *obj, ULONG attr)
  * SAS/C BOOPSI dispatcher entry for CreateCustomClass.  Voyager uses the
  * same register convention via its DISPATCHER macros.
  */
-static ULONG __saveds __asm
-VtDispatcher(register __a0 struct IClass *cl,
-    register __a2 Object *obj,
-    register __a1 Msg msg)
+static __SAVE_DS__ __ASM__ ULONG
+VtDispatcher(__REG__(a0, struct IClass *cl),
+    __REG__(a2, Object *obj),
+    __REG__(a1, Msg msg))
 {
     return DoSuperMethodA(cl, obj, msg);
 }

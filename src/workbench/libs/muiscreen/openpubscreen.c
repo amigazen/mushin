@@ -18,9 +18,9 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds char *MUIS_OpenPubScreen(
-            register __a0 struct MUI_PubScreenDesc *desc,
-            register __a6 struct MUIScreenBase_intern *MUIScreenBase)
+        __ASM__ __SAVE_DS__ char *MUIS_OpenPubScreen(
+            __REG__(a0, struct MUI_PubScreenDesc *desc),
+            __REG__(a6, struct MUIScreenBase_intern *MUIScreenBase))
 
 /*  FUNCTION
 

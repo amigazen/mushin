@@ -14,8 +14,8 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds void MUIS_RemInfoClient(
-            register __a0 struct MUIS_InfoClient *sic)
+        __ASM__ __SAVE_DS__ void MUIS_RemInfoClient(
+            __REG__(a0, struct MUIS_InfoClient *sic))
 
 /*  FUNCTION
 

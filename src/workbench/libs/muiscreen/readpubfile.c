@@ -18,8 +18,8 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds struct MUI_PubScreenDesc *MUIS_ReadPubFile(
-            register __a0 APTR pf)
+        __ASM__ __SAVE_DS__ struct MUI_PubScreenDesc *MUIS_ReadPubFile(
+            __REG__(a0, APTR pf))
 
 /*  FUNCTION
 

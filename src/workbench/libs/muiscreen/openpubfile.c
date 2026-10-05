@@ -18,9 +18,9 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds APTR MUIS_OpenPubFile(
-            register __a0 char *name,
-            register __d0 ULONG mode)
+        __ASM__ __SAVE_DS__ APTR MUIS_OpenPubFile(
+            __REG__(a0, char *name),
+            __REG__(d0, ULONG mode))
 
 /*  FUNCTION
 

@@ -13,8 +13,8 @@
 /*****************************************************************************
 
     NAME */
-        __asm __saveds BOOL MUIS_FreePubScreenDesc(
-            register __a0 struct MUI_PubScreenDesc *psd)
+        __ASM__ __SAVE_DS__ BOOL MUIS_FreePubScreenDesc(
+            __REG__(a0, struct MUI_PubScreenDesc *psd))
 
 /*  FUNCTION
 

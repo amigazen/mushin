@@ -35,7 +35,7 @@ extern struct Library *MUIMasterBase;
 /*
  * RawDoFmt() passes the character in D0 and the PutChData pointer in A3, so
  * these two callbacks must be declared with those registers. AROS_UFH2S
- * expands to the correct "__asm register __d0/__a3" form on SAS/C
+ * expands to the NDK __REG__ form on SAS/C
  * (support_amigaos.h), so it is used unconditionally here - a plain
  * stack-argument C function would read both arguments from the wrong place.
  */
@@ -858,7 +858,7 @@ IPTR Notify__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
  *
  * BOOPSI_DISPATCHER must be used unconditionally: support_classes.c installs
  * this function in cl_Dispatcher.h_SubEntry and metaDispatcher calls it
- * through a pointer typed "register __a0/__a2/__a1". On SAS/C the macro
+ * through a pointer typed with __REG__ for A0, A2, and A1. On SAS/C the macro
  * expands to exactly that signature, whereas a plain C function would take
  * all three arguments on the stack and dereference garbage for msg->MethodID.
  */

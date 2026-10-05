@@ -15,6 +15,13 @@
 #include <exec/lists.h>
 #endif
 
+#if defined(__GNUC__) && !defined(AMIGA) && !defined(__MORPHOS__) && !defined(__AROS__)
+#if defined(__mc68000__) || defined(__AMIGA__) || defined(__amigaos__)
+#define AMIGA 1
+#endif
+#endif
+#include <clib/compiler-specific.h>
+
 #ifndef AMIGA_COMPILER_H
 #include <amiga_compiler.h>
 #endif
@@ -24,19 +31,19 @@
 #endif
 
 #ifndef SAVEDS
-#define SAVEDS __saveds
+#define SAVEDS __SAVE_DS__
 #endif
 
 #ifndef ASM
-#define ASM __asm
+#define ASM __ASM__
 #endif
 
 #ifndef REG
-#define REG(reg,arg) register __##reg arg
+#define REG(reg, arg) __REG__(reg, arg)
 #endif
 
 #ifndef STDARGS
-#define STDARGS __stdargs
+#define STDARGS __STDARGS__
 #endif
 
 #define LC_BUILDNAME(x) x
