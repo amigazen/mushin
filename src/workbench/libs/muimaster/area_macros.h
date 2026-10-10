@@ -1,3 +1,7 @@
+/*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
 #ifndef _AREA_MACROS_H
 #define _AREA_MACROS_H
 

@@ -1,3 +1,7 @@
+/*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
 #ifndef AROS_DEBUG_H
 #define AROS_DEBUG_H
 

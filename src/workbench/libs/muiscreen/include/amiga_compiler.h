@@ -1,3 +1,7 @@
+/*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
 #ifndef AMIGA_COMPILER_H
 #define AMIGA_COMPILER_H
 

@@ -1,3 +1,5 @@
+# Copyright (C) 2026, amigazen project. All rights reserved.
+
 # Options shared by every compile in this makefile.
 #
 # IDIR=include is first so local aros/debug.h and amiga_compiler.h win.

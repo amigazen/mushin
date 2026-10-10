@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2009-2025, The AROS Development Team.
+    Copyright (C) 2026, amigazen project.
     All rights reserved.
 
     Library startup, resident tag, and LVO function table for

@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
     Minimal AmigaOS / SAS/C support for muiscreen.library.
     Mirrors the pieces of muimaster's support_amigaos.h that this
     library actually needs (types, list macros, compiler wrappers).

@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2002-2007, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
 #include <proto/exec.h>

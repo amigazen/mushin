@@ -1,5 +1,6 @@
 /*
     Copyright  2002-2018, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
 #ifndef LIBRARIES_MUI_H

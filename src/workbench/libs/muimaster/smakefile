@@ -1,3 +1,5 @@
+# Copyright (C) 2026, amigazen project. All rights reserved.
+
 # Options shared by every compile in this makefile.  CFLAGS adds the
 # precompiled global symbol table on top of them; opentest.c is built from
 # CFLAGS_COMMON alone so that it genuinely compiles against the generated SDK

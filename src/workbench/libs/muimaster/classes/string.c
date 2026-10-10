@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2003-2023, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
 /* This is based on muimaster/class/text.c (first string version)

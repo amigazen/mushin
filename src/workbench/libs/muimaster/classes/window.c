@@ -1,6 +1,7 @@
 /*
     Copyright � 1999, David Le Corfec.
     Copyright � 2002-2006, The AROS Development Team.
+    Copyright (C) 2026, amigazen project.
     All rights reserved.
 
     $Id: window.c 24617 2006-08-08 15:12:53Z mazze $

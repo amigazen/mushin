@@ -439,17 +439,15 @@ Software distributed under the License is distributed on an "AS IS" basis,
 WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
 the specific language governing rights and limitations under the License.
 
-The Original Code is ______________________________________.
+The Original Code is the AROS Zune components (muimaster, muiscreen, and the Zune preferences program).
 
-The Initial Developer of the Original Code is ________________________.
+The Initial Developer of the Original Code is The AROS Development Team.
 
-Portions created by
-
- ______________________ are Copyright (C) ______ _______________________.
+Portions created by amigazen project are Copyright (C) 2026 amigazen project.
 
 All Rights Reserved.
 
-Contributor(s): ______________________________________.
+Contributor(s): amigazen project.
 
 Alternatively, the contents of this file may be used under the terms of the
 _____ license (the [___] License), in which case the provisions of [______]

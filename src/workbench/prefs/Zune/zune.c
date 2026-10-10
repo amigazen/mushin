@@ -1,5 +1,6 @@
 /*
     Copyright  2002-2016, The AROS Development Team.
+    Copyright (C) 2026, amigazen project.
     All rights reserved.
 
 */

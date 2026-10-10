@@ -1,3 +1,8 @@
+/*
+    Copyright (C) 2003, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
 #include <stdarg.h>
 
 #include <clib/alib_protos.h>

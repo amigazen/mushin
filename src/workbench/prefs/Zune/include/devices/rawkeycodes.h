@@ -1,3 +1,7 @@
+/*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
 #ifndef DEVICES_RAWKEYCODES_H
 #define DEVICES_RAWKEYCODES_H
 

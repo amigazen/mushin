@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 
     Virtgroup must expose commercial MUI 3.8 instance data (VirtgroupData38).
     Voyager's htmlview does INST_DATA(cl->cl_Super) and reads clipdraw/pos;

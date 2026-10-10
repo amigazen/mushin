@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2002-2003, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
 #ifndef _MUIMASTER_SUPPORT_CLASSES_H

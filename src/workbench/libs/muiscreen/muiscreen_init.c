@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2009-2025, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 
     AmigaOS / SAS/C library init and expunge for muiscreen.library.
     Opens the libraries SAS/C pragmas need as real globals, starts the

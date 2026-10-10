@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
  * Read classic Amiga ReAction prefs (ENV:sys/reaction.prefs) and map the
  * styles that have a clear MUI/Zune counterpart.
  *

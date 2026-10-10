@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2003-2023, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
 #define MUIMASTER_DEFINING_REDRAW

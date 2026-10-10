@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
  * muiscreentest.c - Dedicated API harness for muiscreen.library
  *
  * Opens LIBS:muiscreen.library (or argv[1]) and exercises every public LVO:

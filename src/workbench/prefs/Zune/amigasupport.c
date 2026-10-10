@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
  * Small AmigaOS helpers used by the Zune prefs sources.
  * DoSuperNewTags / snprintf live inside muimaster.library on AROS builds
  * that link the support objects; a prefs executable that only OpenLibrarys

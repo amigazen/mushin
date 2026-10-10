@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
  * Private MUI LVOs past MUI_EndRefresh that Voyager (and other MUI3 apps)
  * call from layout hooks / virtgroup scrolling.  Without these vectors the
  * jump table ends at -0xC6 and jsr -0xE4 (MUI_LayoutObj) hangs in random

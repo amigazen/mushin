@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
  * voyagertest.c - Stage Voyager's MUI startup path against muimaster/zune.
  *
  * Commercial Voyager and MUI prefs fail where the tutorial demos succeed.

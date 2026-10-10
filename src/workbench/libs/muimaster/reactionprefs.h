@@ -1,4 +1,8 @@
 /*
+    Copyright (C) 2026, amigazen project. All rights reserved.
+*/
+
+/*
  * Load ENV:sys/reaction.prefs (IFF FORM PREF / RACT) and map overlapping
  * ReAction look settings onto ZunePrefsNew.
  *

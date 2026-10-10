@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2002-2023, The AROS Development Team.
     Copyright (C) 1999, David Le Corfec.
+    Copyright (C) 2026, amigazen project.
     All rights reserved.
 
 */

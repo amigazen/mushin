@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2002-2025, The AROS Development Team. All rights reserved.
+    Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
 #ifndef MUIMASTER_INTERN_H
