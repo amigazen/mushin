@@ -1679,7 +1679,10 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
 
     /*
      * After the background.  DoMethod() drops a 32-bit method id, so
-     * this is DoMethodA.  The subclass BeginPaint renders the document.
+     * this is DoMethodA.  BeginPaint only installs the clip.  HTMLview
+     * paints from CustomBackfill, and only when the rectangle is the
+     * inner box.  Area's frame pass uses the outer rect, which that
+     * check rejects, so ask for the inner box once the clip is on.
      */
     if (data->flags & GROUP_VIRTUAL)
     {
@@ -1692,6 +1695,27 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
             data->old_virt_offy = data->virt_offy;
             data->update = 0;
             return TRUE;
+        }
+
+        if ((msg->flags & MADF_DRAWOBJECT)
+            && !(msg->flags & MADF_DRAWUPDATE))
+        {
+            struct MUIP_CustomBackfill bmsg;
+
+            /*
+             * DrawBackground paints the image spec and covers the
+             * document.  HTMLview renders only from this method, and
+             * only when the rectangle is the inner box.  A group with
+             * no custom painter lets the method fall through.
+             */
+            bmsg.MethodID = MUIM_CustomBackfill;
+            bmsg.left = _mleft(obj);
+            bmsg.top = _mtop(obj);
+            bmsg.right = _mright(obj);
+            bmsg.bottom = _mbottom(obj);
+            bmsg.xoffset = 0;
+            bmsg.yoffset = 0;
+            DoMethodA(obj, (Msg) &bmsg);
         }
     }
 

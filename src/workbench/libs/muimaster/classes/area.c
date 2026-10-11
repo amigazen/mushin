@@ -1441,6 +1441,36 @@ Area__MUIM_DrawParentBackground(struct IClass *cl, Object *obj,
     return TRUE;
 }
 
+/*
+ * HTMLview's MUIM_Backfill is MUIM_CustomBackfill.  It takes inclusive
+ * right/bottom and offsets of 0, and for muimaster version 19/20 it paints
+ * only when that rectangle is the inner box.  DoMethod() drops the 32-bit
+ * method id, so this is DoMethodA.
+ */
+static IPTR Area_CustomBackfill(Object *obj, LONG left, LONG top,
+    LONG width, LONG height)
+{
+    struct MUI_AreaData *data;
+    struct MUIP_CustomBackfill bmsg;
+    IPTR result;
+
+    data = muiAreaData(obj);
+    if (width <= 0 || height <= 0)
+        return FALSE;
+
+    data->mad_Flags2 |= MADF2_BACKFILL_ACTIVE;
+    bmsg.MethodID = MUIM_CustomBackfill;
+    bmsg.left = left;
+    bmsg.top = top;
+    bmsg.right = left + width - 1;
+    bmsg.bottom = top + height - 1;
+    bmsg.xoffset = 0;
+    bmsg.yoffset = 0;
+    result = DoMethodA(obj, (Msg) &bmsg);
+    data->mad_Flags2 &= ~MADF2_BACKFILL_ACTIVE;
+    return result;
+}
+
 /**************************************************************************
 MUIM_DrawBackground
 **************************************************************************/
@@ -1457,6 +1487,11 @@ static IPTR Area__MUIM_DrawBackground(struct IClass *cl, Object *obj,
 
     if (!(data->mad_Flags & MADF_CANDRAW)) /* not between show/hide */
         return FALSE;
+
+    if ((data->mad_Flags & MADF_CUSTOMBACKFILL)
+        && !(data->mad_Flags2 & MADF2_BACKFILL_ACTIVE))
+        return Area_CustomBackfill(obj, msg->left, msg->top,
+            msg->width, msg->height);
 
     if ((msg->flags & MADF_SELECTED) && (msg->flags & MADF_SHOWSELSTATE) &&
             data->mad_SelBack) {

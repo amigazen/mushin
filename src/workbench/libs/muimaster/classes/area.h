@@ -610,6 +610,9 @@ struct MUI_AreaData
 #define MADF2_DRAGGING             (1<< 5)
 #define MADF2_FIXHEIGHT            (1<< 6)
 #define MADF2_FIXWIDTH             (1<< 7)
+/* Set while MUIM_CustomBackfill is running, so a painter that calls
+ * DrawBackground for the ordinary pattern does not re-enter itself. */
+#define MADF2_BACKFILL_ACTIVE      (1<< 8)
 
 
 // offset 94 (byte) (frame << 1) (lsb is SETUP_DONE flag)
