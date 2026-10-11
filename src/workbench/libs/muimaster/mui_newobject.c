@@ -48,6 +48,9 @@ extern VOID ZUNE_FreeClass(Class *cl);
 {
     Class  *cl;
 
+    if (Zune_LogAfterMenu)
+        ZuneTrace("zune: NewObjectA %s\n",
+            classid ? classid : (CONST_STRPTR) "(null)");
     cl = MUI_GetClass(classid);
     if (cl)
     {

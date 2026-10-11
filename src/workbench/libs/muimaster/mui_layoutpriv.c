@@ -88,7 +88,7 @@ __ASM__ __SAVE_DS__ BOOL MUI_LayoutObj(
     if (obj == NULL)
         return FALSE;
 
-    /* Hot path: Voyager HTML layout calls this thousands of times per page. */
+    /* Absolute window coordinates.  Unlike MUI_Layout, no parent origin. */
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left = (WORD) left;
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top = (WORD) top;
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width = (WORD) width;
@@ -172,8 +172,14 @@ __ASM__ __SAVE_DS__ VOID MUIP_GetVirtualRect(
     WORD l, w, h;
     LONG t;
 
+    ZuneTrace("zune: GetVirtualRect enter obj=%lx r=%lx\n",
+        (ULONG) obj, (ULONG) r);
+
     if (obj == NULL || r == NULL)
+    {
+        ZuneTrace("zune: GetVirtualRect return empty\n");
         return;
+    }
 
     l = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left;
     t = ((struct __dummyAreaData__ *)(obj))->mad.mad_VirtualTop;
@@ -184,4 +190,7 @@ __ASM__ __SAVE_DS__ VOID MUIP_GetVirtualRect(
     r->top = t;
     r->right = l + w - 1;
     r->bottom = t + h - 1;
+
+    ZuneTrace("zune: GetVirtualRect return %ld,%ld-%ld,%ld\n",
+        r->left, r->top, r->right, r->bottom);
 }

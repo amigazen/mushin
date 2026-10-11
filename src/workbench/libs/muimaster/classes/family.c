@@ -143,13 +143,19 @@ IPTR Family__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
     Object *child;
 
     /*
-     * Same walk as older Zune: NextObject saves ln_Succ before we
-     * FreeMem the child.  Remove(_OBJECT) before dispose was corrupting
-     * the header/class pointer; the next NextObject then jumped into
-     * freed memory (crash after the child's Notify DISPOSE super).
+     * Unlink this object from its parent before freeing children.
+     * CoerceMethod(OM_DISPOSE) does not go through MUI_DisposeObject,
+     * which is the other place that unlinks.  MUI_DisposeObject already
+     * unlinked; ZuneUnlinkObject is a no-op then.
+     *
+     * Walk with ZuneNextObject, which copies ln_Succ before we dispose.
+     * MUI_DisposeObject unlinks the child after that copy.  Remove()
+     * before ZuneNextObject used the public object pointer and the next
+     * step followed a smashed class word into freed memory.
      */
+    ZuneUnlinkObject(obj);
     cstate = (Object *) data->children.lh_Head;
-    while ((child = NextObject(&cstate)))
+    while ((child = ZuneNextObject(&cstate)))
     {
         ZuneTrace("zune: Family DISPOSE child %lx cstate=%lx\n",
             (ULONG) child, (ULONG) cstate);
@@ -200,6 +206,24 @@ IPTR Family__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
 
 
 /*
+ * layout_attach() REMHEAD's the object off the pending list, then
+ * OM_ADDMEMBER's it.  REMHEAD does not clear ln_Succ/ln_Pred, so they
+ * still point at the old neighbours, which no longer point back.
+ * Remove() on that dangling node splices whatever those neighbours
+ * belong to now and the family walk in OM_GET never reaches the tail
+ * (HtmlView V_ShowClipped's get(MA_Layout_Info) locks the window).
+ * Only Remove when both neighbours still point at this node.
+ * Always clear the pointers afterwards so the next AddTail is a fresh link.
+ */
+static void Family_Detach(struct Node *node)
+{
+    if (node == NULL)
+        return;
+    /* node is the _Object header; the public pointer is one struct on. */
+    ZuneUnlinkObject((Object *)BASEOBJECT(node));
+}
+
+/*
  * MUIM_Family_AddHead : Add an object as first object to the family.
  */
 IPTR Family__MUIM_AddHead(struct IClass *cl, Object *obj,
@@ -209,6 +233,7 @@ IPTR Family__MUIM_AddHead(struct IClass *cl, Object *obj,
 
     if (msg->obj)
     {
+        Family_Detach((struct Node *)_OBJECT(msg->obj));
         AddHead(&(data->children), (struct Node *)_OBJECT(msg->obj));
 
         /* if we are in an application tree, propagate pointers */
@@ -241,6 +266,7 @@ IPTR Family__MUIM_AddTail(struct IClass *cl, Object *obj,
         D(bug("Family_AddTail(%p): obj=%p node=%p\n", obj, msg->obj,
                 _OBJECT(msg->obj)));
         /* Same node as AddHead/Insert/Sort: the _Object header, not instance. */
+        Family_Detach((struct Node *)_OBJECT(msg->obj));
         AddTail(&(data->children), (struct Node *)_OBJECT(msg->obj));
 
         /* if we are in an application tree, propagate pointers */
@@ -270,8 +296,9 @@ IPTR Family__MUIM_Insert(struct IClass *cl, Object *obj,
 
     if (msg->obj)
     {
+        Family_Detach((struct Node *)_OBJECT(msg->obj));
         Insert(&(data->children), (struct Node *)_OBJECT(msg->obj),
-            (struct Node *)_OBJECT(msg->pred));
+            (struct Node *)(msg->pred ? _OBJECT(msg->pred) : NULL));
 
         /* if we are in an application tree, propagate pointers */
         if (muiNotifyData(obj)->mnd_GlobalInfo)
@@ -306,7 +333,7 @@ IPTR Family__MUIM_Remove(struct IClass *cl, Object *obj,
         dmsg.MethodID = MUIM_DisconnectParent;
         DoMethodA(msg->obj, (Msg)&dmsg);
         muiNotifyData(msg->obj)->mnd_ParentObject = NULL;
-        Remove((struct Node *)_OBJECT(msg->obj));
+        Family_Detach((struct Node *)_OBJECT(msg->obj));
         return TRUE;
     }
     else
@@ -323,10 +350,28 @@ IPTR Family__MUIM_Sort(struct IClass *cl, Object *obj,
     struct MUI_FamilyData *data = INST_DATA(cl, obj);
     int i;
 
+    /*
+     * NewList abandons the old chain but the nodes still point at this
+     * header.  Remove() here would splice them back into the fresh list.
+     * Drop the old links, then AddTail once.
+     */
+    for (i = 0; msg->obj[i]; i++)
+    {
+        struct Node *node;
+
+        node = (struct Node *)_OBJECT(msg->obj[i]);
+        node->ln_Succ = NULL;
+        node->ln_Pred = NULL;
+    }
     NewList(&(data->children));
     for (i = 0; msg->obj[i]; i++)
     {
-        AddTail(&(data->children), (struct Node *)_OBJECT(msg->obj[i]));
+        struct Node *node;
+
+        node = (struct Node *)_OBJECT(msg->obj[i]);
+        if (node->ln_Succ != NULL)
+            continue;
+        AddTail(&(data->children), node);
     }
     return TRUE;
 }

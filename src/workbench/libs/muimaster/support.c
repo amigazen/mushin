@@ -50,6 +50,28 @@ void ZuneTrace(CONST_STRPTR fmt, ...)
     Flush(fh);
 }
 
+/*
+ * Off until the first Menuitem dispose.  Every builtin dispatcher calls
+ * ZuneLogMethod, so leaving this clear keeps splash construction quiet.
+ */
+int Zune_LogAfterMenu = 0;
+
+void ZuneLogMethod(Object *obj, Msg msg)
+{
+    Class *cl;
+    CONST_STRPTR id;
+
+    if (!Zune_LogAfterMenu || obj == NULL || msg == NULL)
+        return;
+
+    cl = OCLASS(obj);
+    id = (CONST_STRPTR) "?";
+    if (cl != NULL && cl->cl_ID != NULL)
+        id = cl->cl_ID;
+    ZuneTrace("zune: m %08lx obj=%lx id=%s\n",
+        (ULONG) msg->MethodID, (ULONG) obj, id);
+}
+
 /**************************************************************************
  check if region is entirely within given bounds
 **************************************************************************/
@@ -165,6 +187,44 @@ IPTR DoHideMethod(Object * obj)
     return DoMethodA(obj, (Msg)&hmsg);
 }
 
+
+void ZuneUnlinkObject(Object *obj)
+{
+    struct Node *node;
+    struct Node *pred;
+    struct Node *succ;
+
+    if (obj == NULL)
+        return;
+
+    /*
+     * Remove() only when both neighbours still name this node.  A node
+     * that was already REMHEAD'd still holds stale succ/pred; splicing
+     * those into a live neighbour plants a disposed child on the list
+     * Voyager walks after a tab change.  A neighbour that does still
+     * name us has to drop that link, or the next OM_GET follows it into
+     * freed memory.  The node's own pointers are cleared either way so
+     * a later AddTail does not see it as already linked.
+     */
+    node = (struct Node *)_OBJECT(obj);
+    succ = node->ln_Succ;
+    pred = node->ln_Pred;
+    if (pred != NULL && succ != NULL
+        && pred->ln_Succ == node && succ->ln_Pred == node)
+    {
+        Remove(node);
+        ZuneTrace("zune: UnlinkObject %lx\n", (ULONG) obj);
+    }
+    else
+    {
+        if (pred != NULL && pred->ln_Succ == node)
+            pred->ln_Succ = NULL;
+        if (succ != NULL && succ->ln_Pred == node)
+            succ->ln_Pred = NULL;
+    }
+    node->ln_Succ = NULL;
+    node->ln_Pred = NULL;
+}
 
 Object *ZuneNextObject(Object **state)
 {
@@ -297,35 +357,65 @@ WORD SubtractRectFromRect(struct Rectangle *a, struct Rectangle *b,
 
 ULONG IsObjectVisible(Object * child, struct Library * MUIMasterBase)
 {
+    struct MUI_RenderInfo *mri;
     Object *wnd;
     Object *obj;
+    ULONG hops;
+    LONG child_right;
+    LONG child_left;
+    LONG child_bottom;
+    LONG child_top;
+    LONG obj_mleft;
+    LONG obj_mright;
+    LONG obj_mtop;
+    LONG obj_mbottom;
 
-    wnd = ((struct __dummyAreaData__ *)(child))->mad.mad_RenderInfo->mri_WindowObject;
+    (void)MUIMasterBase;
+
+    /*
+     * First MUIM_Show of a child can run before mad_RenderInfo is filled
+     * in.  Dereferencing it is an 8000000B.  Treat that child as visible;
+     * the caller still requires MADF_SHOWME.  A parent cycle must stop.
+     */
+    if (child == NULL)
+        return FALSE;
+
+    mri = ((struct __dummyAreaData__ *)(child))->mad.mad_RenderInfo;
+    if (mri == NULL)
+        return TRUE;
+
+    wnd = mri->mri_WindowObject;
     obj = child;
+    hops = 0;
+    child_right = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Left
+        + ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Width - 1;
+    child_left = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Left;
+    child_bottom = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Top
+        + ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Height - 1;
+    child_top = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Top;
 
-    while (get(obj, MUIA_Parent, &obj))
+    while (hops < 64 && get(obj, MUIA_Parent, &obj))
     {
+        hops++;
         if (!obj)
             break;
         if (obj == wnd)
             break;
 
-        {
-            LONG child_right = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Width - 1;
-            LONG child_left = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Left;
-            LONG child_bottom = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Height - 1;
-            LONG child_top = ((struct __dummyAreaData__ *)(child))->mad.mad_Box.Top;
-            
-            LONG obj_mleft = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_addleft;
-            LONG obj_mright = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_addleft + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width + ((struct __dummyAreaData__ *)(obj))->mad.mad_subwidth - 1;
-            LONG obj_mtop = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_addtop;
-            LONG obj_mbottom = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_addtop + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height + ((struct __dummyAreaData__ *)(obj))->mad.mad_subheight - 1;
-            
-            if (child_right < obj_mleft || child_left > obj_mright || child_bottom < obj_mtop || child_top > obj_mbottom)
-            {
-                return FALSE;
-            }
-        }
+        obj_mleft = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left
+            + ((struct __dummyAreaData__ *)(obj))->mad.mad_addleft;
+        obj_mright = obj_mleft
+            + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width
+            + ((struct __dummyAreaData__ *)(obj))->mad.mad_subwidth - 1;
+        obj_mtop = ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top
+            + ((struct __dummyAreaData__ *)(obj))->mad.mad_addtop;
+        obj_mbottom = obj_mtop
+            + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height
+            + ((struct __dummyAreaData__ *)(obj))->mad.mad_subheight - 1;
+
+        if (child_right < obj_mleft || child_left > obj_mright
+            || child_bottom < obj_mtop || child_top > obj_mbottom)
+            return FALSE;
     }
     return TRUE;
 }

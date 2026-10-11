@@ -21,6 +21,7 @@
 #include <proto/graphics.h>
 #include <proto/muimaster.h>
 #include <proto/layers.h>
+#include <string.h>
 
 #include "mui.h"
 #include "muimaster_intern.h"
@@ -152,11 +153,43 @@ IPTR Virtgroup__MUIM_InitChange(struct IClass *cl, Object *obj, Msg msg)
     data->clipdraw = 0;
 
     rc = DoSuperMethodA(cl, obj, msg);
+    /*
+     * Group has already undone virt_off on the children.  pos and oldpos
+     * must both be 0 here.  Leaving oldpos behind makes the next
+     * Virtgroup_Update apply that delta again (scroll guru / stuck page).
+     */
     data->pos[0] = 0;
     data->pos[1] = 0;
     data->oldpos[0] = 0;
     data->oldpos[1] = 0;
     return rc;
+}
+
+/*
+ * Layout clamps Virtgroup_Top/Left while group_layout_depth > 0, and Group
+ * skips MUIM_Virtgroup_Update on that path (the hook already placed the
+ * children).  OM_SET has stored the new pos and the previous oldpos.
+ * Commit so a later Update does not replay the clamp.
+ */
+void ZuneVirtgroupCommitScroll(Object *obj)
+{
+    struct IClass *c;
+    struct MUI_VirtgroupData *data;
+
+    if (obj == NULL)
+        return;
+
+    for (c = OCLASS(obj); c != NULL; c = c->cl_Super)
+    {
+        if (c->cl_ID != NULL && strcmp(c->cl_ID, MUIC_Virtgroup) == 0)
+            break;
+    }
+    if (c == NULL)
+        return;
+
+    data = INST_DATA(c, obj);
+    data->oldpos[0] = data->pos[0];
+    data->oldpos[1] = data->pos[1];
 }
 
 /*
@@ -221,6 +254,9 @@ IPTR Virtgroup__MUIM_InstallClip(struct IClass *cl, Object *obj, Msg msg)
 
     (void)msg;
 
+    ZuneTrace("zune: InstallClip enter obj=%lx clip=%lx\n",
+        (ULONG) obj, (ULONG) data->clip);
+
     if (data->clip != NULL && muiRenderInfo(obj) != NULL)
     {
         MUI_RemoveClipRegion(muiRenderInfo(obj), data->clip);
@@ -228,11 +264,19 @@ IPTR Virtgroup__MUIM_InstallClip(struct IClass *cl, Object *obj, Msg msg)
     }
 
     if (_rp(obj) == NULL || muiRenderInfo(obj) == NULL)
+    {
+        ZuneTrace("zune: InstallClip return obj=%lx ok=1 noclip\n",
+            (ULONG) obj);
         return TRUE;
+    }
 
     region = NewRegion();
     if (region == NULL)
+    {
+        ZuneTrace("zune: InstallClip return obj=%lx ok=1 noregion\n",
+            (ULONG) obj);
         return TRUE;
+    }
 
     r.MinX = _mleft(obj);
     r.MinY = _mtop(obj);
@@ -242,15 +286,32 @@ IPTR Virtgroup__MUIM_InstallClip(struct IClass *cl, Object *obj, Msg msg)
     if (r.MinX > r.MaxX || r.MinY > r.MaxY || !OrRectRegion(region, &r))
     {
         DisposeRegion(region);
+        ZuneTrace("zune: InstallClip return obj=%lx ok=1 badrect\n",
+            (ULONG) obj);
         return TRUE;
     }
 
     handle = MUI_AddClipRegion(muiRenderInfo(obj), region);
     if (handle == (APTR) -1)
+    {
+        /*
+         * Add failed and disposed the region.  data->clip stays NULL so
+         * RemoveClip is a no-op.  Still TRUE: V_GroupDraw aborts on FALSE.
+         */
+        ZuneTrace("zune: InstallClip return obj=%lx ok=1 addfail\n",
+            (ULONG) obj);
         return TRUE;
+    }
 
-    /* Non-NULL sentinel: RemoveClipRegion only treats (APTR)-1 as a no-op. */
+    /*
+     * InstallClipRegion's previous clip is often NULL on the first install.
+     * That NULL is success, not "nothing installed".  Never store it in
+     * data->clip and never pass it to RemoveClipRegion.  The sentinel is
+     * only a flag; RemoveClipRegion ignores it except for (APTR)-1.
+     */
     data->clip = (APTR) 1;
+    ZuneTrace("zune: InstallClip return obj=%lx ok=1 handle=%lx\n",
+        (ULONG) obj, (ULONG) handle);
     return TRUE;
 }
 
@@ -260,11 +321,16 @@ IPTR Virtgroup__MUIM_RemoveClip(struct IClass *cl, Object *obj, Msg msg)
 
     (void)msg;
 
+    ZuneTrace("zune: RemoveClip enter obj=%lx clip=%lx\n",
+        (ULONG) obj, (ULONG) data->clip);
+
     if (data->clip != NULL && muiRenderInfo(obj) != NULL)
     {
         MUI_RemoveClipRegion(muiRenderInfo(obj), data->clip);
         data->clip = NULL;
     }
+
+    ZuneTrace("zune: RemoveClip return obj=%lx\n", (ULONG) obj);
     return TRUE;
 }
 

@@ -50,19 +50,30 @@ struct MUI_MenuitemData
     struct MenuItem *trigger;
 };
 
-static int Menuitem_GetTotalChildren(Object *obj)
+static int Menuitem_GetTotalChildren(Object *obj, int depth)
 {
     Object *cstate;
     Object *child;
     struct MinList *ChildList = NULL;
     int num = 0;
+    int hops;
+
+    /* Menus are three levels. A disposed child still on the list cycles. */
+    if (depth > 8)
+        return 0;
+    if (obj == NULL)
+        return 0;
 
     get(obj, MUIA_Family_List, &ChildList);
+    if (ChildList == NULL)
+        return 0;
     cstate = (Object *) ChildList->mlh_Head;
-    while ((child = NextObject(&cstate)))
+    hops = 0;
+    while ((child = NextObject(&cstate)) && hops < 4096)
     {
+        hops++;
         num++;
-        num += Menuitem_GetTotalChildren(child);
+        num += Menuitem_GetTotalChildren(child, depth + 1);
     }
     return num;
 }
@@ -74,13 +85,21 @@ static int Menuitem_FillNewMenu(Object *obj, struct NewMenu *menu,
     Object *child;
     struct MinList *ChildList = NULL;
     int num = 0;
+    int hops;
 
     if (depth > 2)
         return 0;
+    if (obj == NULL)
+        return 0;
 
     get(obj, MUIA_Family_List, &ChildList);
+    if (ChildList == NULL)
+        return 0;
     cstate = (Object *) ChildList->mlh_Head;
-    while ((child = NextObject(&cstate)))
+    hops = 0;
+    while ((child = NextObject(&cstate)) && hops < 4096)
+    {
+        hops++;
     {
         int entries;
         IPTR checkit = 0, checked = 0, toggle = 0, enabled = 0, cmdstring = 0, exclude = 0;
@@ -137,6 +156,7 @@ static int Menuitem_FillNewMenu(Object *obj, struct NewMenu *menu,
         menu += entries;
         num += entries;
     }
+    }
     return num;
 }
 
@@ -146,7 +166,7 @@ static int Menuitem_FillNewMenu(Object *obj, struct NewMenu *menu,
 static struct NewMenu *Menuitem_BuildNewMenu(struct MUI_MenuitemData *data,
     Object *obj)
 {
-    int entries = Menuitem_GetTotalChildren(obj);
+    int entries = Menuitem_GetTotalChildren(obj, 0);
     if (data->newmenu)
         FreeVec(data->newmenu);
     data->newmenu = NULL;

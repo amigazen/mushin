@@ -266,6 +266,30 @@ static Object *CreateSysimage(struct DrawInfo *dri, ULONG which)
 		     TAG_DONE);
 }
 
+/*
+ * Voyager's layout group Show always calls AddEventHandler and only
+ * Remove()s the node from Hide. RecalcDisplay shows again without Hide,
+ * so the same node is still linked. Insert() does not unlink first:
+ * the node becomes its own successor and ChangeEvents never finishes.
+ */
+static void UnlinkEventNode(struct Node *node)
+{
+    struct Node *pred;
+    struct Node *succ;
+
+    if (node == NULL)
+        return;
+    succ = node->ln_Succ;
+    pred = node->ln_Pred;
+    if (succ == NULL || pred == NULL)
+        return;
+    if (pred->ln_Succ != node || succ->ln_Pred != node)
+        return;
+    Remove(node);
+    node->ln_Succ = NULL;
+    node->ln_Pred = NULL;
+}
+
 static void EnqueueByPriAndAddress(struct List *list, struct Node *node)
 {
     struct Node *scannode;
@@ -1642,19 +1666,35 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
          * classic Amiga NEWSIZE often arrives with LAYERREFRESH set;
          * WindowLimits/Hide then deadlock.  Record the size and wait
          * for REFRESHWINDOW, which replies first.
+         *
+         * CHANGEWINDOW also arrives for moves.  WindowLimits from that
+         * path posts another NEWSIZE/CHANGEWINDOW pair and can set
+         * LAYERREFRESH before the transfer-animation timer draws.
+         * Only a real NEWSIZE refreshes the limits, and only when they
+         * differ from what intuition already has.
          */
-        if (iWin->WLayer == NULL
-            || (iWin->WLayer->Flags & LAYERREFRESH) == 0)
+        if (imsg->Class == IDCMP_NEWSIZE
+            && (iWin->WLayer == NULL
+                || (iWin->WLayer->Flags & LAYERREFRESH) == 0))
         {
-            int hborders = iWin->BorderLeft + iWin->BorderRight;
-            int vborders = iWin->BorderTop + iWin->BorderBottom;
+            int hborders;
+            int vborders;
+            int minw;
+            int minh;
+            int maxw;
+            int maxh;
 
-            WindowLimits
-                (iWin,
-                data->wd_MinMax.MinWidth + hborders,
-                data->wd_MinMax.MinHeight + vborders,
-                data->wd_MinMax.MaxWidth + hborders,
-                data->wd_MinMax.MaxHeight + vborders);
+            hborders = iWin->BorderLeft + iWin->BorderRight;
+            vborders = iWin->BorderTop + iWin->BorderBottom;
+            minw = data->wd_MinMax.MinWidth + hborders;
+            minh = data->wd_MinMax.MinHeight + vborders;
+            maxw = data->wd_MinMax.MaxWidth + hborders;
+            maxh = data->wd_MinMax.MaxHeight + vborders;
+            if (iWin->MinWidth != minw || iWin->MinHeight != minh
+                || iWin->MaxWidth != maxw || iWin->MaxHeight != maxh)
+            {
+                WindowLimits(iWin, minw, minh, maxw, maxh);
+            }
         }
 
         if ((iWin->GZZWidth != data->wd_Width)
@@ -3211,9 +3251,15 @@ IPTR Window__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
         	if (data->wd_Menustrip)
         	{
         	    get(data->wd_Menustrip,MUIA_Menuitem_NewMenu,&newmenu);
+        	    if (data->wd_RenderInfo.mri_Window)
+                    ClearMenuStrip(data->wd_RenderInfo.mri_Window);
+                if (data->wd_Menu)
+                {
+                    FreeMenus(data->wd_Menu);
+                    data->wd_Menu = NULL;
+                }
         	    if (newmenu)
         	    {
-                if (data->wd_Menu)FreeMenus(data->wd_Menu);                  
         		if ((menu = CreateMenusA(newmenu,NULL)))
         		{
         		    struct TagItem tags[] =
@@ -3816,8 +3862,22 @@ static ULONG WindowOpen(struct IClass *cl, Object *obj)
     if (!data->wd_RootObject)
         return FALSE;
 
-    if (!DoMethod(obj, MUIM_Window_Setup))
+    /*
+     * Lock the screen before the subclass sees MUIM_Window_Setup.
+     * IBrowse reads MUIA_Window_Screen and locks it itself when the
+     * pointer is still NULL, then calls super.  Super must not
+     * LockPubScreen again or intuition waits forever.
+     */
+    if (!SetupRenderInfo(obj, data, &data->wd_RenderInfo))
         return FALSE;
+
+    if (!DoMethod(obj, MUIM_Window_Setup))
+    {
+        zune_imspec_cleanup(data->wd_Background);
+        data->wd_Background = NULL;
+        CleanupRenderInfo(data, &data->wd_RenderInfo);
+        return FALSE;
+    }
 
     /* I got display info, so calculate your display dependant data */
     if (!DoSetupMethod(data->wd_RootObject, &data->wd_RenderInfo))
@@ -4060,6 +4120,7 @@ IPTR Window__MUIM_AddEventHandler(struct IClass *cl, Object *obj,
     msg->ehnode->ehn_Priority = msg->ehnode->ehn_Priority;
 #endif
 #endif
+    UnlinkEventNode((struct Node *)msg->ehnode);
     EnqueueByPriAndAddress((struct List *)&data->wd_EHList, (struct Node *)msg->ehnode);
     ChangeEvents(data, GetDefaultEvents());
     return TRUE;
@@ -4097,9 +4158,7 @@ IPTR Window__MUIM_Setup(struct IClass *cl, Object *obj, Msg msg)
 {
     struct MUI_WindowData *data = INST_DATA(cl, obj);
 
-    if (!SetupRenderInfo(obj, data, &data->wd_RenderInfo))
-        return FALSE;
-
+    /* Screen lock is WindowOpen's job. See the note there. */
     data->wd_Background = zune_imspec_setup(MUII_WindowBack, &data->wd_RenderInfo);
 
     if ((muiGlobalInfo(obj))->mgi_Prefs->window_redraw == WINDOW_REDRAW_WITH_CLEAR)
@@ -4508,38 +4567,48 @@ IPTR Window__MUIM_UpdateMenu(struct IClass *cl, Object *obj, Msg msg)
     APTR visinfo = NULL;
     struct Window *win = NULL;
 
-    if (data->wd_Menustrip)     // only open windows can have a menustrip
+    /*
+     * Same order as the original MUI that IBrowse gets through:
+     * take the strip off the window, free it, then install the new one.
+     * FreeMenus() on a strip that is still installed waits in intuition.
+     */
+    if (data->wd_Menustrip)
     {
-        win = data->wd_RenderInfo.mri_Window;
-        if (win)
+        visinfo = GetVisualInfoA(data->wd_RenderInfo.mri_Screen, NULL);
+        if (visinfo)
         {
-            if ((visinfo = GetVisualInfoA(data->wd_RenderInfo.mri_Screen,NULL)))
+            win = data->wd_RenderInfo.mri_Window;
+            if (win)
+                ClearMenuStrip(win);
+            if (data->wd_Menu)
             {
-                if (data->wd_Menustrip)
-                {
-                    get(data->wd_Menustrip,MUIA_Menuitem_NewMenu,&newmenu);
-                    if (newmenu)
-                    {
-                        if (data->wd_Menu)FreeMenus(data->wd_Menu);                  
-                        if ((menu = CreateMenusA(newmenu,NULL)))
-                        {
-                            struct TagItem tags[] =
-                            {
-                                { GTMN_NewLookMenus, TRUE       },
-                                { TAG_DONE,          (IPTR)NULL }
-                            };
-                            LayoutMenusA(menu, visinfo, tags);
-                            data->wd_Menu = menu;
-                            if (data->wd_RenderInfo.mri_Window)SetMenuStrip(data->wd_RenderInfo.mri_Window,menu);
-                        } 
-                    }
-                }
-                FreeVisualInfo(visinfo);
+                FreeMenus(data->wd_Menu);
+                data->wd_Menu = NULL;
             }
+
+            get(data->wd_Menustrip, MUIA_Menuitem_NewMenu, &newmenu);
+            if (newmenu)
+            {
+                menu = CreateMenusA(newmenu, NULL);
+                if (menu)
+                {
+                    struct TagItem tags[] =
+                    {
+                        { GTMN_NewLookMenus, TRUE },
+                        { TAG_DONE, (IPTR) NULL }
+                    };
+
+                    LayoutMenusA(menu, visinfo, tags);
+                    data->wd_Menu = menu;
+                    if (win)
+                        SetMenuStrip(win, menu);
+                }
+            }
+            FreeVisualInfo(visinfo);
         }
     }
 
-    return 0;
+    return 1;
 }
 
 IPTR Window__MUIM_Refresh(struct IClass *cl, Object *obj, Msg msg)

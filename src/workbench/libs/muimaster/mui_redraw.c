@@ -11,6 +11,7 @@
 #include <cybergraphx/cybergraphics.h>
 #include <proto/graphics.h>
 #include <proto/intuition.h>
+#include <proto/layers.h>
 #include <proto/cybergraphics.h>
 
 #include "muimaster_intern.h"
@@ -73,6 +74,26 @@
             (ULONG)obj, cid, flags,
             (LONG)((((struct __dummyAreaData__ *)(obj))->mad.mad_Flags
                 & MADF_INVIRTUALGROUP) ? 1 : 0));
+    }
+
+    /*
+     * Simple-refresh windows guru if a timer (transfer animation) draws
+     * while LAYERREFRESH is still set.  Begin/End with no drawing clears
+     * the flag; the blit happens after EndRefresh.
+     */
+    {
+        struct MUI_RenderInfo *mri;
+
+        mri = ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo;
+        if (mri != NULL && mri->mri_Window != NULL
+            && (mri->mri_Window->Flags & WFLG_SIMPLE_REFRESH)
+            && mri->mri_Window->WLayer != NULL
+            && (mri->mri_Window->WLayer->Flags & LAYERREFRESH)
+            && !(mri->mri_Flags & MUIMRI_REFRESHMODE))
+        {
+            if (MUI_BeginRefresh(mri, 0))
+                MUI_EndRefresh(mri, 0);
+        }
     }
 
     if (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_INVIRTUALGROUP)
@@ -166,7 +187,9 @@
     ((struct __dummyAreaData__ *)(obj))->mad.mad_Flags = (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & ~MADF_DRAWFLAGS) | (flags & MADF_DRAWFLAGS);
 
     dmsg.MethodID = MUIM_Draw;
-    dmsg.flags = 0;
+    /* Subclasses read these before DoSuperMethod. Area copies them again
+     * from mad_Flags, which was set to the same bits just above. */
+    dmsg.flags = flags;
     ZuneTrace("zune: MUI_Redraw DoMethodA obj=%lx flags=%lx\n",
         (ULONG)obj, flags);
     DoMethodA(obj, (Msg)&dmsg);

@@ -73,6 +73,14 @@ IPTR DoHideMethod(Object * obj);
 void ZuneTrace(CONST_STRPTR fmt, ...);
 
 /*
+ * Set when the first Menuitem is disposed. Builtin dispatchers and
+ * MUI_NewObjectA then log, so the call IBrowse makes after that
+ * dispose is visible. Stays off during splash construction.
+ */
+extern int Zune_LogAfterMenu;
+void ZuneLogMethod(Object *obj, Msg msg);
+
+/*
  * SAS/C DoMethod() varargs is unsafe for 32-bit MUI method IDs (and for
  * mixed pointer/integer args).  Draw used that path, so MUIM_DrawBackground
  * jumped into data.  Always use DoMethodA for these.
@@ -104,6 +112,18 @@ void *List_First(APTR list);
  * Test 4/7 passed.
  */
 Object *ZuneNextObject(Object **state);
+
+/*
+ * Splice obj out of a Family/Group child list.  The list node is the
+ * BOOPSI _Object header.  Remove() only when both neighbours still point
+ * at that node; a REMHEAD'd node keeps stale ln_Succ/ln_Pred and Remove()
+ * would splice some other list.  Always clear the pointers afterwards so
+ * a pool block reused for the next MenuitemObject is not still named by
+ * the parent's lh_Head/ln_Succ (IBrowse then MUI_DisposeObject's the
+ * replacement).
+ */
+void ZuneUnlinkObject(Object *obj);
+
 #ifndef MUIMASTER_DEFINING_REDRAW
 void ZuneRedraw(ULONG obj, ULONG flags);
 #define MUI_Redraw(obj, flags) ZuneRedraw((ULONG)(obj), (ULONG)(flags))
@@ -139,5 +159,9 @@ VOID ZuneRemoveClipRegion(struct MUI_RenderInfo *mri, APTR handle);
 WORD SubtractRectFromRect(struct Rectangle *a, struct Rectangle *b,
     struct Rectangle *destrectarray);
 ULONG IsObjectVisible(Object * child, struct Library *MUIMasterBase);
+
+/* After a layout-time Virtgroup_Top/Left that did not run Update, make
+ * oldpos[] equal pos[] so the next HtmlView Update has no leftover delta. */
+void ZuneVirtgroupCommitScroll(Object *obj);
 
 #endif /* _MUIMASTER_SUPPORT_H */

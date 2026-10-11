@@ -127,12 +127,41 @@ typedef struct NotifyNodeIX
     IX ix;
 } *NNodeIX;
 
+/*
+ * The instance still stores a MinList pointer. Objects that have
+ * notifications allocate this header instead. Each delivery keeps its
+ * cursor on the stack. Removal repairs those cursors before unlinking,
+ * because a callback may dispose the source object: ForeachNode would
+ * then follow mln_Succ in the freed node and never return.
+ * An executing node is freed after its callback, not while its message
+ * is still on the stack.
+ */
+struct NotifyWalk
+{
+    struct NotifyWalk *previous;
+    NNode next;
+    NNode last;
+};
+
+struct NotifyList
+{
+    struct MinList list;
+    struct NotifyWalk *walk;
+    BOOL disposed;
+};
+
+#define NN_RUNNING 1
+#define NN_REMOVED 2
+
 static struct NotifyNode *CreateNNode(struct MUI_NotifyData *data,
     struct MUIP_Notify *msg)
 {
     ULONG i, paramsize;
 
     struct NotifyNode *nnode;
+
+    if (msg->FollowParams > ((ULONG)-1 / sizeof(IPTR) / 2) - 1)
+        return NULL;
 
     if ((msg->TrigAttr == MUIA_Window_InputEvent)
         && (msg->TrigVal != MUIV_EveryTime))
@@ -201,8 +230,30 @@ static struct NotifyNode *CreateNNode(struct MUI_NotifyData *data,
 static void DeleteNNode(struct MUI_NotifyData *data,
     struct NotifyNode *nnode)
 {
-    mui_free(nnode->nn_Params);
-    mui_free(nnode);
+    struct NotifyList *list;
+    struct NotifyWalk *walk;
+
+    list = (struct NotifyList *)data->mnd_NotifyList;
+    for (walk = list->walk; walk != NULL; walk = walk->previous)
+    {
+        if (walk->next == nnode)
+        {
+            if (nnode == walk->last)
+                walk->next = NULL;
+            else
+                walk->next = (NNode)nnode->nn_Node.mln_Succ;
+        }
+        if (walk->last == nnode)
+            walk->last = (NNode)nnode->nn_Node.mln_Pred;
+    }
+    Remove((struct Node *)nnode);
+    if (nnode->nn_Active)
+        nnode->nn_Active = NN_REMOVED;
+    else
+    {
+        mui_free(nnode->nn_Params);
+        mui_free(nnode);
+    }
 }
 
 
@@ -276,18 +327,23 @@ IPTR Notify__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
 
     if (data->mnd_NotifyList)
     {
-        while ((node = (struct MinNode *)RemHead((struct List *)data->
-                    mnd_NotifyList)))
-        {
+        struct NotifyList *list;
+
+        list = (struct NotifyList *)data->mnd_NotifyList;
+        list->disposed = TRUE;
+        while ((node = list->list.mlh_Head)->mln_Succ)
             DeleteNNode(data, (struct NotifyNode *)node);
-        }
-        mui_free(data->mnd_NotifyList);
+        /* A delivery still on the stack frees the header when it unwinds. */
+        if (!list->walk)
+            mui_free(list);
         data->mnd_NotifyList = NULL;
     }
 
     ZuneTrace("zune: Notify DISPOSE super obj=%lx\n", (ULONG) obj);
     {
         IPTR rc;
+
+        /* Rootclass OM_DISPOSE returns the block to the allocator. */
         rc = DoSuperMethodA(cl, obj, msg);
         ZuneTrace("zune: Notify DISPOSE done obj=%lx\n", (ULONG) obj);
         return rc;
@@ -376,24 +432,28 @@ static void check_notify(NNode nnode, Object *obj, struct TagItem *tag)
         switch ((IPTR) nnode->nn_DestObj)
         {
         case MUIV_Notify_Application:
-            destobj = _app(obj);
+            destobj = muiGlobalInfo(obj) ? _app(obj) : NULL;
             break;
         case MUIV_Notify_Self:
             destobj = obj;
             break;
+        case MUIV_Notify_Parent:
+            destobj = _parent(obj);
+            break;
         case MUIV_Notify_Window:
-            if (muiRenderInfo(obj)) /* otherwise _win(obj) does NULL access! */
-            {
-                destobj = _win(obj);
-            }
-            else
-            {
-                return;
-            }
+            /*
+             * Menuitem is a Notify, not an Area. _win() would read Area
+             * instance data that this object does not have.
+             */
+            destobj = NULL;
+            get(obj, MUIA_WindowObject, &destobj);
             break;
         default:
             destobj = nnode->nn_DestObj;
         }
+
+        if (!destobj)
+            return;
 
         params = nnode->nn_Params;
         if (nnode->nn_TrigVal == MUIV_EveryTime)
@@ -415,12 +475,18 @@ static void check_notify(NNode nnode, Object *obj, struct TagItem *tag)
             }
         }
 
-        nnode->nn_Active = TRUE;
+        nnode->nn_Active = NN_RUNNING;
 
         /* call method */
         DoMethodA(destobj, (Msg) params);
 
-        nnode->nn_Active = FALSE;
+        if (nnode->nn_Active == NN_REMOVED)
+        {
+            mui_free(nnode->nn_Params);
+            mui_free(nnode);
+        }
+        else
+            nnode->nn_Active = FALSE;
     }
 }
 
@@ -433,7 +499,9 @@ IPTR Notify__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     struct TagItem *tags = msg->ops_AttrList;
     BOOL no_notify = FALSE;
     struct TagItem *tag;
-    struct MinNode *node;
+    struct NotifyList *list;
+    struct NotifyWalk walk;
+    NNode node;
 
     /* There are many ways to find out what tag items provided by set()
      ** we do know. The best way should be using NextTagItem() and simply
@@ -461,10 +529,13 @@ IPTR Notify__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
             break;
 
         case MUIA_ObjectID:
+            if (data->mnd_ObjectID == tag->ti_Data)
+                tag->ti_Tag = TAG_IGNORE;
             data->mnd_ObjectID = (ULONG) tag->ti_Data;
             break;
 
         case MUIA_UserData:
+            /* Classic MUI delivers repeated assignments of UserData too. */
             data->mnd_UserData = tag->ti_Data;
             break;
         }
@@ -476,14 +547,28 @@ IPTR Notify__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
     if (!data->mnd_NotifyList || no_notify)
         return 0;
 
+    list = (struct NotifyList *)data->mnd_NotifyList;
+    walk.previous = list->walk;
+    list->walk = &walk;
     tags = msg->ops_AttrList;
-    while ((tag = NextTagItem(&tags)))
+    while (!list->disposed && (tag = NextTagItem(&tags)))
     {
-        ForeachNode (data->mnd_NotifyList, node)
+        walk.next = (NNode)list->list.mlh_Head;
+        walk.last = (NNode)list->list.mlh_TailPred;
+        while (!list->disposed && walk.next != NULL
+            && walk.next->nn_Node.mln_Succ != NULL)
         {
-            check_notify((NNode) node, obj, tag);
+            node = walk.next;
+            if (node == walk.last)
+                walk.next = NULL;
+            else
+                walk.next = (NNode)node->nn_Node.mln_Succ;
+            check_notify(node, obj, tag);
         }
     }
+    list->walk = walk.previous;
+    if (list->disposed && list->walk == NULL)
+        mui_free(list);
 
     return 0;
 }
@@ -625,7 +710,6 @@ IPTR Notify__MUIM_KillNotify(struct IClass *cl, Object *obj,
         nnode = (NNode) node;
         if (msg->TrigAttr == nnode->nn_TrigAttr)
         {
-            Remove((struct Node *)node);
             DeleteNNode(data, nnode);
             return 1;
         }
@@ -655,7 +739,6 @@ IPTR Notify__MUIM_KillNotifyObj(struct IClass *cl, Object *obj,
         if ((msg->TrigAttr == nnode->nn_TrigAttr)
             && (msg->dest == nnode->nn_DestObj))
         {
-            Remove((struct Node *)node);
             DeleteNNode(data, nnode);
             return 1;
         }
@@ -704,9 +787,12 @@ IPTR Notify__MUIM_Notify(struct IClass *cl, Object *obj,
 
     if (data->mnd_NotifyList == NULL)
     {
-        if (!(data->mnd_NotifyList = mui_alloc_struct(struct MinList)))
+        if (!(data->mnd_NotifyList = (struct MinList *)
+                mui_alloc_struct(struct NotifyList)))
               return FALSE;
         NewList((struct List *)data->mnd_NotifyList);
+        ((struct NotifyList *)data->mnd_NotifyList)->walk = NULL;
+        ((struct NotifyList *)data->mnd_NotifyList)->disposed = FALSE;
     }
 
     nnode = CreateNNode(data, msg);
@@ -834,19 +920,22 @@ IPTR Notify__MUIM_DisconnectParent(struct IClass *cl, Object *obj,
 IPTR Notify__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
     struct MUIP_GetConfigItem *msg)
 {
-    IPTR found =
-        DoMethod((muiGlobalInfo(obj))->mgi_Configdata, MUIM_Dataspace_Find,
-        msg->id);
+    struct MUI_GlobalInfo *gi;
 
-    if (found)
-    {
-        *msg->storage = found;
-        return TRUE;
-    }
-    else
-    {
+    (void)cl;
+
+    /*
+     * Dataspace_Find returns the address of the stored record.  Layout
+     * hooks use the stored ULONG as a coordinate, so the value has to be
+     * resolved by Configdata.  Storing the record address places children
+     * at pointer-sized left/width.
+     */
+    gi = muiGlobalInfo(obj);
+    if (!msg->storage || !gi || !gi->mgi_Configdata ||
+        gi->mgi_Configdata == obj)
         return FALSE;
-    }
+
+    return DoMethodA(gi->mgi_Configdata, (Msg)msg);
 }
 
 

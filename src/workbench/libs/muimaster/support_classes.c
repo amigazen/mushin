@@ -305,7 +305,9 @@ Class *ZUNE_GetBuiltinClass(ClassID classid, struct Library * mb)
 }
 
 /*
- * metaDispatcher - puts h_Data in A6 and calls real dispatcher
+ * metaDispatcher - puts h_Data in A6 and calls real dispatcher.
+ * Do not trace or touch library data in here. This is an __asm register
+ * entry: a C call from it corrupts A0/A1/A4 and deadlocks the machine.
  */
 
 #ifdef __AROS__

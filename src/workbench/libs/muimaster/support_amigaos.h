@@ -412,15 +412,18 @@ for                                            \
 
 #define AROS_UFPA AROS_UFHA
 
-/* 
+/*
     With the following define a typical dispatcher will looks like this:
     BOOPSI_DISPATCHER(IPTR,IconWindow_Dispatcher,cl,obj,msg)
 */
+extern int Zune_LogAfterMenu;
+void ZuneLogMethod(Object *obj, Msg msg);
 #define BOOPSI_DISPATCHER(rettype,name,cl,obj,msg) \
     AROS_UFH3(SAVEDS rettype, name,\
         AROS_UFHA(Class  *, cl,  A0),\
         AROS_UFHA(Object *, obj, A2),\
-        AROS_UFHA(Msg     , msg, A1)) {AROS_USERFUNC_INIT
+        AROS_UFHA(Msg     , msg, A1)) {AROS_USERFUNC_INIT \
+    ZuneLogMethod(obj, msg);
 #define BOOPSI_DISPATCHER_END AROS_USERFUNC_EXIT}
 #define BOOPSI_DISPATCHER_PROTO(rettype,name,cl,obj,msg) \
     AROS_UFP3(SAVEDS rettype, name,\

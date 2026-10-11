@@ -306,7 +306,8 @@ static void UpdateEntries(Object *obj, struct MUI_CycleData *data)
     while ((page = NextObject(&cstate)))
     {
         DoMethod(data->pageobj, OM_REMMEMBER, (IPTR) page);
-        DoMethod(page, OM_DISPOSE);
+        /* DoMethod(OM_DISPOSE) never MUI_FreeClass's the page. */
+        MUI_DisposeObject(page);
     }
 
     /* Count the number of entries */

@@ -15,6 +15,7 @@
 #include <prefs/prefhdr.h>
 
 #include <intuition/classusr.h>
+#include <libraries/gadtools.h>
 
 #include <clib/alib_protos.h>
 #include <libraries/commodities.h>
@@ -51,6 +52,12 @@
 
 extern struct Library *MUIMasterBase;
 typedef struct MUIMasterBase_intern MUIMasterBase_intern;
+
+/*
+ * MUIA_Application_Menu lives behind MUI_OBSOLETE in mui.h. IBrowse was
+ * built with that tag, so recognize the value here either way.
+ */
+#define MUIA_Application_Menu_ (MUIB_MUI | 0x00420e1f)
 
 static ULONG portmask(struct MsgPort *port);
 
@@ -125,6 +132,7 @@ struct MUI_ApplicationData
     struct DiskObject       *app_DefaultDiskObject; /* This is complete
                                                      * object managed by
                                                      * the class */
+    struct NewMenu          *app_LegacyMenu; /* borrowed; not freed */
 };
 
 struct timerequest_ext
@@ -162,7 +170,7 @@ MUIA_Application_DropObject [IS.]         todo
 MUIA_Application_ForceQuit [..G]          not triggered yet
 MUIA_Application_HelpFile [ISG]           unused/dummy
 MUIA_Application_Iconified [.SG]          done
-MUIA_Application_Menu [I.G]               unimplemented (OBSOLETE)
+MUIA_Application_Menu [I.G]               done (legacy NewMenu)
 MUIA_Application_MenuAction [..G]         done
 MUIA_Application_MenuHelp [..G]           todo (ditto)
 MUIA_Application_Menustrip [I..]          done
@@ -183,8 +191,8 @@ OM_REMMEMBER                              done
 MUIM_Application_AboutMUI                 todo
 MUIM_Application_AddInputHandler          done ?
 MUIM_Application_CheckRefresh             done
-MUIM_Application_GetMenuCheck             OBSOLETE
-MUIM_Application_GetMenuState             OBSOLETE
+MUIM_Application_GetMenuCheck             done (legacy)
+MUIM_Application_GetMenuState             done (legacy)
 MUIM_Application_Input                    OBSOLETE
 MUIM_Application_InputBuffered            todo
 MUIM_Application_Load
@@ -195,8 +203,8 @@ MUIM_Application_RemInputHandler          done ?
 MUIM_Application_ReturnID                 done
 MUIM_Application_Save
 MUIM_Application_SetConfigItem
-MUIM_Application_SetMenuCheck
-MUIM_Application_SetMenuState
+MUIM_Application_SetMenuCheck             done (legacy)
+MUIM_Application_SetMenuState             done (legacy)
 MUIM_Application_ShowHelp
 
 Notify.mui/MUIM_FindUData                 done
@@ -551,6 +559,10 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
                 bad_childs = TRUE;
             break;
 
+        case MUIA_Application_Menu_:
+            data->app_LegacyMenu = (struct NewMenu *)tag->ti_Data;
+            break;
+
         case MUIA_Application_Menustrip:
             data->app_Menustrip = (Object *) tag->ti_Data;
             break;
@@ -727,6 +739,28 @@ static IPTR Application__OM_NEW(struct IClass *cl, Object *obj,
                 data->app_RexxPort = NULL;
             }
         }
+    }
+
+    /*
+     * MUIA_Application_Menu is the pre-menustrip NewMenu table. IBrowse
+     * still passes that and then calls the obsolete check/state methods.
+     * Build the object strip once so those calls hit real items.
+     */
+    if (data->app_LegacyMenu != NULL && data->app_Menustrip == NULL)
+    {
+        IPTR params[2];
+
+        params[0] = (IPTR)data->app_LegacyMenu;
+        params[1] = 0;
+        data->app_Menustrip = MUI_MakeObjectA(MUIO_MenustripNM, params);
+        if (data->app_Menustrip == NULL)
+        {
+            ZuneTrace("zune: App OM_NEW legacy menu failed\n");
+            CoerceMethod(cl, obj, OM_DISPOSE);
+            return 0;
+        }
+        ZuneTrace("zune: App legacy menu %lx strip %lx\n",
+            (ULONG)data->app_LegacyMenu, (ULONG)data->app_Menustrip);
     }
 
     if (data->app_Menustrip)
@@ -1349,6 +1383,10 @@ static IPTR Application__OM_GET(struct IClass *cl, Object *obj,
         return GetAttr(MUIA_Family_List, data->app_WindowFamily,
             msg->opg_Storage);
 
+    case MUIA_Application_Menu_:
+        STORE = (IPTR) data->app_LegacyMenu;
+        return TRUE;
+
     case MUIA_Application_Menustrip:
         STORE = (IPTR) data->app_Menustrip;
         return TRUE;
@@ -1549,6 +1587,33 @@ static ULONG portmask(struct MsgPort *port)
     return mask;
 }
 
+/*
+ * Input-handler methods are DoMethod(obj, method, signals, node).
+ * Timers have no signal bits, so signals is 0 and node is the
+ * MUI_InputHandlerNode that fired. IBrowse writes through that node
+ * when it updates a timer; a one-word message leaves it reading the
+ * stack and corrupting live classes. Signal handlers receive only the
+ * bits of this node that are set, plus the same node, so that word is
+ * never leftover stack either. DoMethodA keeps the 32-bit method id
+ * intact under SAS/C; varargs DoMethod does not.
+ */
+static IPTR CallInputHandler(struct MUI_InputHandlerNode *ihn, ULONG signals)
+{
+    struct
+    {
+        ULONG MethodID;
+        ULONG signals;
+        struct MUI_InputHandlerNode *node;
+    } hmsg;
+
+    if (ihn == NULL || ihn->ihn_Object == NULL)
+        return 0;
+    hmsg.MethodID = ihn->ihn_Method;
+    hmsg.signals = signals;
+    hmsg.node = ihn;
+    return DoMethodA(ihn->ihn_Object, (Msg)&hmsg);
+}
+
 /**************************************************************************
  MUIM_Application_NewInput : application main loop
 **************************************************************************/
@@ -1571,6 +1636,8 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
     if (msg == NULL || msg->signal == NULL)
         return 0;
 
+    if (Zune_LogAfterMenu)
+        ZuneTrace("zune: NewInput enter obj=%lx\n", (ULONG) obj);
     signal = *msg->signal;
 
     /* process all pushed methods */
@@ -1684,15 +1751,22 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
              ** ln->Succ of course */
             while ((n = RemHead(&list)))
             {
-                struct timerequest_ext *time_ext =
-                    (struct timerequest_ext *)n;
-                struct MUI_InputHandlerNode *ihn = time_ext->ihn;
-                time_ext->treq.tr_time.tv_secs =
-                    time_ext->ihn->ihn_Millis / 1000;
+                struct timerequest_ext *time_ext;
+                struct MUI_InputHandlerNode *ihn;
+
+                time_ext = (struct timerequest_ext *)n;
+                ihn = time_ext->ihn;
+                if (ihn == NULL)
+                    continue;
+                /*
+                 * Requeue before the method. RemInputHandler may AbortIO
+                 * and FreeVec this request from inside the callback.
+                 */
+                time_ext->treq.tr_time.tv_secs = ihn->ihn_Millis / 1000;
                 time_ext->treq.tr_time.tv_micro =
-                    (time_ext->ihn->ihn_Millis % 1000) * 1000;
+                    (ihn->ihn_Millis % 1000) * 1000;
                 SendIO((struct IORequest *)&time_ext->treq);
-                DoMethod(ihn->ihn_Object, ihn->ihn_Method);
+                CallInputHandler(ihn, 0);
             }
         }
 
@@ -1850,13 +1924,23 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
 
         if (signal & handler_mask)
         {
-            for (mn = data->app_IHList.mlh_Head; mn->mln_Succ;
-                mn = mn->mln_Succ)
+            /*
+             * The callback may RemInputHandler itself. Take the successor
+             * before the call so that Remove() does not end the walk.
+             */
+            mn = data->app_IHList.mlh_Head;
+            while (mn->mln_Succ)
             {
                 struct MUI_InputHandlerNode *ihn;
+                struct MinNode *next;
+                ULONG matched;
+
                 ihn = (struct MUI_InputHandlerNode *)mn;
-                if (signal & ihn->ihn_Signals)
-                    DoMethod(ihn->ihn_Object, ihn->ihn_Method);
+                next = mn->mln_Succ;
+                matched = signal & ihn->ihn_Signals;
+                if (matched)
+                    CallInputHandler(ihn, matched);
+                mn = next;
             }
         }
     }
@@ -1875,9 +1959,8 @@ static IPTR Application__MUIM_NewInput(struct IClass *cl, Object *obj,
         retval = rid->rid_Value;
         DeleteRIDNode(data, rid);
         ZuneTrace("zune: ReturnID %lx (NI #%ld)\n", retval, ni_calls);
-        return retval;
     }
-    return 0;
+    return retval;
 }
 
 /**************************************************************************
@@ -2591,6 +2674,68 @@ static IPTR Application__MUIM_CheckRefresh(struct IClass *cl, Object *obj,
 }
 
 /*
+ * Get/SetMenuCheck and Get/SetMenuState. The id is msg[1], the value
+ * being set is msg[2]. Search each window strip, then the application
+ * strip built from the legacy NewMenu.
+ */
+static IPTR Application__Menu(struct IClass *cl, Object *obj, ULONG *msg,
+    BOOL setting, ULONG attr)
+{
+    struct MUI_ApplicationData *data = INST_DATA(cl, obj);
+    struct MinList *children = NULL;
+    Object *state;
+    Object *child;
+    Object *strip;
+    Object *item;
+    IPTR value;
+    struct MUIP_FindUData fmsg;
+    struct TagItem tags[2];
+    struct opSet setmsg;
+    struct opGet getmsg;
+
+    value = 0;
+    get(data->app_WindowFamily, MUIA_Family_List, &children);
+    state = NULL;
+    if (children != NULL)
+        state = (Object *)children->mlh_Head;
+    while (state != NULL && (child = NextObject(&state)))
+    {
+        strip = NULL;
+        get(child, MUIA_Window_Menustrip, &strip);
+        if (strip == NULL)
+            strip = data->app_Menustrip;
+        item = NULL;
+        if (strip != NULL)
+        {
+            fmsg.MethodID = MUIM_FindUData;
+            fmsg.udata = msg[1];
+            item = (Object *)DoMethodA(strip, (Msg)&fmsg);
+        }
+        if (item == NULL)
+            continue;
+        if (setting)
+        {
+            tags[0].ti_Tag = attr;
+            tags[0].ti_Data = msg[2];
+            tags[1].ti_Tag = TAG_DONE;
+            setmsg.MethodID = OM_SET;
+            setmsg.ops_AttrList = tags;
+            setmsg.ops_GInfo = NULL;
+            DoMethodA(item, (Msg)&setmsg);
+        }
+        else
+        {
+            getmsg.MethodID = OM_GET;
+            getmsg.opg_AttrID = attr;
+            getmsg.opg_Storage = &value;
+            DoMethodA(item, (Msg)&getmsg);
+            return value;
+        }
+    }
+    return 0;
+}
+
+/*
  * The class dispatcher
  */
 BOOPSI_DISPATCHER(IPTR, Application_Dispatcher, cl, obj, msg)
@@ -2613,6 +2758,18 @@ BOOPSI_DISPATCHER(IPTR, Application_Dispatcher, cl, obj, msg)
         return Application__MUIM_AddInputHandler(cl, obj, (APTR) msg);
     case MUIM_Application_RemInputHandler:
         return Application__MUIM_RemInputHandler(cl, obj, (APTR) msg);
+    case MUIM_Application_GetMenuCheck:
+        return Application__Menu(cl, obj, (ULONG *)msg, FALSE,
+            MUIA_Menuitem_Checked);
+    case MUIM_Application_GetMenuState:
+        return Application__Menu(cl, obj, (ULONG *)msg, FALSE,
+            MUIA_Menuitem_Enabled);
+    case MUIM_Application_SetMenuCheck:
+        return Application__Menu(cl, obj, (ULONG *)msg, TRUE,
+            MUIA_Menuitem_Checked);
+    case MUIM_Application_SetMenuState:
+        return Application__Menu(cl, obj, (ULONG *)msg, TRUE,
+            MUIA_Menuitem_Enabled);
     case MUIM_Application_Input:
         return Application__MUIM_Input(cl, obj, (APTR) msg);
     case MUIM_Application_InputBuffered:

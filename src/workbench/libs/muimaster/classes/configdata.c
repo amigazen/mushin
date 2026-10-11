@@ -1387,6 +1387,45 @@ static IPTR Configdata_LoadPubScreens(struct IClass *cl, Object *obj,
 }
 
 /*
+ * MUIM_GetConfigItem
+ * Builtin numeric settings store the ULONG.  Custom settings keep the
+ * dataspace pointer (image spec, font, string).  A missing builtin still
+ * returns its default so the caller does not keep an uninitialized stack
+ * long.
+ */
+IPTR Configdata__MUIM_GetConfigItem(struct IClass *cl, Object *obj,
+    struct MUIP_GetConfigItem *msg)
+{
+    int i;
+    IPTR value;
+    struct MUIP_Configdata_GetULong getul;
+    struct MUIP_Configdata_GetString getstr;
+
+    if (!msg->storage)
+        return FALSE;
+
+    for (i = 0; DefULValues[i].id; i++)
+    {
+        if (DefULValues[i].id == msg->id)
+        {
+            getul.MethodID = MUIM_Configdata_GetULong;
+            getul.id = msg->id;
+            *msg->storage = Configdata__MUIM_GetULong(cl, obj, &getul);
+            return TRUE;
+        }
+    }
+
+    getstr.MethodID = MUIM_Configdata_GetString;
+    getstr.id = msg->id;
+    value = Configdata__MUIM_GetString(cl, obj, &getstr);
+    if (!value)
+        return FALSE;
+
+    *msg->storage = value;
+    return TRUE;
+}
+
+/*
  * The class dispatcher
  */
 BOOPSI_DISPATCHER(IPTR, Configdata_Dispatcher, cl, obj, msg)
@@ -1403,6 +1442,8 @@ BOOPSI_DISPATCHER(IPTR, Configdata_Dispatcher, cl, obj, msg)
         return Configdata__MUIM_GetString(cl, obj, (APTR) msg);
     case MUIM_Configdata_GetULong:
         return Configdata__MUIM_GetULong(cl, obj, (APTR) msg);
+    case MUIM_GetConfigItem:
+        return Configdata__MUIM_GetConfigItem(cl, obj, (APTR) msg);
     case MUIM_Configdata_SetULong:
         return Configdata__MUIM_SetULong(cl, obj, (APTR) msg);
     case MUIM_Configdata_SetImspec:

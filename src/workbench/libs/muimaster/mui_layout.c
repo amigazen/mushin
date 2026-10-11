@@ -21,45 +21,23 @@
 //#define MYDEBUG 1
 #include "debug.h"
 
-/*****************************************************************************
-
-    NAME */
-        __asm __saveds BOOL MUI_Layout(register __a0 Object *obj, register __d0 LONG left, register __d1 LONG top, register __d2 LONG width, register __d3 LONG height, register __d4 ULONG flags)
-
-/*  FUNCTION
-
-    INPUTS
-
-    RESULT
-
-    NOTES
-Z
-    EXAMPLE
-
-    BUGS
-
-    SEE ALSO
-
-    INTERNALS
-
-*****************************************************************************/
-{
-    static const struct MUIP_Layout method = { MUIM_Layout };
-    Object *parent = ((struct __dummyAreaData__ *)(obj))->mnd.mnd_ParentObject;
-
 /*
- * Called only by groups, never by windows
+ * LVO -126, MUI 3.8 FD registers (a0,d0,d1,d2,d3,d4).
+ * left/top are relative to the parent group's inner box.  MUI_Layout()
+ * adds that origin.  A virtual parent is scrolled, so its Virtgroup
+ * Left/Top are removed first.  Same placement as Original MUI.
  */
-//    ASSERT(parent != NULL);
+__asm __saveds BOOL MUI_Layout(register __a0 Object *obj,
+    register __d0 LONG left, register __d1 LONG top, register __d2 LONG width,
+    register __d3 LONG height, register __d4 ULONG flags)
+{
+    Object *parent;
+    IPTR val;
+    struct MUIP_Layout method;
 
-    /* Trace only the 1x1 dummy (Voyager htmlview) and oversize boxes —
-     * full HTML layout floods serial with thousands of LayoutObj calls. */
-    if ((width <= 1 && height <= 1) || width > 8000 || height > 8000)
-    {
-        ZuneTrace("zune: MUI_Layout enter obj=%lx %ldx%ld+%ldx%ld parent=%lx\n",
-            (ULONG) obj, left, top, width, height, (ULONG) parent);
-    }
+    (void)flags;
 
+    parent = ((struct __dummyAreaData__ *)(obj))->mnd.mnd_ParentObject;
     if (parent == NULL)
     {
         ZuneTrace("zune: MUI_Layout abort NULL parent obj=%lx\n", (ULONG) obj);
@@ -70,24 +48,35 @@ Z
     {
         /* I'm not yet sure what to do by virtual groups in virtual groups,
          * eighter add their offsets too or not, will be tested soon */
-        IPTR val = 0;
-        get(parent,MUIA_Virtgroup_Left,&val);
-        left -= val;
-        get(parent,MUIA_Virtgroup_Top,&val);
-        top -= val;
+        val = 0;
+        get(parent, MUIA_Virtgroup_Left, &val);
+        left -= (LONG) val;
+        val = 0;
+        get(parent, MUIA_Virtgroup_Top, &val);
+        top -= (LONG) val;
     }
 
-    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left = left + (((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft);
-    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top = top + (((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop);
-    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width = width;
-    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height = height;
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left = (WORD)(left
+        + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Left
+        + ((struct __dummyAreaData__ *)(parent))->mad.mad_addleft);
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top = (WORD)(top
+        + ((struct __dummyAreaData__ *)(parent))->mad.mad_Box.Top
+        + ((struct __dummyAreaData__ *)(parent))->mad.mad_addtop);
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width = (WORD) width;
+    ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height = (WORD) height;
     ((struct __dummyAreaData__ *)(obj))->mad.mad_VirtualTop =
         ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top;
 
-    D(bug("muimaster.library/mui_layout.c: 0x%p %ldx%ldx%ldx%ld\n",obj,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Left + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width - 1,((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Top + ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height - 1));
+    if ((left > 32767) || (left < -32768) || (top > 32767) || (top < -32768)
+        || (width > 32767) || (width < 0) || (height > 32767) || (height < 0))
+    {
+        ZuneTrace("zune: MUI_Layout obj=%lx %ldx%ld+%ldx%ld box=%ldx%ld\n",
+            (ULONG) obj, left, top, width, height,
+            (LONG) ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Width,
+            (LONG) ((struct __dummyAreaData__ *)(obj))->mad.mad_Box.Height);
+    }
 
-    DoMethodA(obj, (Msg)&method);
-    if ((width <= 1 && height <= 1) || width > 8000 || height > 8000)
-        ZuneTrace("zune: MUI_Layout leave obj=%lx\n", (ULONG) obj);
+    method.MethodID = MUIM_Layout;
+    DoMethodA(obj, (Msg) &method);
     return TRUE;
 } /* MUI_Layout */

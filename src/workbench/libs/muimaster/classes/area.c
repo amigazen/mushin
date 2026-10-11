@@ -290,8 +290,36 @@ static IPTR Area__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     if (!obj)
         return FALSE;
 
-    /* Initial local instance data */
+    /* Initial local instance data.
+     * NewObject does not clear the instance.  Leftover FixWidth, box and
+     * Flags2 values are what a layout hook then passes to MUI_Layout
+     * (IBrowse HTML group: pointer-sized left/width, negative height).
+     */
     data = INST_DATA(cl, obj);
+    {
+        ULONG *words;
+        UBYTE *bytes;
+        ULONG nwords;
+        ULONG nbytes;
+
+        /* Fast-RAM zero.  No libc memset. */
+        words = (ULONG *) data;
+        nwords = sizeof(struct MUI_AreaData) / sizeof(ULONG);
+        while (nwords != 0)
+        {
+            *words = 0;
+            words++;
+            nwords--;
+        }
+        bytes = (UBYTE *) words;
+        nbytes = sizeof(struct MUI_AreaData) % sizeof(ULONG);
+        while (nbytes != 0)
+        {
+            *bytes = 0;
+            bytes++;
+            nbytes--;
+        }
+    }
 
     data->mad_Flags =
         MADF_FILLAREA | MADF_SHOWME | MADF_SHOWSELSTATE | MADF_DROPABLE;

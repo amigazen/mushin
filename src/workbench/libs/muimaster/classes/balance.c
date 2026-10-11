@@ -23,6 +23,11 @@
 
 extern struct Library *MUIMasterBase;
 
+/* SAS/C rand() is 0..32767 and <stdlib.h> does not define RAND_MAX. */
+#ifndef RAND_MAX
+#define RAND_MAX 32767
+#endif
+
 /*
  *  [FirstBound .... <- balance -> .... SecondBound]
  */

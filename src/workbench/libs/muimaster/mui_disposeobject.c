@@ -3,11 +3,14 @@
     Copyright (C) 2026, amigazen project. All rights reserved.
 */
 
+#include <string.h>
 #include <proto/intuition.h>
 #include <intuition/classes.h>
 
 #include "muimaster_intern.h"
 #include "support.h"
+
+extern VOID ZUNE_FreeClass(Class *cl);
 
 /*****************************************************************************
 
@@ -37,24 +40,22 @@
 
 *****************************************************************************/
 {
-    volatile ULONG clsave;
+    Class *cl;
+    volatile Class *clsave;
     STRPTR id;
     ULONG flags;
     ULONG ud;
-    Class *cl;
 
     if (obj == NULL)
         return;
 
     /*
-     * clsave is volatile so SAS/C must reload it from the stack for
-     * MUI_FreeClass (A0).  A plain ULONG was kept in A0; DisposeObject(obj)
-     * then left A0==obj and FreeClass decremented the freed object (logged
-     * cl==obj, id=?).  Do not call anything between DisposeObject and
-     * MUI_FreeClass.
+     * Save the class before DisposeObject. Rootclass frees the block,
+     * and a later FreeClass must not read the object: SAS/C leaves A0
+     * holding obj across the call.
      */
     cl = OCLASS(obj);
-    clsave = (ULONG) cl;
+    clsave = cl;
     id = (STRPTR) "?";
     flags = 0;
     ud = 0;
@@ -66,14 +67,18 @@
             id = cl->cl_ID;
     }
     ZuneTrace("zune: DisposeObject obj=%lx cl=%lx id=%s flags=%lx ud=%ld\n",
-        (ULONG) obj, clsave, id, flags, ud);
-    DisposeObject(obj);
+        (ULONG) obj, (ULONG) cl, id, flags, ud);
+    /* After this, builtin methods and MUI_NewObjectA are logged. */
+    if (cl != NULL && cl->cl_ID != NULL &&
+        strcmp(cl->cl_ID, "Menuitem.mui") == 0)
+        Zune_LogAfterMenu = 1;
     /*
-     * Use stack-safe ZUNE_FreeClass.  A C call to MUI_FreeClass leaves A0
-     * as obj and FreeClass then operates on the wrong pointer.
+     * Drop a family or group link before the block goes back to the
+     * pool. The next MenuitemObject of this size is often this address,
+     * and a list that still names it walks into the new object.
      */
-    {
-        extern VOID ZUNE_FreeClass(Class *cl);
-        ZUNE_FreeClass((Class *) clsave);
-    }
+    ZuneUnlinkObject(obj);
+    DisposeObject(obj);
+    ZUNE_FreeClass((Class *) clsave);
+    ZuneTrace("zune: DisposeObject return %lx\n", (ULONG) obj);
 } /* MUI_DisposeObject */

@@ -137,6 +137,8 @@ struct MUI_GroupData
                                  * children */
     /* MUI4 group with tabs */
     Object *titlegroup;
+    /* Previous layer clip while MUIM_Virtgroup_BeginPaint is active. */
+    APTR paint_clip;
 };
 
 /* Note:
@@ -158,6 +160,15 @@ struct MUI_GroupData
 #define GROUP_HSPACING    (1<<7)
 #define GROUP_VSPACING    (1<<8)
 #define GROUP_CHANGED     (1<<9)
+/* Set between Virtgroup BeginPaint and EndPaint. */
+#define GROUP_PAINTING    (1<<10)
+/*
+ * Private virtual-group paint protocol.  HTML subclasses render the
+ * document from BeginPaint, after the group background, and release the
+ * clip in EndPaint.  A Draw that never sends these leaves the page blank.
+ */
+#define MUIM_Virtgroup_BeginPaint 0x80425b5cUL
+#define MUIM_Virtgroup_EndPaint   0x8042da52UL
 /* Nest depth for InitChange/ExitChange lives in flags[23:16].  Voyager nests
  * ShowNStream InitChange around GotData's InitChange/ExitChange; a plain
  * flag made the inner ExitChange RecalcDisplay while the outer swap was
@@ -415,8 +426,36 @@ IPTR Group__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     if (!obj)
         return 0;
 
-    /* Initial local instance data */
+    /* Initial local instance data.
+     * NewObject does not clear the instance.  virt_off/virt_mwidth would
+     * otherwise be leftover pointers; a layout hook reads them back as
+     * the child origin and size (IBrowse) and MUI_Layout subtracts them.
+     */
     data = INST_DATA(cl, obj);
+    {
+        ULONG *words;
+        UBYTE *bytes;
+        ULONG nwords;
+        ULONG nbytes;
+
+        /* Fast-RAM zero.  No libc memset. */
+        words = (ULONG *) data;
+        nwords = sizeof(struct MUI_GroupData) / sizeof(ULONG);
+        while (nwords != 0)
+        {
+            *words = 0;
+            words++;
+            nwords--;
+        }
+        bytes = (UBYTE *) words;
+        nbytes = sizeof(struct MUI_GroupData) % sizeof(ULONG);
+        while (nbytes != 0)
+        {
+            *bytes = 0;
+            bytes++;
+            nbytes--;
+        }
+    }
 
     data->family = MUI_NewObjectA(MUIC_Family, NULL);
     if (!data->family)
@@ -792,6 +831,11 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
             data->update = 2;
             MUI_Redraw(obj, MADF_DRAWUPDATE);
         }
+        else if (_flags(obj) & MADF_ISVIRTUALGROUP)
+        {
+            /* Update did not run.  Drop the pending pos-oldpos delta. */
+            ZuneVirtgroupCommitScroll(obj);
+        }
     }
 
     return retval;
@@ -807,6 +851,8 @@ IPTR Group__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
 #define STORE *(msg->opg_Storage)
 
     struct MUI_GroupData *data = INST_DATA(cl, obj);
+    LONG saved_forward;
+    ULONG hops;
 
     switch (msg->opg_AttrID)
     {
@@ -867,10 +913,31 @@ IPTR Group__OM_GET(struct IClass *cl, Object *obj, struct opGet *msg)
         struct MinList *ChildList = NULL;
 
         get(data->family, MUIA_Family_List, &(ChildList));
+        if (ChildList == NULL)
+            return 0;
+
+        /*
+         * Voyager get(MA_Layout_Info) falls through to here for plain
+         * groups.  A child that asks its parent the same attribute, or a
+         * MinList cycle, must not recurse forever: that is the lockup
+         * inside V_ShowClipped before MUIM_Show.
+         */
+        saved_forward = data->dont_forward_get;
+        data->dont_forward_get = 1;
         cstate = ChildList->mlh_Head;
-        while ((child = NextObject(&cstate)))
+        hops = 0;
+        while (hops < 4096 && (child = NextObject(&cstate)))
+        {
+            hops++;
+            if (child == obj)
+                continue;
             if (DoMethodA(child, (Msg) msg))
+            {
+                data->dont_forward_get = saved_forward;
                 return 1;
+            }
+        }
+        data->dont_forward_get = saved_forward;
     }
     return 0;
 #undef STORE
@@ -1376,6 +1443,65 @@ static struct Region *group_children_clip_region(struct IClass *cl,
     return region;
 }
 
+/*
+ * Clip the virtual group's visible box, then let the subclass paint.
+ * Simple-refresh windows refuse InstallClipRegion; still return TRUE so
+ * the subclass paints unclipped instead of leaving the page blank.
+ * A failure that disposed the region must not be stored as a handle.
+ */
+IPTR Group__MUIM_Virtgroup_BeginPaint(struct IClass *cl, Object *obj)
+{
+    struct MUI_GroupData *data = INST_DATA(cl, obj);
+    struct Region *region;
+    struct Rectangle rect;
+    APTR handle;
+
+    (void)cl;
+
+    if (data->flags & GROUP_PAINTING)
+        return FALSE;
+    if (_mwidth(obj) <= 0 || _mheight(obj) <= 0)
+        return TRUE;
+
+    region = NewRegion();
+    if (region == NULL)
+        return TRUE;
+
+    rect.MinX = _mleft(obj);
+    rect.MinY = _mtop(obj);
+    rect.MaxX = _mright(obj);
+    rect.MaxY = _mbottom(obj);
+    if (rect.MaxX < rect.MinX || rect.MaxY < rect.MinY
+        || !OrRectRegion(region, &rect))
+    {
+        DisposeRegion(region);
+        return TRUE;
+    }
+
+    handle = MUI_AddClipRegion(muiRenderInfo(obj), region);
+    if (handle == (APTR)-1)
+        return TRUE;
+
+    data->paint_clip = handle;
+    data->flags |= GROUP_PAINTING;
+    return TRUE;
+}
+
+IPTR Group__MUIM_Virtgroup_EndPaint(struct IClass *cl, Object *obj)
+{
+    struct MUI_GroupData *data = INST_DATA(cl, obj);
+
+    (void)cl;
+
+    if (data->flags & GROUP_PAINTING)
+    {
+        MUI_RemoveClipRegion(muiRenderInfo(obj), data->paint_clip);
+        data->paint_clip = (APTR)-1;
+        data->flags &= ~GROUP_PAINTING;
+    }
+    return 0;
+}
+
 /**************************************************************************
  MUIM_Draw - draw the group
 **************************************************************************/
@@ -1551,6 +1677,24 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
         }
     }
 
+    /*
+     * After the background.  DoMethod() drops a 32-bit method id, so
+     * this is DoMethodA.  The subclass BeginPaint renders the document.
+     */
+    if (data->flags & GROUP_VIRTUAL)
+    {
+        struct MUIP_Group_ExitChange pmsg;
+
+        pmsg.MethodID = MUIM_Virtgroup_BeginPaint;
+        if (!DoMethodA(obj, (Msg)&pmsg))
+        {
+            data->old_virt_offx = data->virt_offx;
+            data->old_virt_offy = data->virt_offy;
+            data->update = 0;
+            return TRUE;
+        }
+    }
+
     if (data->flags & GROUP_VIRTUAL && !region)
     {
         /* Not really needed if MUI Draws all the objects, maybe that's
@@ -1626,6 +1770,14 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
     if (data->flags & GROUP_VIRTUAL && region && clip != (APTR) - 1)
     {
         MUI_RemoveClipRegion(muiRenderInfo(obj), clip);
+    }
+
+    if (data->flags & GROUP_VIRTUAL)
+    {
+        struct MUIP_Group_ExitChange pmsg;
+
+        pmsg.MethodID = MUIM_Virtgroup_EndPaint;
+        DoMethodA(obj, (Msg)&pmsg);
     }
 
     data->old_virt_offx = data->virt_offx;
@@ -3102,6 +3254,18 @@ IPTR Group__MUIM_Layout(struct IClass *cl, Object *obj,
         lm.lm_Type = MUILM_LAYOUT;
         lm.lm_Layout.Width = _mwidth(obj);
         lm.lm_Layout.Height = _mheight(obj);
+        /*
+         * The hook is told the visible size.  A virtual group that is
+         * asked for Virtgroup_Width/Height before it returns must report
+         * that same visible size, not an unset extent.
+         */
+        if (data->flags & GROUP_VIRTUAL)
+        {
+            if (data->virt_mwidth < _mwidth(obj))
+                data->virt_mwidth = _mwidth(obj);
+            if (data->virt_mheight < _mheight(obj))
+                data->virt_mheight = _mheight(obj);
+        }
 
         ZuneTrace("zune: Layout hook=%lx obj=%lx\n",
             (ULONG) data->layout_hook, (ULONG) obj);
@@ -3129,6 +3293,14 @@ IPTR Group__MUIM_Layout(struct IClass *cl, Object *obj,
 
         if (data->flags & GROUP_VIRTUAL)
         {
+            /* MUI 3.8: the hook may return a document larger than the
+             * visible box.  Original MUI also refuses a result smaller than
+             * the viewport, or the scrollable area collapses and the
+             * page is clipped to a corner. */
+            if (lm.lm_Layout.Width < _mwidth(obj))
+                lm.lm_Layout.Width = _mwidth(obj);
+            if (lm.lm_Layout.Height < _mheight(obj))
+                lm.lm_Layout.Height = _mheight(obj);
             data->virt_mwidth = lm.lm_Layout.Width;
             data->virt_mheight = lm.lm_Layout.Height;
         }
@@ -3196,11 +3368,22 @@ IPTR Group__MUIM_Show(struct IClass *cl, Object *obj,
     APTR cstate;
     Object *child;
     struct MinList *ChildList = NULL;
+    ULONG showme;
+    ULONG visible;
+    ULONG doshow;
+    int page;
+
+    /* Confirms this binary is the one Voyager opened. */
+    ZuneTrace("zune: Group__MUIM_Show obj=%lx\n", (ULONG) obj);
 
     /* If msg is NULL, we won't want that the super method actually gets
      * this call */
     if (msg)
         DoSuperMethodA(cl, obj, (Msg) msg);
+
+    ZuneTrace("zune: Group Show after super obj=%lx virt=%ld\n",
+        (ULONG) obj,
+        (ULONG) ((data->flags & GROUP_VIRTUAL) ? 1 : 0));
 
     get(data->family, MUIA_Family_List, &(ChildList));
     if (ChildList == NULL)
@@ -3209,9 +3392,22 @@ IPTR Group__MUIM_Show(struct IClass *cl, Object *obj,
 
     if (data->flags & GROUP_PAGEMODE)
     {
-        int page = 0;
+        page = 0;
         while ((child = NextObject(&cstate)))
         {
+            showme = (_flags(child) & MADF_SHOWME) ? 1 : 0;
+            visible = IsObjectVisible(child, MUIMasterBase);
+            doshow = 0;
+
+            if (child == data->titlegroup)
+                doshow = 1;
+            else if (page == data->active_page)
+                doshow = 1;
+
+            ZuneTrace(
+                "zune: Group Show child obj=%lx showme=%ld vis=%ld call=%ld\n",
+                (ULONG) child, showme, visible, doshow);
+
             if (child == data->titlegroup)
             {
                 DoShowMethod(child);
@@ -3230,12 +3426,30 @@ IPTR Group__MUIM_Show(struct IClass *cl, Object *obj,
     {
         while ((child = NextObject(&cstate)))
         {
-            if (!(data->flags & GROUP_VIRTUAL) ||
-                IsObjectVisible(child, MUIMasterBase))
-            {
-                if (_flags(child) & MADF_SHOWME)
-                    DoShowMethod(child);
-            }
+            showme = (_flags(child) & MADF_SHOWME) ? 1 : 0;
+            visible = 1;
+            doshow = 0;
+
+            if (data->flags & GROUP_VIRTUAL)
+                visible = IsObjectVisible(child, MUIMasterBase);
+
+            /*
+             * Outside the visible rect: do not show, and do not leave
+             * MADF_CANDRAW set.  Clearing the flag only — Hide here
+             * re-enters the document swap that RecalcDisplay already
+             * refused to Hide before Layout.
+             */
+            if ((data->flags & GROUP_VIRTUAL) && !visible)
+                _flags(child) &= ~MADF_CANDRAW;
+            else if (showme)
+                doshow = 1;
+
+            ZuneTrace(
+                "zune: Group Show child obj=%lx showme=%ld vis=%ld call=%ld\n",
+                (ULONG) child, showme, visible, doshow);
+
+            if (doshow)
+                DoShowMethod(child);
         }
     }
     return TRUE;
@@ -3745,6 +3959,10 @@ BOOPSI_DISPATCHER(IPTR, Group_Dispatcher, cl, obj, msg)
         return Group__MUIM_Cleanup(cl, obj, (APTR) msg);
     case MUIM_Draw:
         return Group__MUIM_Draw(cl, obj, (APTR) msg);
+    case MUIM_Virtgroup_BeginPaint:
+        return Group__MUIM_Virtgroup_BeginPaint(cl, obj);
+    case MUIM_Virtgroup_EndPaint:
+        return Group__MUIM_Virtgroup_EndPaint(cl, obj);
 
     case MUIM_FindUData:
         return Group__MUIM_FindUData(cl, obj, (APTR) msg);
