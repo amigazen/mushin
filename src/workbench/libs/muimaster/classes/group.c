@@ -829,8 +829,18 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
             cid = NULL;
             if (ccl != NULL)
                 cid = (CONST_STRPTR) ccl->cl_ID;
-            if ((_flags(obj) & MADF_CANDRAW) && cid != NULL
-                && Stricmp((STRPTR) cid, "Virtgroup.mui") == 0)
+            /*
+             * Builtin Virtgroup.mui has a class id.  Apdf's page view is
+             * a Virtgroup subclass (cl_ID is NULL) with real children, and
+             * its Draw only calls the superclass, so the uncovered strip
+             * has to be painted here.  HTML views are also cl_ID NULL but
+             * have no children and replace Update; rastering those leaves
+             * the previous frame on top of the layout hook.
+             */
+            if ((_flags(obj) & MADF_CANDRAW)
+                && ((cid != NULL
+                    && Stricmp((STRPTR) cid, "Virtgroup.mui") == 0)
+                    || data->num_children > 0))
                 MUI_Redraw(obj, MADF_DRAWUPDATE);
         }
         else if (group_layout_depth == 0)

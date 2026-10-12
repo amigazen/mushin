@@ -10,6 +10,7 @@
 #endif
 #include <proto/exec.h>
 #include <proto/intuition.h>
+#include <string.h>
 
 #ifdef __AROS__
 #endif
@@ -89,6 +90,14 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
     Object *req_wnd;
     Object *req_group;
     Object *req_but[32]; /* shouldn't be more than 32 buttons per requester */
+    /*
+     * app arrives in D0 and req_wnd lives in a scratch register.  The
+     * input loop's DoMethod return overwrites both, and the dispose
+     * below then frees the application.  Apdf's About path did that,
+     * and cleanup() freed the same object again (memory list corrupt).
+     */
+    volatile APTR keep_app;
+    volatile Object *keep_wnd;
 
 #ifdef __AROS__
     /* Repack IPTR[] to RAWARG */
@@ -117,7 +126,10 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
     }
 #endif
 
-    if (!app)
+    keep_app = app;
+    keep_wnd = NULL;
+
+    if (!keep_app)
     {
         struct EasyStruct es;
         es.es_StructSize   = sizeof(struct EasyStruct);
@@ -150,9 +162,9 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
     RawDoFmt(format, params, (void(*)())&cpy_func, reqtxt);
 #endif
     
-    if (title == NULL && app != NULL)
+    if (title == NULL && keep_app != NULL)
     {
-        title = (CONST_STRPTR) XGET(app, MUIA_Application_Title);
+        title = (CONST_STRPTR) XGET((Object *)keep_app, MUIA_Application_Title);
     }
 
     req_wnd = WindowObject,
@@ -187,7 +199,9 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 
     result = 0;
 
-    if (req_wnd)
+    keep_wnd = req_wnd;
+
+    if (keep_wnd != NULL)
     {
         char *gadgs = StrDup(gadgets);
         if (gadgs)
@@ -198,7 +212,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
             IPTR isopen = FALSE;
 
 //            set(app, MUIA_Application_Sleep, TRUE);
-            DoMethod(app, OM_ADDMEMBER, (IPTR)req_wnd);
+            DoMethod((Object *)keep_app, OM_ADDMEMBER, (IPTR)keep_wnd);
 
             while(current)
             {
@@ -234,7 +248,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
                 DoMethod(req_group, OM_ADDMEMBER, (IPTR)req_but[0]);
                 DoMethod(req_group, OM_ADDMEMBER, (IPTR)HSpace(0));
                 DoMethod(req_but[0], MUIM_Notify, MUIA_Pressed, FALSE,
-                         (IPTR)app, 2, MUIM_Application_ReturnID,
+                         (IPTR)keep_app, 2, MUIM_Application_ReturnID,
                          0x4D520000UL + 2);
             }
             else
@@ -255,23 +269,23 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
                         bid = 1;
                     DoMethod(req_group, OM_ADDMEMBER, (IPTR)req_but[j]);
                     DoMethod(req_but[j], MUIM_Notify, MUIA_Pressed, FALSE,
-                             (IPTR)app, 2, MUIM_Application_ReturnID,
+                             (IPTR)keep_app, 2, MUIM_Application_ReturnID,
                              0x4D520000UL + bid);
                     set(req_but[j], MUIA_CycleChain, 1);
                 }
             }
-            DoMethod(req_wnd, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
-                     (IPTR)app, 2, MUIM_Application_ReturnID, 0x4D520000UL + 1);
+            DoMethod((Object *)keep_wnd, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
+                     (IPTR)keep_app, 2, MUIM_Application_ReturnID, 0x4D520000UL + 1);
             DoMethod(req_group, MUIM_Group_ExitChange);
 
             /* now activate that button with a starting "*" */
-            if(active != -1) set(req_wnd, MUIA_Window_ActiveObject, (IPTR) req_but[active]);
+            if(active != -1) set((Object *)keep_wnd, MUIA_Window_ActiveObject, (IPTR) req_but[active]);
 
             /* lets collect the waiting returnIDs now */
             // COLLECT_RETURNIDS;
 
-            set(req_wnd, MUIA_Window_Open, TRUE);
-            get(req_wnd, MUIA_Window_Open, &isopen);
+            set((Object *)keep_wnd, MUIA_Window_Open, TRUE);
+            get((Object *)keep_wnd, MUIA_Window_Open, &isopen);
 
             if (isopen)
             {
@@ -283,7 +297,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
                     ULONG ret;
                     ULONG button_id;
 
-                    ret = DoMethod(app, MUIM_Application_NewInput, (IPTR)&sigs);
+                    ret = DoMethod((Object *)keep_app, MUIM_Application_NewInput, (IPTR)&sigs);
 
                     /*
                      * Main-window close while the requester is up.
@@ -293,7 +307,7 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
                      */
                     if (ret == (ULONG)MUIV_Application_ReturnID_Quit)
                     {
-                        DoMethod(app, MUIM_Application_ReturnID, ret);
+                        DoMethod((Object *)keep_app, MUIM_Application_ReturnID, ret);
                         result = 0;
                         break;
                     }
@@ -321,20 +335,31 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 
         {
             /*
-             * Keep the window pointer in memory.  A register that still
-             * holds the application parameter must not be what we
-             * dispose, or OK on the requester frees the whole program
-             * and the input loop never returns.
+             * keep_wnd was stored before the input loop.  Reading req_wnd
+             * here used to see the application pointer, and disposing
+             * that freed the program while Apdf was still inside About.
              */
-            volatile Object *dispose_wnd;
+            Object *dispose_wnd;
+            Class *wcl;
+            int is_app;
 
-            dispose_wnd = req_wnd;
-            if (dispose_wnd != NULL && dispose_wnd != (Object *)app)
+            dispose_wnd = (Object *)keep_wnd;
+            is_app = (dispose_wnd == (Object *)keep_app);
+            wcl = NULL;
+            if (!is_app && dispose_wnd != NULL)
             {
-                set((Object *)dispose_wnd, MUIA_Window_Open, FALSE);
-                DoMethod(app, OM_REMMEMBER, (IPTR)dispose_wnd);
-                MUI_DisposeObject((Object *)dispose_wnd);
+                wcl = OCLASS(dispose_wnd);
+                if (wcl != NULL && wcl->cl_ID != NULL
+                    && strcmp(wcl->cl_ID, "Application.mui") == 0)
+                    is_app = 1;
             }
+            if (dispose_wnd != NULL && !is_app)
+            {
+                set(dispose_wnd, MUIA_Window_Open, FALSE);
+                DoMethod((Object *)keep_app, OM_REMMEMBER, (IPTR)dispose_wnd);
+                MUI_DisposeObject(dispose_wnd);
+            }
+            keep_wnd = NULL;
             req_wnd = NULL;
         }
     }
