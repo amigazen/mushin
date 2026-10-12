@@ -1700,22 +1700,46 @@ IPTR Group__MUIM_Draw(struct IClass *cl, Object *obj,
         if ((msg->flags & MADF_DRAWOBJECT)
             && !(msg->flags & MADF_DRAWUPDATE))
         {
+            struct MinList *bfchildren;
+            APTR bfstate;
+            Object *bfchild;
+            Class *ccl;
+            CONST_STRPTR sid;
             struct MUIP_CustomBackfill bmsg;
 
             /*
-             * DrawBackground paints the image spec and covers the
-             * document.  HTMLview renders only from this method, and
-             * only when the rectangle is the inner box.  A group with
-             * no custom painter lets the method fall through.
+             * HTMLview is a custom class on Virtgroup, with a layout
+             * hook and no children.  It paints from this method for
+             * the inner box.  Every other virtual group keeps the
+             * draw from the commit that fixed Voyager page changes.
+             * Turning DrawBackground into Backfill on those groups
+             * left the next document's layout hung in AskMinMax.
              */
-            bmsg.MethodID = MUIM_CustomBackfill;
-            bmsg.left = _mleft(obj);
-            bmsg.top = _mtop(obj);
-            bmsg.right = _mright(obj);
-            bmsg.bottom = _mbottom(obj);
-            bmsg.xoffset = 0;
-            bmsg.yoffset = 0;
-            DoMethodA(obj, (Msg) &bmsg);
+            bfchildren = NULL;
+            bfchild = NULL;
+            sid = NULL;
+            ccl = OCLASS(obj);
+            if (ccl != NULL && ccl->cl_Super != NULL)
+                sid = ccl->cl_Super->cl_ID;
+            get(data->family, MUIA_Family_List, &bfchildren);
+            if (bfchildren != NULL)
+            {
+                bfstate = bfchildren->mlh_Head;
+                bfchild = NextObject(&bfstate);
+            }
+            if (bfchild == NULL && data->layout_hook != NULL
+                && ccl != NULL && ccl->cl_ID == NULL
+                && sid != NULL && Stricmp((STRPTR)sid, "Virtgroup.mui") == 0)
+            {
+                bmsg.MethodID = MUIM_CustomBackfill;
+                bmsg.left = _mleft(obj);
+                bmsg.top = _mtop(obj);
+                bmsg.right = _mright(obj);
+                bmsg.bottom = _mbottom(obj);
+                bmsg.xoffset = 0;
+                bmsg.yoffset = 0;
+                DoMethodA(obj, (Msg) &bmsg);
+            }
         }
     }
 
@@ -4023,6 +4047,11 @@ BOOPSI_DISPATCHER(IPTR, Group_Dispatcher, cl, obj, msg)
     case MUIM_MultiSet:
     case MUIM_CallHook:
     case MUIM_DrawParentBackground:
+    case MUIM_CustomBackfill:
+        /* The painter is the object itself.  Forwarding walks the
+         * child list and runs Voyager Backfill on a page that is
+         * being swapped out. */
+        return DoSuperMethodA(cl, obj, msg);
     case MUIM_DragBegin:
     case MUIM_DragDrop:
     case MUIM_DragQuery:

@@ -83,17 +83,27 @@
      */
     {
         struct MUI_RenderInfo *mri;
+        struct Window *w;
 
         mri = ((struct __dummyAreaData__ *)(obj))->mad.mad_RenderInfo;
-        if (mri != NULL && mri->mri_Window != NULL
-            && (mri->mri_Window->Flags & WFLG_SIMPLE_REFRESH)
-            && mri->mri_Window->WLayer != NULL
-            && (mri->mri_Window->WLayer->Flags & LAYERREFRESH)
+        w = NULL;
+        if (mri != NULL)
+            w = mri->mri_Window;
+        /*
+         * Begin/End with no drawing clears LAYERREFRESH.  A blit while
+         * the flag is still set gurus, including the transfer animation
+         * that runs in the same input pass as NEWSIZE.
+         */
+        if (w != NULL && w->WLayer != NULL
+            && (w->WLayer->Flags & LAYERREFRESH)
             && !(mri->mri_Flags & MUIMRI_REFRESHMODE))
         {
             if (MUI_BeginRefresh(mri, 0))
                 MUI_EndRefresh(mri, 0);
         }
+        if (w != NULL && w->WLayer != NULL
+            && (w->WLayer->Flags & LAYERREFRESH))
+            return;
     }
 
     if (((struct __dummyAreaData__ *)(obj))->mad.mad_Flags & MADF_INVIRTUALGROUP)

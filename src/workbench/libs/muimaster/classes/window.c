@@ -1245,6 +1245,15 @@ static BOOL WindowResize (struct MUI_WindowData *data)
     int vborders = win->BorderTop  + win->BorderBottom;
     WORD dx = data->wd_Width  - win->Width + hborders;
     WORD dy = data->wd_Height - win->Height + vborders;
+
+    /*
+     * A no-op recalc still used to drop the limits to 1,1,-1,-1 and
+     * put them back.  That posts NEWSIZE, and the handler below used
+     * to call WindowLimits again under the transfer-animation timer.
+     */
+    if (dx == 0 && dy == 0)
+        return FALSE;
+
     /* Temporarily disable window limits to let SizeWindow below work
        regardless of the previous limits */
     WindowLimits
@@ -1667,36 +1676,11 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
          * WindowLimits/Hide then deadlock.  Record the size and wait
          * for REFRESHWINDOW, which replies first.
          *
-         * CHANGEWINDOW also arrives for moves.  WindowLimits from that
-         * path posts another NEWSIZE/CHANGEWINDOW pair and can set
+         * CHANGEWINDOW also arrives for moves.  WindowLimits from this
+         * handler posts another NEWSIZE/CHANGEWINDOW pair and sets
          * LAYERREFRESH before the transfer-animation timer draws.
-         * Only a real NEWSIZE refreshes the limits, and only when they
-         * differ from what intuition already has.
+         * WindowResize already installed the limits around SizeWindow.
          */
-        if (imsg->Class == IDCMP_NEWSIZE
-            && (iWin->WLayer == NULL
-                || (iWin->WLayer->Flags & LAYERREFRESH) == 0))
-        {
-            int hborders;
-            int vborders;
-            int minw;
-            int minh;
-            int maxw;
-            int maxh;
-
-            hborders = iWin->BorderLeft + iWin->BorderRight;
-            vborders = iWin->BorderTop + iWin->BorderBottom;
-            minw = data->wd_MinMax.MinWidth + hborders;
-            minh = data->wd_MinMax.MinHeight + vborders;
-            maxw = data->wd_MinMax.MaxWidth + hborders;
-            maxh = data->wd_MinMax.MaxHeight + vborders;
-            if (iWin->MinWidth != minw || iWin->MinHeight != minh
-                || iWin->MaxWidth != maxw || iWin->MaxHeight != maxh)
-            {
-                WindowLimits(iWin, minw, minh, maxw, maxh);
-            }
-        }
-
         if ((iWin->GZZWidth != data->wd_Width)
             || (iWin->GZZHeight != data->wd_Height))
         {
