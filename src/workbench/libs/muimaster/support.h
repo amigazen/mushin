@@ -66,11 +66,22 @@ IPTR DoShowMethod(Object * obj);
 IPTR DoHideMethod(Object * obj);
 
 /*
- * Write a line to the calling process's Output() (CLI stdout).  No-op if
- * Output() is NULL (Workbench-started programs).  Format is dos.library
- * VFPrintf: use %ld/%lx/%s, and pass every integer as LONG/ULONG.
+ * Live traces to Output() or T:zune.log.  Off unless a build explicitly
+ * passes -DZUNE_TRACE=1.  The GNU form drops the calls; other compilers
+ * keep a call that the function turns into an immediate return.
  */
+#ifndef ZUNE_TRACE
+#define ZUNE_TRACE 0
+#endif
+
 void ZuneTrace(CONST_STRPTR fmt, ...);
+#if !ZUNE_TRACE
+#if defined(__GNUC__)
+#define ZuneTrace(fmt...) ((void)0)
+#else
+#define ZuneTrace if (0) ZuneTrace
+#endif
+#endif
 
 /*
  * Set when the first Menuitem is disposed. Builtin dispatchers and
@@ -92,6 +103,8 @@ IPTR ZuneDrawParentBackground(Object *obj, LONG left, LONG top, LONG width,
 IPTR ZuneWindowDrawBackground(Object *obj, LONG left, LONG top, LONG width,
     LONG height, LONG xoffset, LONG yoffset, LONG flags);
 IPTR ZuneLayout(Object *obj);
+/* C body of the MUI_Offset LVO (register args; never call that from C). */
+VOID ZuneOffset(Object *obj, LONG addx, LONG addy);
 
 /* True if obj's ancestor Group is in MUIM_Group_InitChange (commercial:
  * ShowMe must not RecalcDisplay until ExitChange). */

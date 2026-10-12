@@ -599,6 +599,16 @@ static void ChangeEvents (struct MUI_WindowData *data, ULONG new_events)
         new_events |= ehn->ehn_Events;
     }
 
+    /*
+     * Motion is not in the idle set, and the object that started a drag
+     * drops its own MOUSEMOVE/INTUITICKS handler right after DoDrag.
+     * HandleDragging needs them to move the image and find the drop
+     * target; without them only SELECTUP arrives and the drag is
+     * cancelled before anything is drawn.
+     */
+    if (data->wd_DragObject != NULL)
+        new_events |= IDCMP_MOUSEMOVE | IDCMP_INTUITICKS;
+
     /* sba: kill the IDCMP_VANILLAKEY flag. MUI doesn't do this but programs
      ** which use this will behave different if they request for this flag
      ** (also on MUI)
@@ -782,9 +792,15 @@ static BOOL DisplayWindow(Object *obj, struct MUI_WindowData *data)
             data->wd_MinMax.MaxHeight + vborders
         );
 
-        win->UserData = (char*)data->wd_RenderInfo.mri_WindowObject;
         win->UserPort = (muiGlobalInfo(obj))->mgi_WindowsPort; /* Same port for all windows */
         ModifyIDCMP(win, data->wd_Events);
+        /*
+         * ModifyIDCMP can replace the window's IDCMP setup.  UserData
+         * has to be this MUI window afterwards, or a close on a second
+         * window (MUI_Request) is delivered to whichever window was
+         * opened first.
+         */
+        win->UserData = (char*)data->wd_RenderInfo.mri_WindowObject;
         ZuneTrace("zune: WindowOpen events=%lx IDCMP=%lx (idle has no INTUITICKS)\n",
             data->wd_Events, win->IDCMPFlags);
 
@@ -1237,45 +1253,90 @@ static void CreateWindowScrollbars(Object *obj, struct MUI_WindowData *data)
     } // if (data->wd_Flags & MUIWF_USEBOTTOMSCROLLER)
 }
 
+/*
+ * Outer limits from the contents' min/max plus the window borders.
+ * Intuition rejects WindowLimits when the current outer size is outside
+ * the new range, which is exactly the state just after an async
+ * SizeWindow.  Callers must only use this once Width/Height already fit.
+ */
+static void ApplyWindowLimits(struct Window *win, struct MUI_WindowData *data)
+{
+    int hborders;
+    int vborders;
+    LONG minw;
+    LONG minh;
+    LONG maxw;
+    LONG maxh;
+
+    if (win == NULL || data == NULL)
+        return;
+
+    hborders = win->BorderLeft + win->BorderRight;
+    vborders = win->BorderTop + win->BorderBottom;
+    minw = (LONG) data->wd_MinMax.MinWidth + hborders;
+    minh = (LONG) data->wd_MinMax.MinHeight + vborders;
+    maxw = (LONG) data->wd_MinMax.MaxWidth + hborders;
+    maxh = (LONG) data->wd_MinMax.MaxHeight + vborders;
+    if (minw < 1)
+        minw = 1;
+    if (minh < 1)
+        minh = 1;
+    if (maxw > 32767)
+        maxw = 32767;
+    if (maxh > 32767)
+        maxh = 32767;
+    if (maxw < minw)
+        maxw = minw;
+    if (maxh < minh)
+        maxh = minh;
+    if (win->Width < minw || win->Height < minh)
+        return;
+    if (win->Width > maxw || win->Height > maxh)
+        return;
+    if (win->MinWidth == (WORD) minw && win->MinHeight == (WORD) minh
+        && win->MaxWidth == (WORD) maxw && win->MaxHeight == (WORD) maxh)
+        return;
+    WindowLimits(win, (WORD) minw, (WORD) minh, (WORD) maxw, (WORD) maxh);
+}
+
 /* return FALSE only if no resize (dx=dy=0) occured */
 static BOOL WindowResize (struct MUI_WindowData *data)
 {
-    struct Window *win = data->wd_RenderInfo.mri_Window;
-    int hborders = win->BorderLeft + win->BorderRight;
-    int vborders = win->BorderTop  + win->BorderBottom;
-    WORD dx = data->wd_Width  - win->Width + hborders;
-    WORD dy = data->wd_Height - win->Height + vborders;
+    struct Window *win;
+    LONG dx;
+    LONG dy;
 
-    /*
-     * A no-op recalc still used to drop the limits to 1,1,-1,-1 and
-     * put them back.  That posts NEWSIZE, and the handler below used
-     * to call WindowLimits again under the transfer-animation timer.
-     */
-    if (dx == 0 && dy == 0)
+    win = data->wd_RenderInfo.mri_Window;
+    if (win == NULL)
         return FALSE;
 
-    /* Temporarily disable window limits to let SizeWindow below work
-       regardless of the previous limits */
-    WindowLimits
-    (
-        win, 1,
-        1,
-        -1,
-        -1
-    );
-/*      D(bug("_zune_window_resize : dx=%d, dy=%d\n", dx, dy)); */
-    SizeWindow(win, dx, dy);
+    /*
+     * wd_* is the inner size (GZZ).  Subtracting the outer Width and
+     * adding borders drifts when those borders do not match
+     * Width-GZZWidth, so ShowHide's extra buttons never actually grew
+     * the window and the group frame was clipped.
+     */
+    dx = (LONG) data->wd_Width - (LONG) win->GZZWidth;
+    dy = (LONG) data->wd_Height - (LONG) win->GZZHeight;
 
-    /* The following WindowLimits() call doesn't really work because SizeWindow() is async */
-    WindowLimits
-    (
-        win, data->wd_MinMax.MinWidth + hborders,
-        data->wd_MinMax.MinHeight + vborders,
-        data->wd_MinMax.MaxWidth + hborders,
-        data->wd_MinMax.MaxHeight + vborders
-    );
+    if (dx == 0 && dy == 0)
+    {
+        ApplyWindowLimits(win, data);
+        return FALSE;
+    }
 
-    return (BOOL)(dx || dy);
+    /*
+     * Drop limits so SizeWindow can pass the old maximum.  The new
+     * limits are installed from NEWSIZE, after the outer size has
+     * caught up.  Doing it here fails (current size still below the
+     * new minimum) and used to leave the window at 1,1,-1,-1, so the
+     * user could drag it smaller than the buttons and they painted
+     * over the border.
+     */
+    data->wd_Flags |= MUIWF_RESIZING;
+    WindowLimits(win, 1, 1, -1, -1);
+    SizeWindow(win, (WORD) dx, (WORD) dy);
+    return TRUE;
 }
 
 static void KillHelpBubble(struct MUI_WindowData *data, Object *obj, BOOL kill_bubblemode)
@@ -1449,6 +1510,74 @@ static void ActivateObject (struct MUI_WindowData *data)
 
 }
 
+/*
+ * Drag-and-drop messages built as structs and sent with DoMethodA.
+ * SAS/C varargs DoMethod is not safe for 32-bit MUI method ids mixed
+ * with pointer/integer arguments (see support.h).
+ */
+static void WindowDeleteDragImage(Object *o, struct MUI_DragImage *di)
+{
+    struct MUIP_DeleteDragImage m;
+
+    m.MethodID = MUIM_DeleteDragImage;
+    m.di = di;
+    DoMethodA(o, (Msg) &m);
+}
+
+static Object *WindowDragQueryExtended(Object *root, Object *dragobj,
+    LONG x, LONG y)
+{
+    struct MUIP_DragQueryExtended m;
+
+    m.MethodID = MUIM_DragQueryExtended;
+    m.obj = dragobj;
+    m.x = x;
+    m.y = y;
+    return (Object *) DoMethodA(root, (Msg) &m);
+}
+
+static void WindowDragBegin(Object *dest, Object *dragobj)
+{
+    struct MUIP_DragBegin m;
+
+    m.MethodID = MUIM_DragBegin;
+    m.obj = dragobj;
+    DoMethodA(dest, (Msg) &m);
+}
+
+static void WindowDragFinish(Object *dest, Object *dragobj)
+{
+    struct MUIP_DragFinish m;
+
+    m.MethodID = MUIM_DragFinish;
+    m.obj = dragobj;
+    DoMethodA(dest, (Msg) &m);
+}
+
+static LONG WindowDragReport(Object *dest, Object *dragobj, LONG x, LONG y,
+    LONG update)
+{
+    struct MUIP_DragReport m;
+
+    m.MethodID = MUIM_DragReport;
+    m.obj = dragobj;
+    m.x = x;
+    m.y = y;
+    m.update = update;
+    return (LONG) DoMethodA(dest, (Msg) &m);
+}
+
+static void WindowDragDrop(Object *dest, Object *dragobj, LONG x, LONG y)
+{
+    struct MUIP_DragDrop m;
+
+    m.MethodID = MUIM_DragDrop;
+    m.obj = dragobj;
+    m.x = x;
+    m.y = y;
+    DoMethodA(dest, (Msg) &m);
+}
+
 /* handle intuimessage while an object is being dragged
  * (reply imsg before returning)
  */
@@ -1457,23 +1586,42 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
 {
     struct Window *iWin;
     int finish_drag = 0;
+    WORD mx;
+    WORD my;
 
     iWin = imsg->IDCMPWindow;
+    mx = imsg->MouseX;
+    my = imsg->MouseY;
+    /*
+     * Tick messages keep the coordinates from the last button event.
+     * The window copy of the pointer is current, and it is in the
+     * same window-relative space as IntuiMessage.MouseX/MouseY.
+     */
+    if (iWin != NULL)
+    {
+        mx = iWin->MouseX;
+        my = iWin->MouseY;
+    }
 
-    if (imsg->Class == IDCMP_MOUSEMOVE)
+    /*
+     * INTUITICKS is delivered while the button is held and carries the
+     * same pointer coordinates. Tracking only MOUSEMOVE left the image
+     * stuck when moves were not posted.
+     */
+    if (imsg->Class == IDCMP_MOUSEMOVE || imsg->Class == IDCMP_INTUITICKS)
     {
         struct Layer *layer;
 
         LockLayerInfo(&iWin->WScreen->LayerInfo);
         layer = WhichLayer(&iWin->WScreen->LayerInfo,
-            iWin->LeftEdge + imsg->MouseX, iWin->TopEdge + imsg->MouseY);
+            iWin->LeftEdge + mx, iWin->TopEdge + my);
         UnlockLayerInfo(&iWin->WScreen->LayerInfo);
 
         if (data->wd_DropObject)
         {
             struct Window *wnd;
-	    WORD mousex = imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge;
-	    WORD mousey = imsg->MouseY + iWin->TopEdge  - data->wd_DropWindow->TopEdge;
+	    WORD mousex = mx + iWin->LeftEdge - data->wd_DropWindow->LeftEdge;
+	    WORD mousey = my + iWin->TopEdge  - data->wd_DropWindow->TopEdge;
 
             wnd = _window(data->wd_DropObject);
 	    if
@@ -1487,7 +1635,7 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
             {
                 /* We have left the object */
                 UndrawDragNDrop(data->wd_dnd);
-		DoMethod(data->wd_DropObject, MUIM_DragFinish,(IPTR)data->wd_DragObject);
+		WindowDragFinish(data->wd_DropObject, data->wd_DragObject);
                 data->wd_DropObject = NULL;
             }
 	} /* if (data->wd_DropObject) */
@@ -1527,21 +1675,16 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
 
                 if (root)
                 {
-		    if
-                        (
-                            (
-                                data->wd_DropObject = (Object*) DoMethod
-                                (
-                                    root, MUIM_DragQueryExtended, 
-                                (IPTR) data->wd_DragObject,
-                                    imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
-                                    imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge
-				    )
-				)
-			    )
+                    data->wd_DropObject = WindowDragQueryExtended(root,
+                        data->wd_DragObject,
+                        mx + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
+                        my + iWin->TopEdge - data->wd_DropWindow->TopEdge);
+		    if (data->wd_DropObject)
                     {
+                        ZuneTrace("zune: Drag target %lx\n",
+                            (ULONG) data->wd_DropObject);
                         UndrawDragNDrop(data->wd_dnd);
-			DoMethod(data->wd_DropObject, MUIM_DragBegin,(IPTR)data->wd_DragObject);
+			WindowDragBegin(data->wd_DropObject, data->wd_DragObject);
                     }
                 }
 	    } /* if (dest_wnd) */
@@ -1553,18 +1696,16 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
             LONG i;
 	    for (i=0;i<2;i++)
             {
-		LONG res = DoMethod
-                    (
-                        data->wd_DropObject, MUIM_DragReport, 
-                    (IPTR) data->wd_DragObject,
-                        imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
-                        imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge,update
-			);
+		LONG res = WindowDragReport(data->wd_DropObject,
+                    data->wd_DragObject,
+                    mx + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
+                    my + iWin->TopEdge - data->wd_DropWindow->TopEdge,
+                    update);
                 switch (res)
                 {
                 case MUIV_DragReport_Abort:
                     UndrawDragNDrop(data->wd_dnd);
-			DoMethod(data->wd_DropObject, MUIM_DragFinish,(IPTR)data->wd_DragObject);
+			WindowDragFinish(data->wd_DropObject, data->wd_DragObject);
                     data->wd_DropObject = NULL;
                     i = 1;
                     break;
@@ -1578,7 +1719,7 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
                 }
             }
 	} /* if (data->wd_DropObject) */
-	DrawDragNDrop(data->wd_dnd, imsg->MouseX + iWin->LeftEdge , imsg->MouseY + iWin->TopEdge);
+	DrawDragNDrop(data->wd_dnd, mx + iWin->LeftEdge, my + iWin->TopEdge);
     } /* if (imsg->Class == IDCMP_MOUSEMOVE) */
 
     if (imsg->Class == IDCMP_MOUSEBUTTONS)
@@ -1589,13 +1730,12 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
             if (imsg->Code == SELECTUP && data->wd_DropObject)
             {
 		UndrawDragNDrop(data->wd_dnd);
-		DoMethod(data->wd_DropObject, MUIM_DragFinish, (IPTR)data->wd_DragObject);
-		DoMethod
-                    (
-                        data->wd_DropObject, MUIM_DragDrop, (IPTR)data->wd_DragObject,
-                        imsg->MouseX + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
-                        imsg->MouseY + iWin->TopEdge - data->wd_DropWindow->TopEdge
-			);
+		WindowDragFinish(data->wd_DropObject, data->wd_DragObject);
+                ZuneTrace("zune: Drag drop on %lx\n",
+                    (ULONG) data->wd_DropObject);
+		WindowDragDrop(data->wd_DropObject, data->wd_DragObject,
+                    mx + iWin->LeftEdge - data->wd_DropWindow->LeftEdge,
+                    my + iWin->TopEdge - data->wd_DropWindow->TopEdge);
                 data->wd_DropObject = NULL;
             }
 	    finish_drag = 1;
@@ -1607,15 +1747,23 @@ void HandleDragging (Object *oWin, struct MUI_WindowData *data,
 
     if (finish_drag)
     {
+        ZuneTrace("zune: Drag finish\n");
 	UndrawDragNDrop(data->wd_dnd);
         if (data->wd_DropObject)
         {
-	    DoMethod(data->wd_DropObject, MUIM_DragFinish,(IPTR)data->wd_DragObject);
+	    WindowDragFinish(data->wd_DropObject, data->wd_DragObject);
             data->wd_DropObject = NULL;
         }
         DeleteDragNDrop(data->wd_dnd);
-	DoMethod(data->wd_DragObject,MUIM_DeleteDragImage, (IPTR)data->wd_DragImage);
+	WindowDeleteDragImage(data->wd_DragObject, data->wd_DragImage);
         muiAreaData(data->wd_DragObject)->mad_Flags2 &= ~MADF2_DRAGGING;
+        /*
+         * The ghost sat on the selected row.  Restoring its background
+         * and then moving the entry leaves the highlight's edge pixels.
+         * Paint the source again now that the image is gone.
+         */
+        if (_flags(data->wd_DragObject) & MADF_CANDRAW)
+            MUI_Redraw(data->wd_DragObject, MADF_DRAWOBJECT);
         data->wd_DragImage = NULL;
         data->wd_DragObject = NULL;
         data->wd_DropWindow = NULL;
@@ -1671,34 +1819,66 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
     case IDCMP_NEWSIZE:
     case IDCMP_CHANGEWINDOW:
         /*
-         * Older Zune RefreshWindow: Hide, layout, Show, redraw.  On
-         * classic Amiga NEWSIZE often arrives with LAYERREFRESH set;
-         * WindowLimits/Hide then deadlock.  Record the size and wait
-         * for REFRESHWINDOW, which replies first.
+         * RecalcDisplay stores the new inner size and draws before
+         * SizeWindow has changed GZZ, so a ShowHide frame laid out at
+         * the new minimum is clipped to the old window.  MUIWF_RESIZING
+         * forces a layout once this message reports the real GZZ, even
+         * when wd_* was already set to that target.
          *
-         * CHANGEWINDOW also arrives for moves.  WindowLimits from this
-         * handler posts another NEWSIZE/CHANGEWINDOW pair and sets
-         * LAYERREFRESH before the transfer-animation timer draws.
-         * WindowResize already installed the limits around SizeWindow.
+         * WindowLimits while LAYERREFRESH deadlocks against Hide.
+         * Limits are applied only when the layer is idle and the outer
+         * size already fits them.
          */
-        if ((iWin->GZZWidth != data->wd_Width)
-            || (iWin->GZZHeight != data->wd_Height))
         {
-            data->wd_Width = iWin->GZZWidth;
-            data->wd_Height = iWin->GZZHeight;
-            data->wd_Flags |= MUIWF_RESIZING;
-            if (iWin->WLayer == NULL
-                || (iWin->WLayer->Flags & LAYERREFRESH) == 0)
+            WORD pending;
+
+            /*
+             * A NEWSIZE from WindowLimits can arrive before SizeWindow
+             * has changed GZZ.  wd_* is already the target; copying the
+             * old GZZ back would clip the frame.
+             */
+            pending = 0;
+            if (data->wd_Flags & MUIWF_RESIZING)
             {
-                DoHideMethod(data->wd_RootObject);
-                RefreshWindow(oWin, data);
-                if (data->wd_Class)
+                if (iWin->GZZWidth != data->wd_Width
+                    || iWin->GZZHeight != data->wd_Height)
+                    pending = 1;
+            }
+            else if (iWin->GZZWidth != data->wd_Width
+                || iWin->GZZHeight != data->wd_Height)
+            {
+                data->wd_Width = iWin->GZZWidth;
+                data->wd_Height = iWin->GZZHeight;
+                data->wd_Flags |= MUIWF_RESIZING;
+            }
+            if (pending == 0
+                && iWin->GZZWidth == data->wd_Width
+                && iWin->GZZHeight == data->wd_Height)
+            {
+                if ((data->wd_Flags & MUIWF_RESIZING)
+                    && (iWin->WLayer == NULL
+                        || (iWin->WLayer->Flags & LAYERREFRESH) == 0))
                 {
-                    superset(data->wd_Class, oWin, MUIA_Window_Width,
-                        data->wd_Width);
-                    superset(data->wd_Class, oWin, MUIA_Window_Height,
-                        data->wd_Height);
+                    DoHideMethod(data->wd_RootObject);
+                    RefreshWindow(oWin, data);
+                    if (data->wd_Class)
+                    {
+                        superset(data->wd_Class, oWin, MUIA_Window_Width,
+                            data->wd_Width);
+                        superset(data->wd_Class, oWin, MUIA_Window_Height,
+                            data->wd_Height);
+                    }
                 }
+                /*
+                 * Intuition refuses a sizing drag that would pass these.
+                 * Min/max come from the contents.  The call is skipped
+                 * while the outer size is still catching up to SizeWindow,
+                 * because WindowLimits fails in that state and would leave
+                 * the 1,1,-1,-1 range installed by WindowResize.
+                 */
+                if (iWin->WLayer == NULL
+                    || (iWin->WLayer->Flags & LAYERREFRESH) == 0)
+                    ApplyWindowLimits(iWin, data);
             }
         }
         if (iWin->LeftEdge != data->wd_X)
@@ -1719,6 +1899,9 @@ BOOL HandleWindowEvent (Object *oWin, struct MUI_WindowData *data,
         ReplyMsg((struct Message *)imsg);
         replied = TRUE;
         RefreshWindow(oWin, data);
+        if (iWin->WLayer == NULL
+            || (iWin->WLayer->Flags & LAYERREFRESH) == 0)
+            ApplyWindowLimits(iWin, data);
         break;
 
     case IDCMP_CLOSEWINDOW:
@@ -4239,16 +4422,35 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj, struct MUIP_Window_
         struct DragNDrop *dnd;
         struct MUI_DragImage *di;
         struct BitMapNode *bmn;
+        struct MUIP_CreateDragImage cmsg;
 
-	if (!(dnd = CreateDragNDropA(NULL))) return 0;
-	if (!(di = (struct MUI_DragImage*)DoMethod(msg->obj,MUIM_CreateDragImage,msg->touchx,msg->touchy,msg->flags)))
+        ZuneTrace("zune: DragObject enter obj=%lx touch=%ld,%ld\n",
+            (ULONG) msg->obj, (LONG) msg->touchx, (LONG) msg->touchy);
+        if (data->wd_DragObject != NULL)
         {
+            ZuneTrace("zune: DragObject busy\n");
+            return 0;
+        }
+	if (!(dnd = CreateDragNDropA(NULL)))
+        {
+            ZuneTrace("zune: DragObject no dnd\n");
+            return 0;
+        }
+        /* DoMethodA: varargs DoMethod is unsafe for MUI method ids here. */
+        cmsg.MethodID = MUIM_CreateDragImage;
+        cmsg.touchx = msg->touchx;
+        cmsg.touchy = msg->touchy;
+        cmsg.flags = msg->flags;
+	if (!(di = (struct MUI_DragImage *) DoMethodA(msg->obj, (Msg) &cmsg)))
+        {
+            ZuneTrace("zune: DragObject no image\n");
             DeleteDragNDrop(dnd);
             return 0;
         }
         if (!di->bm)
         {
-	    DoMethod(msg->obj,MUIM_DeleteDragImage, (IPTR)di);
+            ZuneTrace("zune: DragObject image without bitmap\n");
+	    WindowDeleteDragImage(msg->obj, di);
             DeleteDragNDrop(dnd);
             return 0;
         }
@@ -4261,7 +4463,8 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj, struct MUIP_Window_
             GUI_Height, di->height,
 		TAG_DONE)))
         {
-	    DoMethod(msg->obj, MUIM_DeleteDragImage, (IPTR)di);
+            ZuneTrace("zune: DragObject no bitmap node\n");
+	    WindowDeleteDragImage(msg->obj, di);
             DeleteDragNDrop(dnd);
             return 0;
         }
@@ -4270,7 +4473,8 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj, struct MUIP_Window_
 
         if (!PrepareDragNDrop(dnd, data->wd_RenderInfo.mri_Screen))
         {
-	    DoMethod(msg->obj,MUIM_DeleteDragImage, (IPTR)di);
+            ZuneTrace("zune: DragObject prepare failed\n");
+	    WindowDeleteDragImage(msg->obj, di);
             DeleteDragNDrop(dnd);
             return 0;
         }
@@ -4280,6 +4484,11 @@ IPTR Window__MUIM_DragObject(struct IClass *cl, Object *obj, struct MUIP_Window_
         data->wd_DragObject = msg->obj;
         data->wd_dnd = dnd;
         data->wd_DragImage = di;
+        data->wd_DropObject = NULL;
+        data->wd_DropWindow = NULL;
+        ChangeEvents(data, GetDefaultEvents());
+        ZuneTrace("zune: DragObject start obj=%lx touch=%ld,%ld\n",
+            (ULONG) msg->obj, (LONG) msg->touchx, (LONG) msg->touchy);
         return 1;
     }
     return 0;

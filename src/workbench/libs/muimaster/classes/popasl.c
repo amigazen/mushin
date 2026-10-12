@@ -79,22 +79,80 @@ static ULONG Popasl_Open_Function(struct Hook *hook, Object *obj,
     struct Asl_Startup *startup;
     Object *string = (Object *) msg[0];
     struct MsgPort *msg_port;
+    struct Screen *scr;
+    struct Window *iwin;
+    LONG left;
+    LONG top;
+    LONG width;
+    LONG height;
+    LONG minw;
+    LONG minh;
 
     if (data->asl_proc)
         return 0;
 
+    /*
+     * ASLFR_Initial* are screen pixels. _left/_top are inside the MUI
+     * window, and _width() is only the string+button. Passing that width
+     * opens a file or font requester about as wide as the gadget (the
+     * Popup demo's column is ~120). Use at least half the screen, and
+     * slide the requester left if it would run off the right edge — ASL
+     * otherwise shrinks the width to fit.
+     */
+    scr = _screen(obj);
+    iwin = _window(obj);
+    left = _left(obj);
+    top = _bottom(obj) + 1;
+    width = _width(obj);
+    height = width;
+    if (iwin != NULL)
+    {
+        left += iwin->LeftEdge;
+        top += iwin->TopEdge;
+    }
+    minw = 320;
+    minh = 180;
+    if (scr != NULL)
+    {
+        if (scr->Width / 2 > minw)
+            minw = scr->Width / 2;
+        if (scr->Height / 2 > minh)
+            minh = scr->Height / 2;
+        if (minw > scr->Width)
+            minw = scr->Width;
+        if (minh > scr->Height)
+            minh = scr->Height;
+    }
+    if (width < minw)
+        width = minw;
+    if (height < minh)
+        height = minh;
+    if (scr != NULL)
+    {
+        if (left + width > scr->Width)
+            left = scr->Width - width;
+        if (top + height > scr->Height)
+            top = scr->Height - height;
+        if (left < 0)
+            left = 0;
+        if (top < 0)
+            top = 0;
+    }
+
     data->tag_list[0].ti_Tag = ASLFR_Screen;
-    data->tag_list[0].ti_Data = (IPTR) _screen(obj);
+    data->tag_list[0].ti_Data = (IPTR) scr;
     data->tag_list[1].ti_Tag = ASLFR_PrivateIDCMP;
     data->tag_list[1].ti_Data = 1;
     data->tag_list[2].ti_Tag = ASLFR_InitialLeftEdge;
-    data->tag_list[2].ti_Data = _left(obj);
+    data->tag_list[2].ti_Data = left;
     data->tag_list[3].ti_Tag = ASLFR_InitialTopEdge;
-    data->tag_list[3].ti_Data = _top(obj);
+    data->tag_list[3].ti_Data = top;
     data->tag_list[4].ti_Tag = ASLFR_InitialWidth;
-    data->tag_list[4].ti_Data = _width(obj);
-    data->tag_list[5].ti_Tag = TAG_DONE;
-    data->tag_list[5].ti_Data = 0;
+    data->tag_list[4].ti_Data = width;
+    data->tag_list[5].ti_Tag = ASLFR_InitialHeight;
+    data->tag_list[5].ti_Data = height;
+    data->tag_list[6].ti_Tag = TAG_DONE;
+    data->tag_list[6].ti_Data = 0;
 
     if (data->start_hook)
     {
@@ -118,12 +176,12 @@ static ULONG Popasl_Open_Function(struct Hook *hook, Object *obj,
             strncpy(buf, str, path_end - str);
             buf[path_end - str] = 0;
 
-            data->tag_list[5].ti_Tag = ASLFR_InitialFile;
-            data->tag_list[5].ti_Data = (IPTR) FilePart(str);
-            data->tag_list[6].ti_Tag = ASLFR_InitialDrawer;
-            data->tag_list[6].ti_Data = (IPTR) buf;
-            data->tag_list[7].ti_Tag = TAG_DONE;
-            data->tag_list[7].ti_Data = 0;
+            data->tag_list[6].ti_Tag = ASLFR_InitialFile;
+            data->tag_list[6].ti_Data = (IPTR) FilePart(str);
+            data->tag_list[7].ti_Tag = ASLFR_InitialDrawer;
+            data->tag_list[7].ti_Data = (IPTR) buf;
+            data->tag_list[8].ti_Tag = TAG_DONE;
+            data->tag_list[8].ti_Data = 0;
         }
 
         if (data->type == ASL_FontRequest)
@@ -145,12 +203,12 @@ static ULONG Popasl_Open_Function(struct Hook *hook, Object *obj,
                 strcpy(buf + (name_end - str), ".font");
                 StrToLong(FilePart(str), &size);
 
-                data->tag_list[5].ti_Tag = ASLFO_InitialName;
-                data->tag_list[5].ti_Data = (IPTR) buf;
-                data->tag_list[6].ti_Tag = ASLFO_InitialSize;
-                data->tag_list[6].ti_Data = size;
-                data->tag_list[7].ti_Tag = TAG_DONE;
-                data->tag_list[7].ti_Data = 0;
+                data->tag_list[6].ti_Tag = ASLFO_InitialName;
+                data->tag_list[6].ti_Data = (IPTR) buf;
+                data->tag_list[7].ti_Tag = ASLFO_InitialSize;
+                data->tag_list[7].ti_Data = size;
+                data->tag_list[8].ti_Tag = TAG_DONE;
+                data->tag_list[8].ti_Data = 0;
             }
         }
     }

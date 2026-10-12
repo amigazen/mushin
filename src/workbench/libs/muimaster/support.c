@@ -22,8 +22,10 @@
 extern struct Library *MUIMasterBase;
 extern struct Library *KeymapBase;
 
+#undef ZuneTrace
 void ZuneTrace(CONST_STRPTR fmt, ...)
 {
+#if ZUNE_TRACE
     BPTR fh;
     static BPTR logfh;
 
@@ -48,6 +50,9 @@ void ZuneTrace(CONST_STRPTR fmt, ...)
         return;
     VFPrintf(fh, fmt, (APTR) (&fmt + 1));
     Flush(fh);
+#else
+    (void) fmt;
+#endif
 }
 
 /*

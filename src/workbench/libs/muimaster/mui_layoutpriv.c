@@ -109,11 +109,14 @@ __ASM__ __SAVE_DS__ BOOL MUI_LayoutObj(
  * and layout gadgets must move with their parent.  Walk only the subtree of
  * the object Voyager passes (its ChildList walk already scopes the call).
  * Box and VirtualTop both move (lo_group paints with offs_y = _vtop).
+ *
+ * ZuneOffset is the C body.  Library code must call it, not MUI_Offset:
+ * the LVO reads A0/D0/D1, and a C call through a stack prototype passes
+ * the arguments on the stack, so the children moved by whatever was
+ * left in D0/D1.  Virtgroup scrolling then redrew the children at the
+ * wrong place and newly exposed strips stayed blank.
  *****************************************************************************/
-__ASM__ __SAVE_DS__ VOID MUI_Offset(
-    __REG__(a0, Object *obj),
-    __REG__(d0, LONG addx),
-    __REG__(d1, LONG addy))
+VOID ZuneOffset(Object *obj, LONG addx, LONG addy)
 {
     /* Static: UI is single-threaded; keeps the queue off the task stack. */
     static Object *queue[512];
@@ -160,6 +163,14 @@ __ASM__ __SAVE_DS__ VOID MUI_Offset(
             }
         }
     }
+}
+
+__ASM__ __SAVE_DS__ VOID MUI_Offset(
+    __REG__(a0, Object *obj),
+    __REG__(d0, LONG addx),
+    __REG__(d1, LONG addy))
+{
+    ZuneOffset(obj, addx, addy);
 }
 
 /*****************************************************************************

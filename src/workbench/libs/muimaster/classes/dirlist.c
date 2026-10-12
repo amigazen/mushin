@@ -32,7 +32,20 @@ AROS_UFH3S(APTR, construct_func,
 
     struct Dirlist_Entry *new;
 
-    if ((new = AllocPooled(pool, sizeof(*new))))
+    /*
+     * Keep the copy out of the list pool. FreePooled() of these
+     * FileInfoBlock-sized chunks during OM_DISPOSE killed the machine
+     * (EnvBrowser); AllocVec/FreeVec matches an ordinary list teardown.
+     * The pool argument is unused. FileInfoBlock must be longword aligned,
+     * which AllocVec provides.
+     */
+    (void) hook;
+    (void) pool;
+
+    if (entry == NULL)
+        return NULL;
+
+    if ((new = AllocVec(sizeof(*new), MEMF_ANY)))
     {
         *new = *entry;
     }
@@ -49,7 +62,12 @@ AROS_UFH3S(void, destruct_func,
 {
     AROS_USERFUNC_INIT
 
-    FreePooled(pool, entry, sizeof(struct Dirlist_Entry));
+    /* Pair of construct_func: entries are AllocVec'd, not pooled. */
+    (void) pool;
+    (void) hook;
+
+    if (entry != NULL)
+        FreeVec(entry);
 
     AROS_USERFUNC_EXIT
 }
@@ -146,6 +164,7 @@ IPTR Dirlist__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
         struct Dirlist_DATA *data = INST_DATA(cl, obj);
 
         data->status = MUIV_Dirlist_Status_Invalid;
+        data->path = NULL;
 
         data->construct_hook.h_Entry = (HOOKFUNC) construct_func;
         data->destruct_hook.h_Entry = (HOOKFUNC) destruct_func;

@@ -221,13 +221,21 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
             DoMethod(req_group, MUIM_Group_InitChange);
 
             /* if this is only one button lets add it separatly */
+            /*
+             * Button ids sit above any application ReturnID.  Menus.c
+             * uses 2 for About, and the old single-button id was also 2,
+             * so OK fell through to the application's loop.  Closing
+             * the requester then disposed the application.
+             * 0x4D520000 + n is the same n the old code queued.
+             */
             if (num_gads == 1)
             {
                 DoMethod(req_group, OM_ADDMEMBER, (IPTR)HSpace(0));
                 DoMethod(req_group, OM_ADDMEMBER, (IPTR)req_but[0]);
                 DoMethod(req_group, OM_ADDMEMBER, (IPTR)HSpace(0));
                 DoMethod(req_but[0], MUIM_Notify, MUIA_Pressed, FALSE,
-                         (IPTR)app, 2, MUIM_Application_ReturnID, 2);
+                         (IPTR)app, 2, MUIM_Application_ReturnID,
+                         0x4D520000UL + 2);
             }
             else
             {
@@ -235,17 +243,25 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 
                 for(j = 0; j < num_gads; j++)
                 {
+                    ULONG bid;
+
                     if (j > 0)
                     {
                         DoMethod(req_group, OM_ADDMEMBER, (IPTR)HSpace(0));
                     }
+                    if (j + 2 <= num_gads)
+                        bid = (ULONG)(j + 2);
+                    else
+                        bid = 1;
                     DoMethod(req_group, OM_ADDMEMBER, (IPTR)req_but[j]);
                     DoMethod(req_but[j], MUIM_Notify, MUIA_Pressed, FALSE,
                              (IPTR)app, 2, MUIM_Application_ReturnID,
-                             (j+2 <= num_gads) ? j+2 : 1);
+                             0x4D520000UL + bid);
                     set(req_but[j], MUIA_CycleChain, 1);
                 }
             }
+            DoMethod(req_wnd, MUIM_Notify, MUIA_Window_CloseRequest, TRUE,
+                     (IPTR)app, 2, MUIM_Application_ReturnID, 0x4D520000UL + 1);
             DoMethod(req_group, MUIM_Group_ExitChange);
 
             /* now activate that button with a starting "*" */
@@ -264,13 +280,33 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 
                 while (result == -1)
                 {
-                    ULONG ret = DoMethod(app, MUIM_Application_NewInput, (IPTR)&sigs);
+                    ULONG ret;
+                    ULONG button_id;
 
-                    /* if a button was hit, lets get outda here. */
-                    if (ret > 0 && ret <= num_gads+1)
+                    ret = DoMethod(app, MUIM_Application_NewInput, (IPTR)&sigs);
+
+                    /*
+                     * Main-window close while the requester is up.
+                     * Hand it back to the application after we return.
+                     * One requeue, then leave: NewInput would otherwise
+                     * return the same id forever.
+                     */
+                    if (ret == (ULONG)MUIV_Application_ReturnID_Quit)
                     {
-                        result = ret-1;
+                        DoMethod(app, MUIM_Application_ReturnID, ret);
+                        result = 0;
                         break;
+                    }
+
+                    /* Requester button or its own close gadget. */
+                    if (ret >= 0x4D520000UL && ret < 0x4D520040UL)
+                    {
+                        button_id = ret - 0x4D520000UL;
+                        if (button_id > 0 && button_id <= (ULONG)num_gads + 1)
+                        {
+                            result = (LONG)button_id - 1;
+                            break;
+                        }
                     }
 
                     if (sigs) sigs = Wait(sigs);
@@ -283,8 +319,24 @@ static void muiDataStreamFromFormat(CONST_STRPTR format, APTR dataStream,  ULONG
 //            set(app, MUIA_Application_Sleep, FALSE);
         }
 
-        DoMethod(app, OM_REMMEMBER, (IPTR)req_wnd);
-        MUI_DisposeObject(req_wnd);
+        {
+            /*
+             * Keep the window pointer in memory.  A register that still
+             * holds the application parameter must not be what we
+             * dispose, or OK on the requester frees the whole program
+             * and the input loop never returns.
+             */
+            volatile Object *dispose_wnd;
+
+            dispose_wnd = req_wnd;
+            if (dispose_wnd != NULL && dispose_wnd != (Object *)app)
+            {
+                set((Object *)dispose_wnd, MUIA_Window_Open, FALSE);
+                DoMethod(app, OM_REMMEMBER, (IPTR)dispose_wnd);
+                MUI_DisposeObject((Object *)dispose_wnd);
+            }
+            req_wnd = NULL;
+        }
     }
     return result;
 

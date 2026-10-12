@@ -15,10 +15,6 @@
 #include <proto/muimaster.h>
 
 extern struct Library *MUIMasterBase;
-
-/* Private LVO: undo/apply virtgroup scroll on child boxes. */
-extern VOID MUI_Offset(Object *obj, LONG addx, LONG addy);
-
 #include "muimaster_intern.h"
 #include "mui.h"
 #include "classes/area.h"
@@ -813,6 +809,8 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                 ULONG MethodID;
                 LONG layout;
             } umsg;
+            Class *ccl;
+            CONST_STRPTR cid;
 
             umsg.MethodID = (MUIB_MUI | 0x0042ffbf); /* MUIM_Virtgroup_Update */
             umsg.layout = 0;
@@ -820,6 +818,20 @@ IPTR Group__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                 (LONG) data->virt_offy, (LONG) data->virt_offx);
             DoMethodA(obj, (Msg) & umsg);
             data->update = 2;
+            /*
+             * Builtin virtgroups slide the viewport, then redraw only the
+             * strip ScrollWindowRaster uncovered (MADF_DRAWUPDATE, update
+             * == 2).  A DRAWOBJECT paint logs every child and still leaves
+             * the previous frame on screen.  HTML subclasses replace
+             * Update and must not be rastered on top of that.
+             */
+            ccl = OCLASS(obj);
+            cid = NULL;
+            if (ccl != NULL)
+                cid = (CONST_STRPTR) ccl->cl_ID;
+            if ((_flags(obj) & MADF_CANDRAW) && cid != NULL
+                && Stricmp((STRPTR) cid, "Virtgroup.mui") == 0)
+                MUI_Redraw(obj, MADF_DRAWUPDATE);
         }
         else if (group_layout_depth == 0)
         {
@@ -1120,7 +1132,7 @@ IPTR Group__MUIM_InitChange(struct IClass *cl, Object *obj,
             {
                 cstate = (Object *) ((struct MinList *)childlist)->mlh_Head;
                 while ((child = NextObject(&cstate)) != NULL)
-                    MUI_Offset(child, addx, addy);
+                    ZuneOffset(child, addx, addy);
             }
 
             data->virt_offx = 0;

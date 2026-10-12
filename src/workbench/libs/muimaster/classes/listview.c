@@ -89,9 +89,19 @@ IPTR Listview__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 {
     struct MUI_ListviewData *data;
     struct TagItem *tag, *tags;
+    IPTR dragtype;
     Object *list =
         (Object *) GetTagData(MUIA_Listview_List, (IPTR) NULL,
         msg->ops_AttrList);
+
+    /*
+     * Capture DragType before the superclass walks the tag list.
+     * A later NextTagItem pass misses the tag once it has been
+     * turned into TAG_IGNORE, and the list then stays DragType None
+     * so a click only selects.
+     */
+    dragtype = GetTagData(MUIA_Listview_DragType,
+        MUIV_Listview_DragType_None, msg->ops_AttrList);
 
     if (!list)
         return (IPTR) NULL;
@@ -109,6 +119,9 @@ IPTR Listview__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 
     data = INST_DATA(cl, obj);
     data->list = list;
+
+    if (dragtype != MUIV_Listview_DragType_None)
+        set(list, MUIA_Listview_DragType, dragtype);
 
     /* parse initial taglist, forward to list */
     for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)

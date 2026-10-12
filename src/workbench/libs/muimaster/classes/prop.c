@@ -88,6 +88,7 @@ struct Prop_DATA
     UWORD propwidth, propheight;
 
     Object *prop_object;
+    int gadget_in; /* propgadget is currently on the window */
     struct MUI_EventHandlerNode ehn;
     struct Hook dhook;
     struct dt_node *node;
@@ -115,6 +116,77 @@ static void calcscale16(struct Prop_DATA *data)
     }
 }
 #endif
+
+/*
+ * A proportional gadget cannot be clipped.  MUI only shows it while the
+ * whole knob sits inside every surrounding virtual group.  Once a virtual
+ * group scrolls, the MUI box moves and the gadget must follow, or
+ * RefreshGList paints the knob where the scrollbar used to be.
+ */
+static BOOL Prop_FullyInVirt(Object *obj)
+{
+    Object *wnd;
+    Object *parent;
+
+    wnd = NULL;
+    if ((_flags(obj) & MADF_INVIRTUALGROUP) == 0)
+        return TRUE;
+
+    get(obj, MUIA_WindowObject, &wnd);
+    parent = obj;
+    while (get(parent, MUIA_Parent, &parent))
+    {
+        if (parent == NULL || parent == wnd)
+            break;
+        if (_flags(parent) & MADF_ISVIRTUALGROUP)
+        {
+            if (_mleft(obj) < _mleft(parent)
+                || _mright(obj) > _mright(parent)
+                || _mtop(obj) < _mtop(parent)
+                || _mbottom(obj) > _mbottom(parent))
+                return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static void Prop_DetachGadget(Object *obj, struct Prop_DATA *data)
+{
+    if (data->prop_object == NULL || data->usewinborder || !data->gadget_in)
+        return;
+    if (_window(obj) != NULL)
+        RemoveGadget(_window(obj), (struct Gadget *) data->prop_object);
+    data->gadget_in = 0;
+}
+
+static void Prop_AttachGadget(Object *obj, struct Prop_DATA *data)
+{
+    struct Gadget *g;
+    WORD left;
+    WORD top;
+
+    if (data->prop_object == NULL || data->usewinborder)
+        return;
+    if (_window(obj) == NULL)
+        return;
+
+    g = (struct Gadget *) data->prop_object;
+    left = _mleft(obj);
+    top = _mtop(obj);
+    if (data->gadget_in && g->LeftEdge == left && g->TopEdge == top)
+    {
+        RefreshGList(g, _window(obj), NULL, 1);
+        return;
+    }
+    if (data->gadget_in)
+        RemoveGadget(_window(obj), g);
+    /* Width and height stay as Show built them.  Only the origin moves. */
+    g->LeftEdge = left;
+    g->TopEdge = top;
+    AddGadget(_window(obj), g, (UWORD) ~0);
+    data->gadget_in = 1;
+    RefreshGList(g, _window(obj), NULL, 1);
+}
 
 static ULONG downscale(struct Prop_DATA *data, ULONG val)
 {
@@ -170,6 +242,8 @@ IPTR Prop__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
 
     data = INST_DATA(cl, obj);
     data->deltafactor = 1;
+    data->prop_object = NULL;
+    data->gadget_in = 0;
 
     /* parse initial taglist */
     for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)
@@ -878,7 +952,12 @@ IPTR Prop__MUIM_Show(struct IClass *cl, Object *obj, struct MUIP_Show *msg)
             }
         }
 
-        if (completely_visible)
+        /*
+         * Build the gadget even when the knob is clipped.  Scrolling a
+         * virtual group does not Show again; Draw attaches it once the
+         * whole knob is inside the viewport.
+         */
+        if (completely_visible || !completely_visible)
         {
             ULONG width, height;
             
@@ -1014,6 +1093,9 @@ IPTR Prop__MUIM_Show(struct IClass *cl, Object *obj, struct MUIP_Show *msg)
             {
                 AddGadget(_window(obj), (struct Gadget *)data->prop_object,
                     ~0);
+                data->gadget_in = 1;
+                if (!completely_visible)
+                    Prop_DetachGadget(obj, data);
             }
         }
     }
@@ -1107,8 +1189,12 @@ IPTR Prop__MUIM_Draw(struct IClass *cl, Object *obj,
     }
 
     if (data->prop_object)
-        RefreshGList((struct Gadget *)data->prop_object, _window(obj), NULL,
-            1);
+    {
+        if (Prop_FullyInVirt(obj))
+            Prop_AttachGadget(obj, data);
+        else
+            Prop_DetachGadget(obj, data);
+    }
     return 1;
 }
 
@@ -1121,7 +1207,7 @@ IPTR Prop__MUIM_Hide(struct IClass *cl, Object *obj,
     {
         if (!data->usewinborder)
         {
-            RemoveGadget(_window(obj), (struct Gadget *)data->prop_object);
+            Prop_DetachGadget(obj, data);
             DisposeObject(data->prop_object);
             data->prop_object = NULL;
         }

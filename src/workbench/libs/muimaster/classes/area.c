@@ -2283,14 +2283,20 @@ static IPTR Area__MUIM_DoDrag(struct IClass *cl, Object *obj,
 {
     LONG touchx = msg->touchx;
     LONG touchy = msg->touchy;
+    struct MUIP_Window_DragObject wmsg;
+
     if (touchx == 0x80000000)
         touchx = _window(obj)->MouseX - _left(obj);
     if (touchy == 0x80000000)
         touchy = _window(obj)->MouseY - _top(obj);
 
-    DoMethod(_win(obj), MUIM_Window_DragObject, (IPTR)obj, touchx, touchy,
-             msg->flags);
-    return 0;
+    /* DoMethodA: varargs DoMethod is unsafe for MUI method ids here. */
+    wmsg.MethodID = MUIM_Window_DragObject;
+    wmsg.obj = obj;
+    wmsg.touchx = touchx;
+    wmsg.touchy = touchy;
+    wmsg.flags = msg->flags;
+    return DoMethodA(_win(obj), (Msg) &wmsg);
 }
 
 /****** Area.mui/MUIM_CreateDragImage
@@ -2376,11 +2382,15 @@ static IPTR Area__MUIM_DragQueryExtended(struct IClass *cl, Object *obj,
         struct MUIP_DragQueryExtended *msg)
 {
     struct MUI_AreaData *data = INST_DATA(cl, obj);
+    struct MUIP_DragQuery qmsg;
+
     if (data->mad_Flags & MADF_DROPABLE) {
         if (_left(obj) <= msg->x && msg->x <= _right(obj) && _top(obj) <= msg->y &&
                 msg->y <= _bottom(obj)) {
-            if (DoMethod(obj, MUIM_DragQuery, (IPTR)msg->obj) ==
-                    MUIV_DragQuery_Accept)
+            /* DoMethodA: varargs DoMethod is unsafe for MUI method ids. */
+            qmsg.MethodID = MUIM_DragQuery;
+            qmsg.obj = msg->obj;
+            if (DoMethodA(obj, (Msg) &qmsg) == MUIV_DragQuery_Accept)
                 return (IPTR)obj;
         }
     }

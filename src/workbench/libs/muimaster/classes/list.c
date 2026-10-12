@@ -213,6 +213,8 @@ struct MUI_ListData
     LONG mouse_click;            /* see below if mouse is held down */
     LONG mouse_x;
     LONG mouse_y;
+    LONG anchor_x;               /* window MouseX at button down */
+    LONG anchor_y;
 
     /* double click */
     ULONG last_secs;
@@ -669,11 +671,16 @@ static BOOL ParseListFormat(struct MUI_ListData *data, STRPTR format,
             AllocVec((new_columns + 10) * sizeof(STRPTR), MEMF_CLEAR)))
         return FALSE;
 
-    if (!(data->strings_mem = AllocVec((new_columns + 1 + 10)
+    /*
+     * 10 pointers sit before strings[0]. List stores the entry index at
+     * strings[-1], and display hooks may use other negative slots.
+     * 16 pointers sit after the last formatted column. A hook may fill
+     * columns the format does not show: Dirlist always writes six strings,
+     * and EnvBrowser's format is "COL=0" (one column). Writing those six
+     * into a one-column buffer ran off the end and crashed on dispose.
+     */
+    if (!(data->strings_mem = AllocVec((new_columns + 10 + 16)
         * sizeof(STRPTR), MEMF_CLEAR)))
-                                  /* hold enough space also for the entry pos,
-                                   * used by orginal MUI and also some
-                                   * security space */
         return FALSE;
     data->strings=data->strings_mem;
 
@@ -1168,6 +1175,7 @@ IPTR List__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     data->entries_visible = data->vertprop_visible = -1;
     data->last_active = -1;
     data->drop_mark = 0;
+    data->drop_mark_y = -1;
 
     data->ehn.ehn_Events = IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY;
     data->ehn.ehn_Priority = 0;
@@ -2841,6 +2849,7 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
     struct MUI_ListData *data = INST_DATA(cl, obj);
     LONG pos, count, sort, active, until;
     BOOL adjusted = FALSE;
+    BOOL failed = FALSE;
     APTR *toinsert;
 
     count = msg->count;
@@ -2918,12 +2927,19 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
         if (!lentry->data)
         {
             FreeListEntry(data, lentry);
-            RemoveListEntries(data, pos, until - pos);
-
-            /* TODO: Also check for visible stuff like below */
-            if (data->entries_num != data->confirm_entries_num)
-                set(obj, MUIA_List_Entries, data->confirm_entries_num);
-            return ~0;
+            /* A construct hook may return NULL to skip one entry (WbMan
+             * does this for every file that is not a tool icon). The gap
+             * from PrepareInsertListEntries extends past entries_num, so
+             * RemoveListEntries would memmove a negative byte count and
+             * crash. Slide back only the entries that already existed. */
+            memmove(&data->entries[pos], &data->entries[until],
+                (data->entries_num - data->insert_position)
+                * sizeof(struct ListEntry *));
+            count = pos - data->insert_position;
+            if (!count)
+                return ~0;
+            failed = TRUE;
+            break;
         }
 
         lentry->flags |= ENTRY_RENDER;
@@ -2987,7 +3003,7 @@ IPTR List__MUIM_Insert(struct IClass *cl, Object *obj,
         SET(obj, MUIA_List_Active, active);
     }
 
-    return (ULONG) pos;
+    return failed ? ~0 : (ULONG) pos;
 }
 
 /****** List.mui/MUIM_List_InsertSingle **************************************
@@ -3772,8 +3788,19 @@ IPTR List__MUIM_DragFinish(struct IClass *cl, Object *obj,
     struct MUIP_DragFinish *msg)
 {
     struct MUI_ListData *data = INST_DATA(cl, obj);
+    LONG y;
 
+    /*
+     * The drop mark is a line drawn over the rows.  Forgetting it leaves
+     * a stripe along the selected highlight after the drag image is gone.
+     */
+    y = data->drop_mark_y;
     data->drop_mark_y = -1;
+    if (y >= 0 && (_flags(obj) & MADF_CANDRAW))
+    {
+        data->update = UPDATEMODE_ALL;
+        MUI_Redraw(obj, MADF_DRAWUPDATE);
+    }
 
     return DoSuperMethodA(cl, obj, (Msg) msg);
 }
@@ -3981,6 +4008,63 @@ static IPTR List__MUIM_CreateDragImage(struct IClass *cl, Object *obj,
     return (IPTR) img;
 }
 
+/*
+ * List installs its own event handler and eats SELECTDOWN, so Area never
+ * sees the motion that would call MUIM_DoDrag. Entries are only draggable
+ * when MUIA_Listview_DragType is not None; a few pixels of movement with
+ * the left button down starts the drag. touchx/touchy are relative to the
+ * list area, which is what MUIM_CreateDragImage measures against.
+ */
+/*
+ * Movement since button-down, in the same space as mouse_x/mouse_y.
+ * INTUITICKS often keep the click coordinates. The window pointer
+ * still moves, so the delta is applied to the click point.
+ */
+static void List__TrackPointer(Object *obj, struct MUI_ListData *data,
+    struct IntuiMessage *imsg, LONG *x, LONG *y)
+{
+    struct Window *iwin;
+    LONG dx;
+    LONG dy;
+
+    *x = imsg->MouseX;
+    *y = imsg->MouseY;
+    iwin = NULL;
+    if (muiRenderInfo(obj) != NULL)
+        iwin = muiRenderInfo(obj)->mri_Window;
+    if (iwin == NULL)
+        return;
+    dx = iwin->MouseX - data->anchor_x;
+    dy = iwin->MouseY - data->anchor_y;
+    *x = data->mouse_x + dx;
+    *y = data->mouse_y + dy;
+}
+
+static BOOL List__BeginDrag(Object *obj, struct MUI_ListData *data)
+{
+    struct MUIP_DoDrag dmsg;
+    IPTR ok;
+
+    /* DoMethodA: varargs DoMethod is unsafe for MUI method ids here. */
+    dmsg.MethodID = MUIM_DoDrag;
+    dmsg.touchx = data->mouse_x - _left(data->area);
+    dmsg.touchy = data->mouse_y - _top(data->area);
+    dmsg.flags = 0;
+    ZuneTrace("zune: List BeginDrag obj=%lx touch=%ld,%ld\n",
+        (ULONG) obj, (LONG) dmsg.touchx, (LONG) dmsg.touchy);
+    ok = DoMethodA(obj, (Msg) &dmsg);
+    ZuneTrace("zune: List BeginDrag result=%ld\n", (LONG) ok);
+    if (!ok)
+        return FALSE;
+
+    DoMethod(_win(obj), MUIM_Window_RemEventHandler, (IPTR) &data->ehn);
+    data->ehn.ehn_Events &= ~(IDCMP_MOUSEMOVE | IDCMP_INTUITICKS
+        | IDCMP_INACTIVEWINDOW);
+    DoMethod(_win(obj), MUIM_Window_AddEventHandler, (IPTR) &data->ehn);
+    data->mouse_click = 0;
+    return TRUE;
+}
+
 static void DoWheelMove(struct IClass *cl, Object *obj, LONG wheely)
 {
     LONG new, first, entries, visible;
@@ -4131,8 +4215,14 @@ IPTR List__MUIM_HandleEvent(struct IClass *cl, Object *obj,
     }
     else if (msg->imsg)
     {
-        DoMethod(obj, MUIM_List_TestPos, msg->imsg->MouseX, msg->imsg->MouseY,
-            (IPTR) &pos);
+        LONG px;
+        LONG py;
+
+        px = msg->imsg->MouseX;
+        py = msg->imsg->MouseY;
+        if (data->mouse_click == MOUSE_CLICK_ENTRY)
+            List__TrackPointer(obj, data, msg->imsg, &px, &py);
+        DoMethod(obj, MUIM_List_TestPos, px, py, (IPTR) &pos);
 
         switch (msg->imsg->Class)
         {
@@ -4143,6 +4233,16 @@ IPTR List__MUIM_HandleEvent(struct IClass *cl, Object *obj,
                     msg->imsg->MouseY))
                 {
                     data->mouse_click = MOUSE_CLICK_ENTRY;
+                    data->mouse_x = msg->imsg->MouseX;
+                    data->mouse_y = msg->imsg->MouseY;
+                    data->anchor_x = data->mouse_x;
+                    data->anchor_y = data->mouse_y;
+                    if (muiRenderInfo(obj) != NULL
+                        && muiRenderInfo(obj)->mri_Window != NULL)
+                    {
+                        data->anchor_x = muiRenderInfo(obj)->mri_Window->MouseX;
+                        data->anchor_y = muiRenderInfo(obj)->mri_Window->MouseY;
+                    }
 
                     if (!data->read_only && pos.entry != -1)
                     {
@@ -4213,6 +4313,45 @@ IPTR List__MUIM_HandleEvent(struct IClass *cl, Object *obj,
 
         case IDCMP_MOUSEMOVE:
         case IDCMP_INTUITICKS:
+            /*
+             * mouse_click is the button-down state. MOUSEMOVE on this
+             * system often has no IEQUALIFIER_LEFTBUTTON, so requiring
+             * that qualifier left the list in drag-select instead.
+             * INTUITICKS carries the pointer too and is what arrives
+             * while the button is held.
+             */
+            if (data->mouse_click == MOUSE_CLICK_ENTRY
+                && data->drag_type != MUIV_Listview_DragType_None
+                && data->entries_active != MUIV_List_Active_Off)
+            {
+                LONG dx;
+                LONG dy;
+                BOOL inside;
+
+                dx = px - data->mouse_x;
+                dy = py - data->mouse_y;
+                if (dx < 0)
+                    dx = -dx;
+                if (dy < 0)
+                    dy = -dy;
+                inside = _isinobject(data->area, px, py);
+                /*
+                 * A multi-select list keeps extending the selection
+                 * while the pointer stays in the list. Drag starts
+                 * once the pointer leaves it. Lists without
+                 * multi-select drag after a few pixels of movement.
+                 */
+                if (dx >= 3 || dy >= 3)
+                {
+                    if (data->multiselect == MUIV_Listview_MultiSelect_None
+                        || !inside)
+                    {
+                        if (List__BeginDrag(obj, data))
+                            return MUI_EventHandlerRC_Eat;
+                    }
+                }
+            }
+
             if (pos.flags & MUI_LPR_ABOVE)
                 new_active = MUIV_List_Active_Up;
             else if (pos.flags & MUI_LPR_BELOW)

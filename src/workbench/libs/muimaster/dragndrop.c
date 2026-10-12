@@ -60,14 +60,20 @@ static struct MinNode *Node_Prev(APTR node)
 //-------------------------------------
 
 //-------------------------------------
+/*
+ * mlh_Tail is always NULL (it is the list terminator); the last real node
+ * is mlh_TailPred.  An empty list has TailPred pointing back at the header,
+ * whose mln_Pred (the shared Tail slot) is NULL.  Using mlh_Tail meant the
+ * undraw walk never started and the drag ghost was never erased.
+ */
 static struct MinNode *List_Last(APTR list)
 {
-    if (!((struct MinList *)list)->mlh_Tail)
-        return NULL;
+    struct MinNode *last;
 
-    if (((struct MinList *)list)->mlh_Tail->mln_Pred == NULL)
+    last = ((struct MinList *)list)->mlh_TailPred;
+    if (last == NULL || last->mln_Pred == NULL)
         return NULL;
-    return ((struct MinList *)list)->mlh_Tail;
+    return last;
 }
 //-------------------------------------
 #if 0

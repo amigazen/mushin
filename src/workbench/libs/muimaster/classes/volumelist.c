@@ -56,7 +56,17 @@ AROS_UFH3S(APTR, construct_func,
 
     struct Volumelist_Entry *new;
 
-    if ((new = AllocPooled(pool, sizeof(*new))))
+    /*
+     * Same as Dirlist: pooled FileInfoBlock-sized copies crashed the
+     * machine when the list was disposed. AllocVec is longword aligned.
+     */
+    (void) hook;
+    (void) pool;
+
+    if (entry == NULL)
+        return NULL;
+
+    if ((new = AllocVec(sizeof(*new), MEMF_ANY)))
     {
         *new = *entry;
     }
@@ -72,7 +82,11 @@ AROS_UFH3S(void, destruct_func,
 {
     AROS_USERFUNC_INIT
 
-    FreePooled(pool, entry, sizeof(struct Volumelist_Entry));
+    (void) hook;
+    (void) pool;
+
+    if (entry != NULL)
+        FreeVec(entry);
 
     AROS_USERFUNC_EXIT
 }

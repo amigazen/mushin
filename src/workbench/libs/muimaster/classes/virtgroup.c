@@ -32,9 +32,6 @@
 
 extern struct Library *MUIMasterBase;
 
-/* Private LVO used by Virtgroup_Update / Voyager scroll. */
-extern VOID MUI_Offset(Object *obj, LONG addx, LONG addy);
-
 #ifndef MUIM_Virtgroup_InstallClip
 #define MUIM_Virtgroup_InstallClip (MUIB_MUI | 0x00425b5c)
 #endif
@@ -221,11 +218,14 @@ IPTR Virtgroup__MUIM_Update(struct IClass *cl, Object *obj,
         {
             cstate = (Object *) ((struct MinList *)childlist)->mlh_Head;
             while ((child = NextObject(&cstate)) != NULL)
-                MUI_Offset(child, -addx, -addy);
+                ZuneOffset(child, -addx, -addy);
         }
-
-        if (_flags(obj) & MADF_CANDRAW)
-            MUI_Redraw(obj, MADF_DRAWOBJECT);
+        /*
+         * Do not DRAWOBJECT here.  That paints the children but leaves
+         * the pixels already in the viewport where they were, and it
+         * consumes Group's old scroll delta so ScrollWindowRaster never
+         * runs.  Group issues MADF_DRAWUPDATE after this returns.
+         */
     }
 
     data->oldpos[0] = data->pos[0];
