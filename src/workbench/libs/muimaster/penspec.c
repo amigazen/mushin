@@ -19,28 +19,40 @@ extern struct Library *MUIMasterBase;
 BOOL zune_pen_spec_to_intern(const struct MUI_PenSpec *spec,
     struct MUI_PenSpec_intern *intern)
 {
+    const char *s;
+
     if (!spec || !intern)
         return FALSE;
 
     memset(intern, 0, sizeof(*intern));
 
-    D(bug("zune_pen_spec_to_intern: parsing %s\n", spec->buf));
-    switch (spec->buf[0])
+    /*
+     * String background config is the image spec "2:m2". Textinput asks
+     * for that same item as a pen. Without the prefix skip, '2' is parsed
+     * as an RGB colour, ObtainPen fails, and the field is filled with
+     * pen 0xFFFF (orange). The glyphs then draw the real background.
+     */
+    s = spec->buf;
+    if (s[0] == '2' && s[1] == ':')
+        s += 2;
+
+    D(bug("zune_pen_spec_to_intern: parsing %s\n", s));
+    switch (s[0])
     {
     case 'm':
-        if (!StrToLong(spec->buf + 1, &intern->p_mui))
+        if (!StrToLong(s + 1, &intern->p_mui))
             return FALSE;
         intern->p_type = PST_MUI;
         break;
 
     case 'p':
-        if (!StrToLong(spec->buf + 1, &intern->p_cmap))
+        if (!StrToLong(s + 1, &intern->p_cmap))
             return FALSE;
         intern->p_type = PST_CMAP;
         break;
 
     case 's':
-        if (!StrToLong(spec->buf + 1, &intern->p_sys))
+        if (!StrToLong(s + 1, &intern->p_sys))
             return FALSE;
         intern->p_type = PST_SYS;
         break;
@@ -48,10 +60,8 @@ BOOL zune_pen_spec_to_intern(const struct MUI_PenSpec *spec,
     case 'r':
     default:
         {
-            const char *s;
             const char *t;
 
-            s = spec->buf;
             if (*s == 'r')
             {
                 s++;
