@@ -68,9 +68,15 @@ To be determined.
 
 ### What is the relationship between _mushin_ and AROS Zune?
 
-_mushin_ is forked from the October 2025 GitHub head of AROS, specifically only the Zune components. Forked, because the AROS repository maintainers do not intend to maintain compatibility with anything other than AROS, as evidenced by the disregard shown for Amiga and MorphOS compatibility in the AROS commit history for Zune. Still, there was an existing smakefile and much of the Zune code remains untouched since 2006 when it was still possible to build the Amiga target. Additionally the AfA OS project had an Amiga build of Zune that worked, and the sourecode of that has been cross referenced in rebuilding this Amiga-native version.
+_mushin_ is forked from the October 2025 GitHub head of AROS, specifically only the Zune components. Forked, because the AROS repository maintainers do not intend to maintain compatibility with anything other than AROS, as evidenced by the disregard shown for Amiga and MorphOS compatibility in the AROS commit history for Zune. Still, there was an existing smakefile and much of the Zune code remains untouched since 2006 when it was still possible to build the Amiga target. Additionally the AfA OS project had an Amiga build of Zune that worked, and the sourecode of AfA OS was recovered and used to fill in some of the gaps missing from the upstream AROS repository needed to rebuild this Amiga-native version.
 
-The project directory structure retains the AROS hierarchy making it easier to merge changes in either direction in the future.
+The project directory structure retains the AROS directory hierarchy ('src/workbench/libs/muimaster' etc.) making it easier to merge changes in either direction in the future.
+
+Zune68, found on Aminet, is itself a fork of _mushin_, albeit one that does not acknowledge its origins as a mushin fork, and is not an amigazen project release. _mushin_ is anyway quite deliberately designed to be a 'more native', better integrated MUI compatibility layer for AmigaOS, while Zune68 looks to be focussed on implementing the latest MUI APIs.
+
+### What version of MUI is _mushin_ compatible to?
+
+_mushin_ is focussed on maximum compatiblity with MUI 3.8, with no current plans to extend compatibility to later releases of MUI, largely due to the fact that little software on classic Amiga takes advantage of those features, as well as MorphOS, Amiga OS4, AROS and the muidev.de teams all having different ideas of what the future MUI API looks like.
 
 ### How does _mushin_ differ from the original MUI?
 
@@ -82,12 +88,14 @@ Ways in which mushin differs from MUI include:
 * mushin will load a Reaction.prefs file if it exists in ENV:Sys/ and apply the same styles as the user has set in ReAction prefs.
 * mushin will load sysiclass and optionally glyph.image and will use the system provided images for checkmarks and other icon symbols
 * mushin embeds all .mui built-in classes in the primary muimaster.library rather than loading them dynamically from disk on demand. Although this means the muimaster.library is a larger binary than the original, in practice the builtins are all used by most MUI programs, and integrating the built-ins this way it reduces disk accesses and disk clutter. Larger .mcc plugins are still dynamically loaded on demand
-* Although mushin does support look and feel preferences like the original Zune code it is forked from, a prefs app is not shipped by default
+* Although mushin does support look and feel preferences like the original Zune code it is forked from, a prefs app is not shipped in the default release
 
 ### Which applications have been tested with _mushin_?
 
-- Voyager (Partially working)
-- iBrowse (Not working)
+- Voyager V3 3.5 release from amigazen project
+- iBrowse 3.0
+- Apdf
+- The complete set of Demos provided with MUI 3.8 and additional SDK examples included in the MUI 3.8 SDK
 
 ## Contributing
 
