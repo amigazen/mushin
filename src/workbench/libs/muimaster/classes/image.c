@@ -220,7 +220,7 @@ IPTR Image__OM_SET(struct IClass *cl, Object *obj, struct opSet *msg)
                         if (data->img->type == IST_SCALED_GRADIENT
                                 || data->img->type == IST_TILED_GRADIENT)
                             set(obj, MUIA_FillArea, FALSE);
-                        else if (zune_imspec_is_sysimage(data->img))
+                        else if (zune_imspec_has_own_frame(data->img))
                         {
                             set(obj, MUIA_Frame, MUIV_Frame_None);
                             set(obj, MUIA_FillArea, FALSE);
@@ -319,7 +319,7 @@ IPTR Image__MUIM_Setup(struct IClass *cl, Object *obj, struct MUIP_Setup *msg)
             if (data->img->type == IST_SCALED_GRADIENT
                     || data->img->type == IST_TILED_GRADIENT)
                 set(obj, MUIA_FillArea, FALSE);
-            else if (zune_imspec_is_sysimage(data->img))
+            else if (zune_imspec_has_own_frame(data->img))
             {
                 /* The radio image already includes its bevel. */
                 set(obj, MUIA_Frame, MUIV_Frame_None);
@@ -399,8 +399,11 @@ IPTR Image__MUIM_AskMinMax(struct IClass *cl, Object *obj, struct MUIP_AskMinMax
             msg->MinMaxInfo->DefWidth += minmax.DefWidth;
         }
 
-        if (data->flags & MIF_FONTMATCHWIDTH
-            && !zune_imspec_is_sysimage(data->img))
+        /*
+         * FontMatch scales the preferred size. sysiclass also uses
+         * IM_DRAWFRAME now, so allow the same font scaling as glyphs.
+         */
+        if (data->flags & MIF_FONTMATCHWIDTH)
         {
             msg->MinMaxInfo->DefWidth *= _font(obj)->tf_XSize / 8;
         }
@@ -419,8 +422,7 @@ IPTR Image__MUIM_AskMinMax(struct IClass *cl, Object *obj, struct MUIP_AskMinMax
             msg->MinMaxInfo->DefHeight += minmax.DefHeight;
         }
 
-        if (data->flags & MIF_FONTMATCHHEIGHT
-            && !zune_imspec_is_sysimage(data->img))
+        if (data->flags & MIF_FONTMATCHHEIGHT)
         {
             msg->MinMaxInfo->DefHeight *= _font(obj)->tf_YSize / 8;
         }

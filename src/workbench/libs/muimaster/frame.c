@@ -510,171 +510,217 @@ static void frame_black_rect_draw(struct dt_frame_image *fi,
 }
 
 /**************************************************************************
- 2 : FST_BEVEL
+ frameiclass-compatible emboss (see intuition frameiclass.c)
 
- Draw a bicolor rectangle
+ FRAME_DEFAULT     thin edges, JOINS_NONE
+ FRAME_BUTTON      fat vertical strokes, JOINS_ANGLED
+ FRAME_RIDGE       button + inset swapped ridge (string gadgets)
+ FRAME_ICONDROPBOX broader ridge (inset multiplier 2)
+
+ StrokeWidth[]  = { 1, 2, 2, 2 }
+ InsetBox[]     = { 0, 0, 1, 2 }
+ WidthPad[]     = { 4, 8, 12, 16 }   - IM_FRAMEBOX comfort pad
+ HeightPad[]    = { 4, 4, 6, 8 }
 **************************************************************************/
-/**
- * Draw a basic 3D button effect
- * @param ul_preset Upper-left edge pen (light for raised, dark for recessed)
- * @param lr_preset Lower-right edge pen (dark for raised, light for recessed)
+#define FRAMEI_DEFAULT      0
+#define FRAMEI_BUTTON       1
+#define FRAMEI_RIDGE        2
+#define FRAMEI_ICONDROPBOX  3
+#define FRAMEI_JOINS_NONE   0
+#define FRAMEI_JOINS_ANGLED 1
+#define FRAMEI_STROKEHEIGHT 1
+
+static const UBYTE framei_stroke_width[] = { 1, 2, 2, 2 };
+static const UBYTE framei_inset_box[] = { 0, 0, 1, 2 };
+
+/*
+ * embossedBoxTrim(): JOINS_ANGLED implies vertical thickness 2.
+ * Corner pixels where the pens would collide stay undrawn so the join
+ * reads as a diagonal cut (classic button corners).
  */
+static void framei_emboss_trim(struct RastPort *rp, int left, int top,
+                               int width, int height, ULONG ulpen,
+                               ULONG lrpen, int joins)
+{
+    int right;
+    int bottom;
+    int hthick;
+
+    if (rp == NULL || width <= 2 || height <= 2)
+        return;
+
+    right = left + width - 1;
+    bottom = top + height - 1;
+    hthick = (joins == FRAMEI_JOINS_ANGLED) ? 2 : 1;
+    if (hthick > width / 2)
+        hthick = 1;
+
+    /* Upper / left */
+    SetAPen(rp, ulpen);
+    RectFill(rp, left, top, right - ((joins == FRAMEI_JOINS_ANGLED) ? hthick : 0),
+             top);
+    RectFill(rp, left, top, left + hthick - 1, bottom - FRAMEI_STROKEHEIGHT);
+
+    /* Lower / right */
+    SetAPen(rp, lrpen);
+    RectFill(rp, left + ((joins == FRAMEI_JOINS_ANGLED) ? (hthick - 1) : 0),
+             bottom, right, bottom);
+    RectFill(rp, right - hthick + 1, top + ((joins == FRAMEI_JOINS_ANGLED) ? 1 : 0),
+             right, bottom);
+}
+
+/* Shared by FST_WIN_BEVEL and others that still want a 1px bicolor edge. */
 static void button_draw(struct dt_frame_image *fi, struct MUI_RenderInfo *mri,
                         int left, int top, int width, int height,
                         MPen ul_preset, MPen lr_preset)
 {
     struct RastPort *rp = mri->mri_RastPort;
+    if (!rp)
+        return;
+    framei_emboss_trim(rp, left, top, width, height,
+                       mri->mri_Pens[ul_preset], mri->mri_Pens[lr_preset],
+                       FRAMEI_JOINS_NONE);
+}
 
-    if (!rp || width <= 2 || height <= 2)
-        return; /* Safety check - need minimum size and valid rastport */
+/*
+ * Draw one frameiclass frame type. Interior fill is left to MUIA_Background
+ * (same idea as IA_EdgesOnly).
+ */
+static void framei_draw(struct MUI_RenderInfo *mri, int left, int top,
+                        int width, int height, int frametype, BOOL recessed)
+{
+    struct RastPort *rp;
+    ULONG ulpen;
+    ULONG lrpen;
+    ULONG tmp;
+    int joins;
+    int sw;
+    int mult;
+    int box_l;
+    int box_t;
+    int box_w;
+    int box_h;
+    int dx;
+    int dy;
 
-    /* Draw upper-left edges */
-    SetAPen(rp, mri->mri_Pens[ul_preset]);
-    draw_vertical_line(rp, left, top, top + height - 2, mri->mri_Pens[ul_preset]);
-    draw_horizontal_line(rp, left, left + width - 2, top,
-                         mri->mri_Pens[ul_preset]);
+    rp = mri->mri_RastPort;
+    if (rp == NULL || width <= 2 || height <= 2)
+        return;
+    if (frametype < FRAMEI_DEFAULT || frametype > FRAMEI_ICONDROPBOX)
+        frametype = FRAMEI_DEFAULT;
 
-    /* Draw lower-right edges */
-    SetAPen(rp, mri->mri_Pens[lr_preset]);
-    draw_vertical_line(rp, left + width - 1, top, top + height - 1,
-                       mri->mri_Pens[lr_preset]);
-    draw_horizontal_line(rp, left, left + width - 1, top + height - 1,
-                         mri->mri_Pens[lr_preset]);
+    ulpen = mri->mri_Pens[MPEN_SHINE];
+    lrpen = mri->mri_Pens[MPEN_SHADOW];
+    if (recessed)
+    {
+        tmp = ulpen;
+        ulpen = lrpen;
+        lrpen = tmp;
+    }
 
-    /* Fix corner pixels with background color */
-    SetAPen(rp, mri->mri_Pens[MPEN_BACKGROUND]);
-    WritePixel(rp, left, top + height - 1);
-    WritePixel(rp, left + width - 1, top);
+    joins = (frametype == FRAMEI_DEFAULT) ? FRAMEI_JOINS_NONE
+                                          : FRAMEI_JOINS_ANGLED;
+    sw = framei_stroke_width[frametype];
+    box_l = left;
+    box_t = top;
+    box_w = width;
+    box_h = height;
+
+    framei_emboss_trim(rp, box_l, box_t, box_w, box_h, ulpen, lrpen, joins);
+
+    mult = framei_inset_box[frametype];
+    if (mult != 0)
+    {
+        tmp = ulpen;
+        ulpen = lrpen;
+        lrpen = tmp;
+
+        dx = sw * mult;
+        dy = FRAMEI_STROKEHEIGHT * mult;
+        box_l += dx;
+        box_t += dy;
+        box_w -= 2 * dx;
+        box_h -= 2 * dy;
+        if (box_w > 2 && box_h > 2)
+            framei_emboss_trim(rp, box_l, box_t, box_w, box_h, ulpen, lrpen,
+                               joins);
+    }
 }
 
 /**************************************************************************
- classic button
+ 2 : FST_BEVEL = frameiclass FRAME_DEFAULT (thin, square joins)
 **************************************************************************/
 static void frame_bevelled_draw(struct dt_frame_image *fi,
                                 struct MUI_RenderInfo *mri, int gl, int gt,
                                 int gw, int gh, int left, int top, int width,
                                 int height)
 {
-    button_draw(fi, mri, left, top, width, height, MPEN_SHINE, MPEN_SHADOW);
+    framei_draw(mri, left, top, width, height, FRAMEI_DEFAULT, FALSE);
 }
 
-/**************************************************************************
- classic pressed button
-**************************************************************************/
 static void frame_recessed_draw(struct dt_frame_image *fi,
                                 struct MUI_RenderInfo *mri, int gl, int gt,
                                 int gw, int gh, int left, int top, int width,
                                 int height)
 {
-    button_draw(fi, mri, left, top, width, height, MPEN_SHADOW, MPEN_SHINE);
+    framei_draw(mri, left, top, width, height, FRAMEI_DEFAULT, TRUE);
 }
 
 /**************************************************************************
- 3 : FST_THIN_BORDER
- Draw a thin relief border
-**************************************************************************/
-/**
- * Draw a thin 3D border - optimized version
- */
-static void thinborder_draw(struct dt_frame_image *fi,
-                            struct MUI_RenderInfo *mri, int left, int top,
-                            int width, int height, MPen ul_preset,
-                            MPen lr_preset)
-{
-    struct RastPort *rp = mri->mri_RastPort;
-
-    if (width <= 3 || height <= 3)
-        return; /* Safety check */
-
-    /* Draw outer upper-left edges */
-    SetAPen(rp, mri->mri_Pens[ul_preset]);
-    draw_vertical_line(rp, left, top, top + height - 1, mri->mri_Pens[ul_preset]);
-    draw_horizontal_line(rp, left, left + width - 1, top,
-                         mri->mri_Pens[ul_preset]);
-
-    /* Draw inner upper-left edges */
-    draw_vertical_line(rp, left + width - 2, top + 2, top + height - 2,
-                       mri->mri_Pens[ul_preset]);
-    draw_horizontal_line(rp, left + 2, left + width - 2, top + height - 2,
-                         mri->mri_Pens[ul_preset]);
-
-    /* Draw the inner border with lower-right pen */
-    rect_draw(fi, mri, left + 1, top + 1, width - 1, height - 1, lr_preset);
-}
-
-/**************************************************************************
- draw border up
+ 3 : FST_THIN_BORDER = frameiclass FRAME_RIDGE (string / group groove)
 **************************************************************************/
 static void frame_thin_border_up_draw(struct dt_frame_image *fi,
                                       struct MUI_RenderInfo *mri, int gl,
                                       int gt, int gw, int gh, int left, int top,
                                       int width, int height)
 {
-    thinborder_draw(fi, mri, left, top, width, height, MPEN_SHINE, MPEN_SHADOW);
+    framei_draw(mri, left, top, width, height, FRAMEI_RIDGE, FALSE);
 }
 
-/**************************************************************************
- draw border down
-**************************************************************************/
 static void frame_thin_border_down_draw(struct dt_frame_image *fi,
                                         struct MUI_RenderInfo *mri, int gl,
                                         int gt, int gw, int gh, int left,
                                         int top, int width, int height)
 {
-    thinborder_draw(fi, mri, left, top, width, height, MPEN_SHADOW, MPEN_SHINE);
+    framei_draw(mri, left, top, width, height, FRAMEI_RIDGE, TRUE);
 }
 
 /**************************************************************************
- 4 : FST_THICK_BORDER
- Draw a thick relief border
-**************************************************************************/
-/**
- * Draw a thick 3D border with double bevel effect
- * @param bevelled TRUE for raised appearance, FALSE for recessed
- */
-static void thickborder_draw(struct dt_frame_image *fi,
-                             struct MUI_RenderInfo *mri, int left, int top,
-                             int width, int height, BOOL bevelled)
-{
-    if (width <= 4 || height <= 4)
-        return; /* Safety check - need minimum size */
-
-    if (bevelled) {
-        /* Raised: outer light, inner dark */
-        button_draw(fi, mri, left, top, width, height, MPEN_SHINE, MPEN_SHADOW);
-        button_draw(fi, mri, left + 2, top + 2, width - 4, height - 4, MPEN_SHADOW,
-                    MPEN_SHINE);
-    } else {
-        /* Recessed: outer dark, inner light */
-        button_draw(fi, mri, left, top, width, height, MPEN_SHADOW, MPEN_SHINE);
-        button_draw(fi, mri, left + 2, top + 2, width - 4, height - 4, MPEN_SHINE,
-                    MPEN_SHADOW);
-    }
-
-    /* Fill the middle border area with background */
-    rect_draw(fi, mri, left + 1, top + 1, width - 2, height - 2, MPEN_BACKGROUND);
-}
-
-/**************************************************************************
- draw thick border up
+ 4 : FST_THICK_BORDER = frameiclass FRAME_ICONDROPBOX
 **************************************************************************/
 static void frame_thick_border_up_draw(struct dt_frame_image *fi,
                                        struct MUI_RenderInfo *mri, int gl,
                                        int gt, int gw, int gh, int left,
                                        int top, int width, int height)
 {
-    thickborder_draw(fi, mri, left, top, width, height, TRUE);
+    framei_draw(mri, left, top, width, height, FRAMEI_ICONDROPBOX, FALSE);
 }
 
-/**************************************************************************
- draw thick border down
-**************************************************************************/
 static void frame_thick_border_down_draw(struct dt_frame_image *fi,
         struct MUI_RenderInfo *mri, int gl,
         int gt, int gw, int gh, int left,
         int top, int width, int height)
 {
-    thickborder_draw(fi, mri, left, top, width, height, FALSE);
+    framei_draw(mri, left, top, width, height, FRAMEI_ICONDROPBOX, TRUE);
+}
+
+/**************************************************************************
+ 9 : FST_GRAY_BORDER = frameiclass FRAME_BUTTON (fat sides, angled joins)
+**************************************************************************/
+static void frame_gray_border_up_draw(struct dt_frame_image *fi,
+                                      struct MUI_RenderInfo *mri, int gl,
+                                      int gt, int gw, int gh, int left,
+                                      int top, int width, int height)
+{
+    framei_draw(mri, left, top, width, height, FRAMEI_BUTTON, FALSE);
+}
+
+static void frame_gray_border_down_draw(struct dt_frame_image *fi,
+                                        struct MUI_RenderInfo *mri, int gl,
+                                        int gt, int gw, int gh, int left,
+                                        int top, int width, int height)
+{
+    framei_draw(mri, left, top, width, height, FRAMEI_BUTTON, TRUE);
 }
 
 /**************************************************************************
@@ -871,9 +917,6 @@ static void round_thin_border_draw(struct dt_frame_image *fi,
     int right;
     int bottom;
 
-    (void) fi;
-    (void) pen3;
-
     rp = mri->mri_RastPort;
     if (rp == NULL || width < 3 || height < 3)
         return;
@@ -924,38 +967,6 @@ static void frame_round_thin_border_down_draw(struct dt_frame_image *fi,
     round_thin_border_draw(fi, mri, left, top, width, height, MPEN_SHADOW,
                            MPEN_HALFSHADOW, MPEN_BACKGROUND, MPEN_HALFSHINE,
                            MPEN_SHINE);
-}
-
-/**************************************************************************
- 9 : FST_GRAY_BORDER
-**************************************************************************/
-/**
- * Gray border frame (raised) - FST_GRAY_BORDER
- * Uses half-tone pens for subtle effect
- */
-static void frame_gray_border_up_draw(struct dt_frame_image *fi,
-                                      struct MUI_RenderInfo *mri, int gl,
-                                      int gt, int gw, int gh, int left, int top,
-                                      int width, int height)
-{
-    thinborder_draw(fi, mri, left, top, width, height, MPEN_HALFSHINE,
-                    MPEN_HALFSHADOW);
-}
-
-/**************************************************************************
-
-**************************************************************************/
-/**
- * Gray border frame (recessed) - FST_GRAY_BORDER
- * Uses half-tone pens for subtle effect
- */
-static void frame_gray_border_down_draw(struct dt_frame_image *fi,
-                                        struct MUI_RenderInfo *mri, int gl,
-                                        int gt, int gw, int gh, int left,
-                                        int top, int width, int height)
-{
-    thinborder_draw(fi, mri, left, top, width, height, MPEN_HALFSHADOW,
-                    MPEN_HALFSHINE);
 }
 
 /**************************************************************************
@@ -1238,20 +1249,20 @@ static const struct ZuneFrameGfx __builtinFrameGfx[] = {
     {frame_white_rect_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
     {frame_black_rect_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
 
-    /* clean 3D look */
+    /* frameiclass FRAME_DEFAULT: thin edges, WidthPad 4 HeightPad 4 */
     /* 2 : FST_BEVEL */
     {frame_bevelled_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
     {frame_recessed_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
 
-    /* thin relief border */
+    /* frameiclass FRAME_RIDGE: WidthPad 12 HeightPad 6 */
     /* 3 : FST_THIN_BORDER */
-    {frame_thin_border_up_draw, 0, 2, 2, 2, 2, NULL, FALSE, 2, 0},
-    {frame_thin_border_down_draw, 0, 2, 2, 2, 2, NULL, FALSE, 2, 0},
+    {frame_thin_border_up_draw, 0, 4, 4, 3, 3, NULL, FALSE, 4, 0},
+    {frame_thin_border_down_draw, 0, 4, 4, 3, 3, NULL, FALSE, 4, 0},
 
-    /* thick relief border */
+    /* frameiclass FRAME_ICONDROPBOX: WidthPad 16 HeightPad 8 */
     /* 4 : FST_THICK_BORDER */
-    {frame_thick_border_up_draw, 0, 3, 3, 3, 3, NULL, FALSE, 3, 0},
-    {frame_thick_border_down_draw, 0, 3, 3, 3, 3, NULL, FALSE, 3, 0},
+    {frame_thick_border_up_draw, 0, 6, 6, 4, 4, NULL, FALSE, 6, 0},
+    {frame_thick_border_down_draw, 0, 6, 6, 4, 4, NULL, FALSE, 6, 0},
 
     /* rounded bevel */
     /* 5 : FST_ROUND_BEVEL */
@@ -1273,10 +1284,10 @@ static const struct ZuneFrameGfx __builtinFrameGfx[] = {
     {frame_round_thin_border_up_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
     {frame_round_thin_border_down_draw, 0, 1, 1, 1, 1, NULL, FALSE, 1, 0},
 
-    /* strange gray border */
+    /* frameiclass FRAME_BUTTON: fat sides, WidthPad 8 HeightPad 4 */
     /* 9 : FST_GRAY_BORDER */
-    {frame_gray_border_up_draw, 0, 2, 2, 2, 2, NULL, FALSE, 2, 0},
-    {frame_gray_border_down_draw, 0, 2, 2, 2, 2, NULL, FALSE, 2, 0},
+    {frame_gray_border_up_draw, 0, 2, 2, 1, 1, NULL, FALSE, 2, 0},
+    {frame_gray_border_down_draw, 0, 2, 2, 1, 1, NULL, FALSE, 2, 0},
 
     /* semi rounded bevel */
     /* A : FST_SEMIROUND_BEVEL */

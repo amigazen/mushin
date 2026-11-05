@@ -4,7 +4,8 @@
 
 /*
  * Read classic Amiga ReAction prefs (ENV:sys/reaction.prefs) and map the
- * styles that have a clear MUI/Zune counterpart.
+ * styles that have a clear MUI/Zune counterpart: bevel frames, spacing,
+ * fonts, 3D look, and optional rp_Pattern backfill name.
  *
  * On-disk RACT layout matches NDK <prefs/reaction.h> field order, but the
  * chunk is written without C structure padding: after the nine UWORD/BOOL
@@ -21,6 +22,7 @@
 #include <prefs/reaction.h>
 #include <intuition/screens.h>
 #include <graphics/text.h>
+#include <string.h>
 
 #include <clib/alib_protos.h>
 #include <proto/exec.h>
@@ -59,7 +61,9 @@
 #define RACT_OFF_FALLBACK_NM 34
 #define RACT_OFF_LABEL_NM    (34 + FONTNAMESIZE)
 #define RACT_OFF_PATTERN     (34 + FONTNAMESIZE + FONTNAMESIZE)
+#define RACT_PATTERN_SIZE    256
 #define RACT_MIN_SIZE        (RACT_OFF_LABEL_NM + FONTNAMESIZE)
+#define RACT_FULL_SIZE       (RACT_OFF_PATTERN + RACT_PATTERN_SIZE)
 
 struct ReactionPrefsDisk
 {
@@ -76,6 +80,8 @@ struct ReactionPrefsDisk
     UWORD label_ysize;
     UBYTE fallback_name[FONTNAMESIZE];
     UBYTE label_name[FONTNAMESIZE];
+    /* WINDOW_BackFillName-style path when non-empty; else unused. */
+    UBYTE pattern[RACT_PATTERN_SIZE];
 };
 
 extern struct Library *MUIMasterBase;
@@ -108,12 +114,14 @@ static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel)
 
     /*
      * framespec: type, recessed, L, R, U, D.
-     * rp_BevelType is the frame style and is independent of rp_3DLook.
+    * rp_BevelType is the frame style and is independent of rp_3DLook.
      * Type 3 (FST_THIN_BORDER) is the separator: raised bevel plus a
      * recessed inner bevel. ReAction bevels are a single direction, so
      * buttons must not use type 3.
      * Type 6 is the builtin Zune marks as zin31/xen.
      * Strings and groups stay recessed (state 1); buttons stay raised.
+     * Type 9 = frameiclass FRAME_BUTTON, type 2 = FRAME_DEFAULT,
+     * type 3 = FRAME_RIDGE. Type 6/8 remain Xen. Strings/groups recessed.
      */
     switch (bevel)
     {
@@ -126,12 +134,12 @@ static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel)
         propf = "201111";
         break;
     case BVT_THICK:
-        /* 2:1 bevel. Type 4 is a double relief, so keep a plain bevel. */
-        button = "202222";
-        stringf = "212222";
-        groupf = "214444";
+        /* ClassAct 2:1 — keep plain bevel with extra inner trim. */
+        button = "902222";
+        stringf = "312222";
+        groupf = "314444";
         textf = "212222";
-        propf = "202222";
+        propf = "902222";
         break;
     case BVT_XEN:
         button = "602222";
@@ -150,11 +158,11 @@ static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel)
         break;
     case BVT_GT:
     default:
-        button = "202211";
-        stringf = "212211";
-        groupf = "214444";
-        textf = "212211";
-        propf = "202211";
+        button = "902211";
+        stringf = "312200";
+        groupf = "312222";
+        textf = "211111";
+        propf = "902211";
         break;
     }
 
@@ -167,7 +175,7 @@ static void apply_bevel_frames(struct ZunePrefsNew *prefs, UWORD bevel)
     set_frame(prefs, MUIV_Frame_Prop, propf);
     set_frame(prefs, MUIV_Frame_Group, groupf);
     set_frame(prefs, MUIV_Frame_Virtual, textf);
-    set_frame(prefs, MUIV_Frame_PopUp, "112211");
+    set_frame(prefs, MUIV_Frame_PopUp, "202211");
     set_frame(prefs, MUIV_Frame_Knob, button);
     set_frame(prefs, MUIV_Frame_Slider, "400000");
 }
@@ -209,7 +217,76 @@ static BOOL parse_ract_chunk(UBYTE *buf, LONG size,
     memcpy(out->label_name, buf + RACT_OFF_LABEL_NM, FONTNAMESIZE);
     out->fallback_name[FONTNAMESIZE - 1] = '\0';
     out->label_name[FONTNAMESIZE - 1] = '\0';
+
+    /*
+     * Pattern is optional on older/shorter RACT chunks. Full prefs write
+     * RACT_FULL_SIZE; treat the field as a NUL-terminated backfill name.
+     */
+    if (size >= RACT_FULL_SIZE)
+    {
+        memcpy(out->pattern, buf + RACT_OFF_PATTERN, RACT_PATTERN_SIZE);
+        out->pattern[RACT_PATTERN_SIZE - 1] = '\0';
+    }
     return TRUE;
+}
+
+/* TRUE when rp_Pattern looks like a printable backfill path/name. */
+static BOOL pattern_is_path(UBYTE *p)
+{
+    ULONG i;
+
+    if (p == NULL || p[0] == '\0')
+        return FALSE;
+    for (i = 0; i < RACT_PATTERN_SIZE && p[i] != '\0'; i++)
+    {
+        if (p[i] < 0x20 || p[i] > 0x7e)
+            return FALSE;
+    }
+    return (BOOL) (i > 0 && i < RACT_PATTERN_SIZE);
+}
+
+/*
+ * Build a Zune imagespec for the Reaction window backfill name.
+ * ".image" class names use type 3; picture files use tiled bitmap type 5.
+ */
+static STRPTR dup_pattern_spec(UBYTE *name)
+{
+    STRPTR copy;
+    ULONG len;
+    char prefix;
+
+    if (!pattern_is_path(name))
+        return NULL;
+    prefix = strstr((char *) name, ".image") != NULL ? '3' : '5';
+    len = strlen((char *) name) + 3;
+    copy = AllocVec(len, MEMF_ANY);
+    if (copy == NULL)
+        return NULL;
+    copy[0] = prefix;
+    copy[1] = ':';
+    strcpy(copy + 2, (char *) name);
+    return copy;
+}
+
+static void apply_pattern_backgrounds(struct ZunePrefsNew *prefs,
+    STRPTR spec, STRPTR *pattern_spec)
+{
+    if (spec == NULL)
+        return;
+    /* Ownership must be tracked by the caller. */
+    if (pattern_spec == NULL)
+    {
+        FreeVec(spec);
+        return;
+    }
+    if (*pattern_spec)
+        FreeVec(*pattern_spec);
+    *pattern_spec = spec;
+    prefs->imagespecs[MUII_WindowBack] = spec;
+    prefs->imagespecs[MUII_RequesterBack] = spec;
+    prefs->imagespecs[MUII_GroupBack] = spec;
+    prefs->imagespecs[MUII_PageBack] = spec;
+    prefs->imagespecs[MUII_RegisterBack] = spec;
 }
 
 static BOOL read_reaction_file(CONST_STRPTR path, struct ReactionPrefsDisk *out)
@@ -266,12 +343,13 @@ static BOOL read_reaction_file(CONST_STRPTR path, struct ReactionPrefsDisk *out)
 }
 
 BOOL Zune_ApplyReactionPrefs(struct ZunePrefsNew *prefs,
-    STRPTR *font_normal, STRPTR *font_button)
+    STRPTR *font_normal, STRPTR *font_button, STRPTR *pattern_spec)
 {
     struct ReactionPrefsDisk rp;
     UWORD spacing;
     STRPTR fn;
     STRPTR fl;
+    STRPTR pat;
 
     if (prefs == NULL)
         return FALSE;
@@ -284,11 +362,13 @@ BOOL Zune_ApplyReactionPrefs(struct ZunePrefsNew *prefs,
     }
 
     D(bug("zune: reaction.prefs bevel=%ld glyph=%ld space=%ld "
-        "3dprop=%ld labelpen=%ld 3dlabel=%ld refresh=%ld 3dlook=%ld\n",
+        "3dprop=%ld labelpen=%ld 3dlabel=%ld refresh=%ld 3dlook=%ld "
+        "pattern='%s'\n",
         (LONG) rp.bevel, (LONG) rp.glyph,
         (LONG) rp.spacing, (LONG) rp.prop3d,
         (LONG) rp.labelpen, (LONG) rp.label3d,
-        (LONG) rp.simplerefresh, (LONG) rp.look3d));
+        (LONG) rp.simplerefresh, (LONG) rp.look3d,
+        rp.pattern[0] ? (char *) rp.pattern : ""));
 
     apply_bevel_frames(prefs, rp.bevel);
 
@@ -358,6 +438,10 @@ BOOL Zune_ApplyReactionPrefs(struct ZunePrefsNew *prefs,
         prefs->fonts[-MUIV_Font_Big] = fl;
         prefs->fonts[-MUIV_Font_Knob] = fl;
     }
+
+    pat = dup_pattern_spec(rp.pattern);
+    if (pat)
+        apply_pattern_backgrounds(prefs, pat, pattern_spec);
 
     (void) rp.glyph;
     (void) rp.fallback_ysize;

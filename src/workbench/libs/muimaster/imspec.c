@@ -468,11 +468,12 @@ static void zune_imspec_free(struct MUI_ImageSpec_intern *spec)
 }
 
 /*
- * The radio button is a sysiclass image. Arrows and the checkmark are
- * glyph.image pictures: sysiclass UPIMAGE/DOWNIMAGE are the window-border
- * arrows (filled with FILLPEN) and MENUCHECK is the menu tick (drawn on
- * SHINEPEN). Cycle and popup pictures are glyphs too. Anything left over
- * stays a vector drawing.
+ * Prefer system imagery over hand-drawn vectors:
+ * - Radio: sysiclass MXIMAGE (tracks IControl), else glyph.image
+ *   GLYPH_RADIOBUTTON, else the builtin vector.
+ * - Arrows / check / cycle / popup: glyph.image. sysiclass
+ *   UPIMAGE/DOWNIMAGE are window-border arrows (FILLPEN) and MENUCHECK
+ *   is the menu tick, so those stay glyphs. Anything else stays a vector.
  */
 static BOOL vector_to_sysi(LONG vect, ULONG *which)
 {
@@ -505,6 +506,9 @@ static BOOL vector_to_glyph(LONG vect, LONG *glyph)
         return TRUE;
     case CHECKBOX_IMAGE:
         *glyph = GLYPH_CHECKMARK;
+        return TRUE;
+    case 5:
+        *glyph = GLYPH_RADIOBUTTON;
         return TRUE;
     case 6:
         *glyph = GLYPH_CYCLE;
@@ -588,7 +592,9 @@ struct MUI_ImageSpec_intern *zune_imspec_setup(IPTR s,
                     (IPTR) font,
                     TAG_DONE);
             }
-            else if (vector_to_glyph(spec->u.vect.type, &glyph))
+            /* Glyph fallback when sysiclass is missing or unavailable. */
+            if (spec->u.vect.sysimage == NULL
+                && vector_to_glyph(spec->u.vect.type, &glyph))
             {
                 glyphclass = zune_glyph_class();
                 if (glyphclass != NULL)
@@ -762,6 +768,16 @@ BOOL zune_imspec_is_sysimage(struct MUI_ImageSpec_intern *spec)
     return (BOOL) (spec->type == IST_VECTOR && spec->u.vect.sysimage != NULL);
 }
 
+BOOL zune_imspec_has_own_frame(struct MUI_ImageSpec_intern *spec)
+{
+    if (spec == NULL || spec->type != IST_VECTOR)
+        return FALSE;
+    if (spec->u.vect.sysimage != NULL)
+        return TRUE;
+    /* GLYPH_RADIOBUTTON / MXIMAGE already draw the radio bevel. */
+    return (BOOL) (spec->u.vect.type == 5 && spec->u.vect.glyphimage != NULL);
+}
+
 BOOL zune_imspec_askminmax(struct MUI_ImageSpec_intern *spec,
     struct MUI_MinMax *minmax)
 {
@@ -794,12 +810,16 @@ BOOL zune_imspec_askminmax(struct MUI_ImageSpec_intern *spec,
             h = image->Height;
             if (w > 0 && h > 0)
             {
+                /*
+                 * Native size is the default, but IM_DRAWFRAME can scale
+                 * into a larger FreeHoriz/FreeVert box.
+                 */
                 minmax->MinWidth = w;
                 minmax->MinHeight = h;
                 minmax->DefWidth = w;
                 minmax->DefHeight = h;
-                minmax->MaxWidth = w;
-                minmax->MaxHeight = h;
+                minmax->MaxWidth = MUI_MAXMAX;
+                minmax->MaxHeight = MUI_MAXMAX;
                 return TRUE;
             }
         }
@@ -953,21 +973,35 @@ void zune_imspec_drawbuffered(struct MUI_ImageSpec_intern *spec,
         break;
 
     case IST_VECTOR:
-        if (spec->u.vect.sysimage != NULL && mri->mri_DrawInfo != NULL)
+        if (spec->u.vect.sysimage != NULL && mri->mri_DrawInfo != NULL
+            && width > 0 && height > 0)
         {
             struct Image *image;
-            WORD x;
-            WORD y;
+            struct impDraw drawmsg;
 
             image = (struct Image *) spec->u.vect.sysimage;
-            x = (WORD) (left - dx);
-            y = (WORD) (top - dy);
-            if (width > image->Width)
-                x += (WORD) ((width - image->Width) / 2);
-            if (height > image->Height)
-                y += (WORD) ((height - image->Height) / 2);
-            DrawImageState(rp, image, x, y, (ULONG) state,
-                mri->mri_DrawInfo);
+            /*
+             * Scale with IM_DRAWFRAME when the layout box differs from the
+             * native sysiclass size (font-matched radios, FreeVert, etc.).
+             * Otherwise DrawImageState keeps the classic fixed imagery.
+             */
+            if (width != image->Width || height != image->Height)
+            {
+                drawmsg.MethodID = IM_DRAWFRAME;
+                drawmsg.imp_RPort = rp;
+                drawmsg.imp_Offset.X = (WORD) (left - dx);
+                drawmsg.imp_Offset.Y = (WORD) (top - dy);
+                drawmsg.imp_State = (ULONG) state;
+                drawmsg.imp_DrInfo = mri->mri_DrawInfo;
+                drawmsg.imp_Dimensions.Width = (WORD) width;
+                drawmsg.imp_Dimensions.Height = (WORD) height;
+                DoMethodA(spec->u.vect.sysimage, (Msg) &drawmsg);
+            }
+            else
+            {
+                DrawImageState(rp, image, (WORD) (left - dx),
+                    (WORD) (top - dy), (ULONG) state, mri->mri_DrawInfo);
+            }
         }
         else if (spec->u.vect.glyphimage != NULL &&
             mri->mri_DrawInfo != NULL && width > 0 && height > 0)

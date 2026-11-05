@@ -24,10 +24,12 @@ struct ZunePrefsNew;
 /*
  * Apply reaction.prefs onto prefs.  On success, *font_normal and/or
  * *font_button may be AllocVec'd font name strings the caller owns and
- * must FreeVec (pass existing pointers if re-applying).  Returns TRUE if
- * a RACT chunk was read and applied.
+ * must FreeVec (pass existing pointers if re-applying).  *pattern_spec
+ * may receive an AllocVec'd imagespec ("5:path" / "3:path") when
+ * rp_Pattern holds a backfill name; caller owns and must FreeVec.
+ * Returns TRUE if a RACT chunk was read and applied.
  */
 BOOL Zune_ApplyReactionPrefs(struct ZunePrefsNew *prefs,
-    STRPTR *font_normal, STRPTR *font_button);
+    STRPTR *font_normal, STRPTR *font_button, STRPTR *pattern_spec);
 
 #endif /* ZUNE_REACTIONPREFS_H */

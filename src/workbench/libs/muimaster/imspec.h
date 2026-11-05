@@ -41,6 +41,8 @@ BOOL zune_imspec_askminmax(struct MUI_ImageSpec_intern *spec,
     struct MUI_MinMax *minmax);
 /* TRUE when this spec is drawn with a sysiclass image. */
 BOOL zune_imspec_is_sysimage(struct MUI_ImageSpec_intern *spec);
+/* TRUE when the picture already includes its own bevel (radio, etc.). */
+BOOL zune_imspec_has_own_frame(struct MUI_ImageSpec_intern *spec);
 /* Close glyph.image. Call from library expunge, after image objects are gone. */
 void zune_imspec_expunge(void);
 void zune_imspec_show(struct MUI_ImageSpec_intern *spec, Object *obj);

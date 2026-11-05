@@ -55,9 +55,10 @@ struct MUI_ConfigdataData
     struct MUI_InputHandlerNode fsNotifyIHN;
     struct NotifyRequest        fsNotifyRequest;
     struct List                 pubscreens;
-    /* Owned copies from reaction.prefs font name arrays (FreeVec on dispose). */
+    /* Owned copies from reaction.prefs (FreeVec on dispose). */
     STRPTR                      reaction_font_normal;
     STRPTR                      reaction_font_button;
+    STRPTR                      reaction_pattern_spec;
 };
 
 static CONST_STRPTR GetConfigString(Object *obj, ULONG id)
@@ -153,24 +154,31 @@ static void init_imspecs(Object *obj, struct MUI_ConfigdataData *data)
  Default FrameSpec values
 **************************************************************************/
 
-/* spec format : type, recessed, left, right, up, down spacing */
+/*
+ * Default frames match intuition frameiclass roles / IM_FRAMEBOX pads:
+ *   type 9 FST_GRAY_BORDER = FRAME_BUTTON  (WidthPad 8, HeightPad 4)
+ *   type 2 FST_BEVEL       = FRAME_DEFAULT (WidthPad 4, HeightPad 4)
+ *   type 3 FST_THIN_BORDER = FRAME_RIDGE   (WidthPad 12, HeightPad 6)
+ *   type 4 FST_THICK_BORDER= FRAME_ICONDROPBOX
+ * framespec: type, recessed, L, R, U, D (added to builtin stroke insets).
+ */
 const static struct spec_cfg DefFramespecValues[] =
 {
-    { MUIV_Frame_None,        MUICFG_Invalid,           "000000" }, /* invisible frame          */
-    { MUIV_Frame_Button,      MUICFG_Frame_Button,      "202211" }, /* text button              */
-    { MUIV_Frame_ImageButton, MUICFG_Frame_ImageButton, "202211" }, /* image button             */
-    { MUIV_Frame_Text,        MUICFG_Frame_Text,        "212211" }, /* textfield without input  */
-    { MUIV_Frame_String,      MUICFG_Frame_String,      "302211" }, /* string gadget            */
-    { MUIV_Frame_ReadList,    MUICFG_Frame_ReadList,    "212211" }, /* list without input       */
-    { MUIV_Frame_InputList,   MUICFG_Frame_InputList,   "202211" }, /* list with input          */
-    { MUIV_Frame_Prop,        MUICFG_Frame_Prop,        "202211" }, /* scrollbar container      */
-    { MUIV_Frame_Gauge,       MUICFG_Frame_Gauge,       "210000" }, /* gauge                    */
-    { MUIV_Frame_Group,       MUICFG_Frame_Group,       "314444" }, /* normal group             */
-    { MUIV_Frame_PopUp,       MUICFG_Frame_PopUp,       "112211" }, /* cycle menu, popup window */
-    { MUIV_Frame_Virtual,     MUICFG_Frame_Virtual,     "212211" }, /* virt group               */
-    { MUIV_Frame_Slider,      MUICFG_Frame_Slider,      "400000" }, /* slider container         */
-    { MUIV_Frame_Knob,        MUICFG_Frame_Knob,        "202211" }, /* slider knob              */
-    { MUIV_Frame_Drag,        MUICFG_Frame_Drag,        "300000" }, /* dnd frame                */
+    { MUIV_Frame_None,        MUICFG_Invalid,           "000000" },
+    { MUIV_Frame_Button,      MUICFG_Frame_Button,      "902211" }, /* FRAME_BUTTON           */
+    { MUIV_Frame_ImageButton, MUICFG_Frame_ImageButton, "902211" }, /* FRAME_BUTTON           */
+    { MUIV_Frame_Text,        MUICFG_Frame_Text,        "211111" }, /* FRAME_DEFAULT recessed */
+    { MUIV_Frame_String,      MUICFG_Frame_String,      "312200" }, /* FRAME_RIDGE recessed   */
+    { MUIV_Frame_ReadList,    MUICFG_Frame_ReadList,    "211111" }, /* FRAME_DEFAULT recessed */
+    { MUIV_Frame_InputList,   MUICFG_Frame_InputList,   "902211" }, /* FRAME_BUTTON           */
+    { MUIV_Frame_Prop,        MUICFG_Frame_Prop,        "902211" }, /* FRAME_BUTTON / prop    */
+    { MUIV_Frame_Gauge,       MUICFG_Frame_Gauge,       "211111" }, /* FRAME_DEFAULT recessed */
+    { MUIV_Frame_Group,       MUICFG_Frame_Group,       "312222" }, /* FRAME_RIDGE + trim     */
+    { MUIV_Frame_PopUp,       MUICFG_Frame_PopUp,       "202211" }, /* FRAME_DEFAULT          */
+    { MUIV_Frame_Virtual,     MUICFG_Frame_Virtual,     "211111" }, /* FRAME_DEFAULT recessed */
+    { MUIV_Frame_Slider,      MUICFG_Frame_Slider,      "400000" }, /* FRAME_ICONDROPBOX      */
+    { MUIV_Frame_Knob,        MUICFG_Frame_Knob,        "902211" }, /* FRAME_BUTTON           */
+    { MUIV_Frame_Drag,        MUICFG_Frame_Drag,        "300000" }, /* FRAME_RIDGE            */
     { -1,                     -1,                       NULL     },
 };
 
@@ -331,6 +339,7 @@ IPTR Configdata__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
     InitSemaphore(&data->psLock);
     data->reaction_font_normal = NULL;
     data->reaction_font_button = NULL;
+    data->reaction_pattern_spec = NULL;
 
     for (tags = msg->ops_AttrList; (tag = NextTagItem(&tags));)
     {
@@ -563,7 +572,8 @@ IPTR Configdata__OM_NEW(struct IClass *cl, Object *obj, struct opSet *msg)
      * two systems overlap.
      */
     Zune_ApplyReactionPrefs(&data->prefs,
-        &data->reaction_font_normal, &data->reaction_font_button);
+        &data->reaction_font_normal, &data->reaction_font_button,
+        &data->reaction_pattern_spec);
 
     return (IPTR) obj;
 }
@@ -606,6 +616,8 @@ IPTR Configdata__OM_DISPOSE(struct IClass *cl, Object *obj, Msg msg)
         FreeVec(data->reaction_font_normal);
     if (data->reaction_font_button)
         FreeVec(data->reaction_font_button);
+    if (data->reaction_pattern_spec)
+        FreeVec(data->reaction_pattern_spec);
 
     return DoSuperMethodA(cl, obj, msg);
 }

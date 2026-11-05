@@ -809,24 +809,32 @@ IPTR String__MUIM_Setup(struct IClass *cl, Object *obj,
     set(obj, MUIA_Background,
         (IPTR) (muiGlobalInfo(obj))->mgi_Prefs->string_bg_inactive);
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive, &data->inactive_text);
+    /*
+     * Prefs hold CONST_STRPTR pen specs ("m5", ...). Pass the string, not
+     * &pointer - otherwise buf[0] is a pointer high byte, parse fails, and
+     * text falls back to pen 0 (grey on WB).
+     */
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_text_inactive,
+        &data->inactive_text);
     zune_penspec_setup(&data->inactive_text, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_active, &data->active_text);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_text_active,
+        &data->active_text);
     zune_penspec_setup(&data->active_text, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_text_marked, &data->marked_text);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_text_marked,
+        &data->marked_text);
     zune_penspec_setup(&data->marked_text, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_bg_marked, &data->marked_bg);
     zune_penspec_setup(&data->marked_bg, muiRenderInfo(obj));
 
-    zune_pen_spec_to_intern(
-        &(muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
+    zune_pen_string_to_intern(
+        (muiGlobalInfo(obj))->mgi_Prefs->string_cursor, &data->cursor);
     zune_penspec_setup(&data->cursor, muiRenderInfo(obj));
 
     {
